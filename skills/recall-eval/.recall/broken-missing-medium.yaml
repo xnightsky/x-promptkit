@@ -1,0 +1,20 @@
+version: 1
+source_ref: skills/recall-eval/SKILL.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: broken.missing_medium
+    question: queue 缺少 medium 时怎么处理？
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 拒绝执行
+    score_rule:
+      full: 明确拒绝执行
+      partial: 只提到字段缺失
+      fail: 允许继续执行
+    tags: [broken]
+    source_scope: SKILL.md#medium-rule

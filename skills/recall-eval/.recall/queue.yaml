@@ -1,0 +1,47 @@
+version: 1
+source_ref: skills/recall-eval/SKILL.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: recall_eval.reject_missing_medium
+    question: recall queue 缺少 medium 时，能否继续执行？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 拒绝执行
+        - medium
+      should_include:
+        - 需要先完善 queue
+      must_not_include:
+        - 继续执行
+        - 自行猜测 medium
+    score_rule:
+      full: 明确答出缺 medium 时必须拒绝执行，并要求先完善 queue
+      partial: 只答字段不完整或需要补充，但未明确拒绝执行
+      fail: 回答可以继续评测，或允许执行器自行补 medium
+    tags: [selftest, redline]
+    source_scope: SKILL.md#medium-rule
+  - id: recall_eval.reject_missing_carrier
+    question: recall queue 缺少 carrier 时，能否继续执行？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 拒绝执行
+        - carrier
+      should_include:
+        - 推荐值
+        - isolated-context-run:subagent
+      must_not_include:
+        - 当前上下文
+        - 直接执行
+    score_rule:
+      full: 明确答出缺 carrier 时必须拒绝执行，并返回推荐默认值
+      partial: 只答字段缺失，但没有明确拒绝执行或推荐值
+      fail: 回答可以在当前上下文继续执行，或不需要 carrier
+    tags: [selftest, redline]
+    source_scope: SKILL.md#carrier-rule

@@ -1,0 +1,21 @@
+version: 1
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: override-by-case
+    source_ref: skills/isolated-context-run/SKILL.md#default-priority
+    question: isolated-context-run 的默认优先级是什么？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - subagent -> self-cli
+    score_rule:
+      full: 明确答出默认优先级
+      partial: 只答其中一部分
+      fail: 答成别的顺序
+    tags: [override]
+    source_scope: SKILL.md#default-priority
