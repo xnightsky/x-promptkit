@@ -11,6 +11,8 @@ Choose an isolated runner by probing what the current environment can actually d
 
 Default selection is only for normal runners. Keep advanced strategies visible but out of the default path.
 
+Use [EXAMPLES.md](/data/projects/x-promptkit/skills/isolated-context-run/EXAMPLES.md) as the pressure corpus for canonical prompts, outputs, and anti-patterns.
+
 ## Runner Model
 
 ### Normal runners
@@ -224,6 +226,12 @@ State one of:
 - give one concrete next install action
 - say to re-run the same probe after installation
 
+### "Provide a default carrier for recall-eval"
+
+- when the current environment has `subagent`, set the default carrier to `isolated-context-run:subagent`
+- describe it as the default carrier for `recall-eval`, not as a universal rule for every task
+- if the caller explicitly names another carrier, state that the default is overridden
+
 ## Minimal Templates
 
 ### Default selection template
@@ -313,4 +321,26 @@ Caller explicitly overrode the default runner. Explicit runner ids are outside t
 
 Override
 `mode=codex-exec`
+```
+
+### `recall-eval` default-carrier template
+
+```md
+Available Runners
+- `subagent`: available
+- evidence: `host subagent capability probe -> present`
+- `self-cli`: available
+- evidence: `probe action -> result`
+
+Default Priority
+`subagent -> self-cli`
+
+Selected Runner
+`isolated-context-run:subagent`
+
+Why
+`recall-eval` uses `subagent` as its default execution carrier when that capability exists. This default can still be overridden by the caller.
+
+Override
+`none`
 ```
