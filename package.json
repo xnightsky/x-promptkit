@@ -1,0 +1,14 @@
+{
+  "name": "x-promptkit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "recall:validate": "node scripts/recall-eval/validate-schema.mjs",
+    "recall:resolve": "node scripts/recall-eval/resolve-target.mjs",
+    "recall:run": "node scripts/recall-eval/run-eval.mjs"
+  },
+  "dependencies": {
+    "yaml": "^2.8.3"
+  }
+}

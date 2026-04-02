@@ -1,0 +1,5 @@
+name: recall-eval smoke
+queue: skills/recall-eval/.recall/queue.yaml
+carrier: isolated-context-run:subagent
+cases:
+  - recall_eval.reject_missing_medium
