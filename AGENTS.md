@@ -5,7 +5,19 @@
 
 本文件用于维护本仓库的代理协作约束与全局行为约定。
 
-## 当前全局约束
 
-- 始终使用简体中文回答。
-- 每次回复末尾必须附带一行 `[by=x-promptkit]`。
+## 环境提示
+- 如果环境支持，善用 `rg` 和 `fd` 命令
+
+
+## skills 开发约束
+
+- 当任务是在本仓库内编写、修改、拆分、整理 `skills/` 下的 skill 文档、样例、说明或相关辅助文件时，不要自动套用面向常规产品开发的重流程原则。
+- 这类任务默认不启用以下 superpowers skills，除非用户明确要求：
+  - `brainstorming`
+  - `test-driven-development`
+  - `writing-plans`
+  - `requesting-code-review`
+  - `verification-before-completion`
+- 这类任务也默认不强制执行“先写失败测试再改实现”这一原则；纯文档或纯 skill 契约调整不应为了形式补低价值字符串测试。
+- 对 `skills/` 的改动，优先做法是：直接检查仓库上下文、修改目标文档、核对相关引用与示例是否一致；只有当测试能够覆盖真实脚本、真实 fixture、真实解析/执行行为时，才新增测试。
