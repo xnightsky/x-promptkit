@@ -1,39 +1,35 @@
 ---
 name: isolated-context-run:subagent
-description: Use when the current host session already has native subagent capability and the task should be delegated through that native subagent path instead of shelling out to another CLI process
+description: Use when the current host session already exposes native subagent capability and isolated work must stay inside that native subagent path instead of re-entering another CLI
 ---
 
 # Isolated Context Run: Subagent
 
 ## Overview
 
-This skill is the first-stage independent carrier sublayer for `isolated-context-run`.
+This child skill handles only the native subagent path selected under `isolated-context-run`.
 
-It only applies when the current host session already exposes native subagent capability.
-
-This sublayer is not a wrapper around `codex exec`, `claude -p`, `opencode run`, `codex app-server`, or any other external re-entry path. It delegates inside the current host session.
-
-Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for direct invocation, delegation boundaries, and failure classification.
+Its job is narrow: verify native subagent capability in the current host session, delegate through that path, classify subagent-specific failure, and normalize the result into the shared 5-section skeleton. Keep concrete cases in [EXAMPLES.md](./EXAMPLES.md).
 
 ## Scope
 
-This sublayer only owns:
+This skill owns:
 
-- probing whether the current host session exposes native subagent capability
-- delegating the user task to that native subagent path
-- classifying subagent-specific failures
-- normalizing the result into the shared 5-section output skeleton
+- probing native subagent capability in the current host session
+- delegating through that native path
+- classifying subagent-specific failure
+- preserving the shared output skeleton
 
-This sublayer does not own:
+This skill does not own:
 
 - parent-level runner comparison
 - `self-cli` mapping
-- command-install remediation for other runners
-- external CLI re-entry or protocol clients
+- install guidance for other runners
+- any external CLI or protocol re-entry path
 
 ## Hard Boundary
 
-When this skill is selected, stay inside the current host session.
+Stay inside the current host session.
 
 Do not:
 
@@ -41,227 +37,72 @@ Do not:
 - shell out to `claude -p`
 - shell out to `opencode run`
 - launch `codex app-server`
-- re-enter the host through another CLI or protocol bridge
+- reopen parent fallback logic
 - silently downgrade to `self-cli`
 
-If the current host session lacks native subagent capability, report `unavailable` and let the parent layer decide whether another runner should be selected.
+If native subagent capability is absent, report `unavailable` and stop. Let the parent layer decide any fallback.
 
-## Availability And Probe Rules
+## Availability And Failure
 
-Mark this carrier `available` only when there is concrete evidence that the current host session exposes native subagent capability.
+Mark this carrier `available` only from concrete evidence that the current host session exposes native subagent capability.
 
 Acceptable evidence includes:
 
-- native subagent tool exposed in the current host session
-- host collaboration primitives exposed in the current session
-- host docs or help already loaded into the current session showing native subagent support
+- native subagent tool present in the session
+- host collaboration primitives present in the session
+- already-loaded host docs/help showing native subagent support
 
-If that capability is absent in the current host session, mark this carrier `unavailable`.
+Do not treat the existence of `codex`, `claude`, or other shell commands as evidence for this child skill.
 
-Do not treat the existence of `codex`, `claude`, or any other shell command as evidence for this sublayer.
+Failure taxonomy:
 
-## Execution Rules
+- `unavailable`: native subagent capability is absent
+- `environment failure`: native subagent capability exists, but delegation fails after startup because of auth, network, provider, or sandbox conditions
 
-When available:
+Do not rewrite environment failures as install problems, `unavailable`, or `self-cli` issues.
 
-1. keep the work in the current host session
-2. delegate the task through the native subagent path
-3. wait for the delegated work to finish
-4. normalize the result without changing the shared output skeleton
+## Output Contract
 
-When reporting a successful delegation, include compact evidence that the host actually used a subagent path.
+Use the same 5 sections as the parent skill:
 
-Examples of compact evidence:
+1. `Available Runners`
+2. `Default Priority`
+3. `Selected Runner`
+4. `Why`
+5. `Override`
 
-- `native subagent delegation -> started`
-- `native subagent delegation -> completed`
-- `child agent path -> present`
+Canonical literals:
 
-## Failure Taxonomy
-
-### `unavailable`
-
-Use only when the current host session does not expose native subagent capability.
-
-Examples:
-
-- no native subagent tool in the current host session
-- no host collaboration primitives in the current host session
-- current host docs/help show no native subagent support
-
-### environment failure
-
-Use when native subagent capability exists, but delegation fails after startup.
-
-Examples:
-
-- subagent delegation starts but the delegated run fails
-- host rejects the delegated run because of auth, network, provider, or sandbox conditions
-- the delegated path exists, but the environment blocks completion
-
-Do not rewrite these failures as `unavailable`, install problems, or `self-cli` problems.
-
-## Output Format
-
-Use the same core 5-section structure as the parent skill:
-
-If the caller already provides host-session facts, capability probe outcomes, failure state, or scenario labels, treat those facts as authoritative input for normalization. Do not contradict them with unrelated live-shell probing.
-
-### Available Runners
-
-List the subagent carrier and compact probe evidence.
-
-### Default Priority
-
-Always state:
-
-`subagent -> self-cli`
-
-This skill does not recompute parent routing. It only preserves the shared skeleton.
-Keeping this shared skeleton does not authorize a second runner comparison. In direct sublayer invocation, do not reopen `self-cli`, external CLI mappings, or parent fallback logic.
-
-### Selected Runner
-
-State:
-
-- `subagent`
-- or `No runnable selection from this probe.`
-
-### Why
-
-State whether:
-
-- the current host session exposes native subagent capability
-- or the current host session lacks that capability
-- or the capability exists but execution failed in the environment
-
-### Override
-
-State one of:
-
-- `none`
-- `selected by parent frontdoor`
-- `direct sublayer invocation`
-
-Use these as exact literals:
-
-- direct caller asked for `isolated-context-run:subagent` -> `direct sublayer invocation`
-- parent already routed into this child layer -> `selected by parent frontdoor`
-- use `none` only when neither of the above applies
+- `Default Priority`: `subagent -> self-cli`
+- `Selected Runner`: `subagent` or `No runnable selection from this probe.`
+- `Override`: `none` | `selected by parent frontdoor` | `direct sublayer invocation`
 
 Optional extension block:
 
 - `Failure Detail`
 
-Use `Failure Detail` only when the subagent path exists but execution fails in the environment.
+Do not emit `Execution Template` or `Install Guidance` from this child skill.
 
-Do not emit `Execution Template` or `Install Guidance` from this sublayer.
-Do not include startup-trace wording such as `native subagent delegation -> started` in the final normalized answer unless the caller explicitly asked for startup trace details. For failure classification, prefer the normalized evidence literal `native subagent delegation -> failed after startup`.
+## Invocation Rules
 
-## Direct Invocation Rules
+Direct invocation:
 
-When the caller directly asks for `isolated-context-run:subagent`:
-
-- do not reopen runner comparison
-- do not map to `self-cli`
-- probe only for native subagent support in the current host session
-- if available, delegate through the native subagent path
-- if unavailable, report `unavailable` and stop
+- probe only native subagent support in the current host session
+- if available, delegate through the native path
+- if unavailable, stop with `No runnable selection from this probe.`
 - set `Override` to `direct sublayer invocation`
 
-## Multi-Scenario Normalization
+Parent-routed invocation:
 
-When the caller explicitly asks for more than one scenario in a single response:
+- do not reopen runner comparison
+- keep execution inside the current host session
+- set `Override` to `selected by parent frontdoor`
 
-- preserve the caller's scenario labels, such as `Scenario A` and `Scenario B`
-- emit one complete normalized result block per scenario
-- keep each scenario inside the child-layer contract
-- do not merge the scenarios into one blended explanation block
-- keep direct-invocation scenarios on `direct sublayer invocation` unless the caller explicitly says the parent already routed them here
+If the caller provides capability facts, failure state, or scenario labels, treat them as authoritative input for normalization.
 
-## Canonical Templates
+## Restrictions
 
-### direct-invocation available template
-
-```md
-Available Runners
-- `subagent`: available
-- evidence: `native subagent capability probe -> present`
-
-Default Priority
-`subagent -> self-cli`
-
-Selected Runner
-`subagent`
-
-Why
-The current host session exposes native subagent capability, so this sublayer can delegate without re-entering another CLI path.
-
-Override
-`direct sublayer invocation`
-```
-
-### parent-routed available template
-
-```md
-Available Runners
-- `subagent`: available
-- evidence: `native subagent capability probe -> present`
-
-Default Priority
-`subagent -> self-cli`
-
-Selected Runner
-`subagent`
-
-Why
-The parent frontdoor already selected this child layer, and the current host session exposes native subagent capability, so delegation stays inside the current host session.
-
-Override
-`selected by parent frontdoor`
-```
-
-### direct-invocation unavailable template
-
-```md
-Available Runners
-- `subagent`: unavailable
-- evidence: `native subagent capability probe -> absent`
-
-Default Priority
-`subagent -> self-cli`
-
-Selected Runner
-No runnable selection from this probe.
-
-Why
-The current host session does not expose native subagent capability, so this sublayer cannot run.
-
-Override
-`direct sublayer invocation`
-```
-
-### direct-invocation environment-failure template
-
-```md
-Available Runners
-- `subagent`: available
-- evidence: `native subagent capability probe -> present`
-
-Default Priority
-`subagent -> self-cli`
-
-Selected Runner
-`subagent`
-
-Why
-The current host session exposes native subagent capability, but the delegated run failed after startup. This is an environment failure, not `unavailable`.
-
-Override
-`direct sublayer invocation`
-
-Failure Detail
-- class: `environment failure`
-- evidence: `native subagent delegation -> failed after startup`
-- next action: inspect the delegated run failure in the current host session, then retry the same delegation path
-```
+- Do not convert native subagent work into external CLI execution.
+- Do not compare `self-cli` again inside this child layer.
+- Do not include startup-trace wording unless the caller explicitly asks for it.
+- Use [EXAMPLES.md](./EXAMPLES.md) for canonical cases and wording.
