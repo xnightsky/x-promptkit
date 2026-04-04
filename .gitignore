@@ -140,3 +140,7 @@ vite.config.ts.timestamp-*
 
 # Local skill notes
 **/TODO.md
+!TODO.md
+
+# Temporary local planning notes
+.tmp/
