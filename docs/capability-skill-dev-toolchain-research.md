@@ -3,6 +3,7 @@
 - 状态：内部研究记录
 - 目标：为后续 Capability / Skill 开发与测试体系建设提供参考
 - 研究时间：2026-04-04
+- 相关文档：如果关注“现有工具对个人开发者是否现实可用、门槛在哪里”，见 [skill-dev-tool-options.md](/data/projects/x-promptkit/docs/skill-dev-tool-options.md)
 
 ## 1. 背景与结论
 
