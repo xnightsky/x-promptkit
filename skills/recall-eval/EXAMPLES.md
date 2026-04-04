@@ -1,6 +1,6 @@
 # Recall Eval Examples
 
-This file is the companion corpus for [SKILL.md](/data/projects/x-promptkit/skills/recall-eval/SKILL.md). Each case locks the queue contract, carrier resolution, refusal behavior, and output shape.
+This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks the queue contract, carrier resolution, refusal behavior, and output shape.
 
 ## Case 01: 默认 queue 选择
 

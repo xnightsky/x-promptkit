@@ -11,7 +11,7 @@ Turn "did the recall answer the right thing" into a stable queue-driven evaluati
 
 Recall evaluation must run through a clean execution carrier. Do not evaluate directly in the current context, improvise the rules, or mix skill-trigger checks with content recall scoring.
 
-Use [EXAMPLES.md](/data/projects/x-promptkit/skills/recall-eval/EXAMPLES.md) as the companion corpus for queue validation, carrier handling, and scoring output shape.
+Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, carrier handling, and scoring output shape.
 
 ## Scope
 
@@ -223,5 +223,5 @@ Use these paths when they exist:
 - `.instruction/skills/ai/recall-eval/.recall/queue.yaml` for `recall-eval` self-test cases
 - `skills/recall-eval/.recall/queue.yaml` for the target-local example queue
 - `tests/iitest/recall-eval/` for future integration orchestration
-- [SAMPLE-QUEUE.yaml](/data/projects/x-promptkit/skills/recall-eval/SAMPLE-QUEUE.yaml) for a minimal compatible fixture
-- [EXAMPLES.md](/data/projects/x-promptkit/skills/recall-eval/EXAMPLES.md) for canonical response shapes
+- [SAMPLE-QUEUE.yaml](./SAMPLE-QUEUE.yaml) for a minimal compatible fixture
+- [EXAMPLES.md](./EXAMPLES.md) for canonical response shapes
