@@ -4,6 +4,8 @@
 
 `guided-code-review` helps a reviewer work through one concrete review point at a time before deciding whether feedback is actionable.
 
+This skill is configured for explicit invocation only. Mention `guided-code-review` or use the help snippet to activate it.
+
 ## When To Use
 
 - 你想 review 某个具体改动点，但还不想直接下结论
@@ -25,6 +27,7 @@
 
 ## Quick Start
 
+- 这个 skill 只接受显式触发，不会依赖描述自动命中
 - 直接说你想看的 review 点，例如“帮我 review 这个重试逻辑，但先别急着下结论”
 - 如果你只想看帮助，发出独立片段 `$guided-code-review --help`
 - 如果你已经确认问题成立，可以要求它帮你整理 comment

@@ -37,6 +37,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case defines 
 
 触发方式：
 
+- “guided-code-review：帮我 review 这个改动点，不要直接给结论。”
 - “我觉得这里可能有问题，但我还没想清楚。”
 - “帮我 review 这个改动点，不要直接给结论。”
 
