@@ -2,7 +2,7 @@
 
 This directory stores independent Markdown-based iitests for the `isolated-context-run` parent layer and the `isolated-context-run:subagent` child layer.
 
-These files do not depend on `recall-eval` and do not reuse `tests/iitest/`.
+These files do not depend on `recall-eval` and follow the repo-root `iitests/` convention.
 
 ## Purpose
 

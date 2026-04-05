@@ -1,4 +1,0 @@
-name: recall-eval carrier resolution
-queue: skills/recall-eval/.recall/queue.yaml
-cases:
-  - recall_eval.reject_missing_carrier

@@ -7,6 +7,8 @@
     "test:recall-unit": "node --test tests/recall-eval.lib.test.mjs",
     "test:recall-bridge": "node --test tests/recall-eval.carrier-adapter.test.mjs",
     "test:recall-cli": "node --test tests/recall-eval.test.mjs",
+    "test:recall-harness": "node --test tests/recall-eval.iitest-lib.test.mjs tests/recall-eval.iitest-runner.test.mjs",
+    "recall:iitest": "node scripts/recall-eval/run-iitest.mjs",
     "recall:validate": "node scripts/recall-eval/validate-schema.mjs",
     "recall:resolve": "node scripts/recall-eval/resolve-target.mjs",
     "recall:run": "node scripts/recall-eval/run-eval.mjs"

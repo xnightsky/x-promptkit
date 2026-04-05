@@ -17,8 +17,9 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 期望产出：
 
 - 未显式指定 queue 时，先解释 queue 解析顺序
-- skill 自测优先 `<skill>/.recall/queue.yaml`
-- 否则回退到 `.instruction/memory/.recall/queue.yaml`
+- 目标自测优先 `<target>/.recall/queue.yaml`
+- 若没有显式路径且没有目标旁真实 queue，则保持 unresolved 并要求补充路径
+- `<memory-target>/.recall/queue.yaml` 只是示例布局，不是当前仓库的隐式默认值
 - 显式提供任意兼容 yaml 路径时，直接使用该路径
 - 明确 queue 绑定的目标来自 `source_ref`
 
@@ -164,7 +165,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ```md
 1. Queue
-- `.instruction/memory/.recall/queue.yaml`
+- `<memory-target>/.recall/queue.yaml`
 
 2. Carrier
 - `isolated-context-run:subagent`
@@ -210,7 +211,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ```md
 1. Queue
-- `.instruction/memory/.recall/queue.yaml`
+- `<memory-target>/.recall/queue.yaml`
 
 2. Carrier
 - unresolved
@@ -255,7 +256,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ```md
 1. Queue
-- `.instruction/memory/.recall/queue.yaml`
+- `<memory-target>/.recall/queue.yaml`
 
 2. Carrier
 - `custom-carrier`
@@ -338,11 +339,11 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ---
 
-## Case 06: 独立于 iitest 的 fixture 验证
+## Case 06: 独立于 iitests 的 fixture 验证
 
 触发方式：
 
-- “这个 recall yaml 不接 iitest 能不能先验”
+- “这个 recall yaml 不接 iitests 能不能先验”
 - “先只做 queue/schema 级验证”
 
 最小上下文：
@@ -351,40 +352,40 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 期望产出：
 
-- 明确 schema/integrity 检查可以独立于 `iitest`
-- 说明 `iitest` 只是上游流程可能使用的集成层，不是 recall-eval 的前置依赖
+- 明确 schema/integrity 检查可以独立于 `iitests`
+- 说明 initialized-workspace recall 才需要 `iitests`；单纯 queue/schema 校验不需要
 
 验收标准：
 
 - 输出明确区分 fixture 校验和集成执行
-- 不把 `iitest` 写成必选前置
+- 不把 `iitests` 写成必选前置
 
 反例：
 
-- 没有 `iitest` 就拒绝做 queue 校验
-- 把 `iitest` 当成 recall-eval 的 schema 解释器
+- 没有 `iitests` 就拒绝做 queue 校验
+- 把 `iitests` 当成 recall-eval 的 schema 解释器
 
 ---
 
-## Case 07: iitest 只负责集成编排
+## Case 07: iitests 只负责集成编排
 
 触发方式：
 
-- “iitest 放哪里”
+- “iitests 放哪里”
 - “哪些属于集成层”
 
 最小上下文：
 
-- `tests/iitest/recall-eval/`
+- `iitests/recall-eval/`
 - 目标旁 `.recall/`
 
 期望产出：
 
 - 说明真实 queue 跟着目标走
-- 说明 `tests/iitest/recall-eval/` 只负责编排集成验证
-- 不把 iitest 当成 queue 主存储
+- 说明 `iitests/recall-eval/` 负责初始化 workspace、执行任务阶段、再跑 recall 阶段
+- 不把 iitests 当成 queue 主存储
 
 反例：
 
-- 把所有真实 queue 都搬到 `tests/iitest/`
+- 把所有真实 queue 都搬到 `iitests/`
 - 把 `.recall` 当成纯测试目录而不是目标本地评测资产

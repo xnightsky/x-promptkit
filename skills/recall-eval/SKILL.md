@@ -1,24 +1,24 @@
 ---
 name: recall-eval
-description: Use when this repository needs recall evaluation from a compatible recall YAML such as `<skill>/.recall/queue.yaml`, `<skill>/.recall/*.yaml`, or another explicitly provided yaml path, especially when recall must run through an explicit execution carrier instead of the current session
+description: Use when this repository needs recall queue policy validation or evaluator-contract reasoning from a compatible recall YAML such as `<target>/.recall/queue.yaml`, `<target>/.recall/*.yaml`, or another explicitly provided yaml path
 ---
 
 # Recall Eval
 
 ## Purpose
 
-Turn "did the recall answer the right thing" into a stable queue-driven evaluation flow.
+Turn "did the recall answer the right thing" into a stable queue-driven evaluation contract.
 
-Recall evaluation must run through a clean execution carrier. Do not evaluate directly in the current context, improvise the rules, or mix skill-trigger checks with content recall scoring.
+This skill defines the queue contract, carrier preconditions, and output shape. Runtime execution belongs to the evaluator layer, not this skill.
 
 Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, carrier handling, and scoring output shape.
 
 ## Scope
 
-- Evaluate answer content from a recall queue
+- Define how answer content from a recall queue should be validated and scored
 - Bind each recall yaml to an explicit prompt target through `source_ref`
 - Detect queue-definition gaps, especially missing `medium` or missing `carrier`
-- Expect recall to be bound to an explicit carrier before execution
+- Require recall to be bound to an explicit carrier before evaluator runtime can execute
 - Recommend `isolated-context-run:subagent` as the normal default carrier value at the caller layer
 - Refuse execution when no carrier can be resolved
 - Do not replace the carrier-selection layer itself
@@ -30,8 +30,8 @@ Read the queue before doing any scoring.
 Resolution order:
 
 1. If the caller explicitly names a yaml path, use it.
-2. If evaluating a specific skill, prefer `<skill>/.recall/queue.yaml`.
-3. Otherwise use `.instruction/memory/.recall/queue.yaml`.
+2. If evaluating a specific target, prefer `<target>/.recall/queue.yaml`.
+3. Otherwise stay unresolved and require an explicit queue path or target-local queue.
 
 If the referenced path does not exist, stop and report the missing queue path instead of guessing another source.
 
@@ -40,7 +40,8 @@ Recommended convention:
 - keep recall fixtures under `.recall/`
 - prefer names like `queue.yaml`, `selftest.yaml`, or other descriptive yaml names
 - keep real evaluation fixtures next to the prompt target they evaluate
-- keep integration orchestration under `tests/iitest/`
+- keep integration orchestration under `iitests/`
+- treat example paths like `<memory-target>/.recall/queue.yaml` as layout examples, not implicit repository defaults
 
 This is only a convention. Any yaml path is acceptable if it matches the recall schema.
 
@@ -50,9 +51,9 @@ This is only a convention. Any yaml path is acceptable if it matches the recall 
 2. Validate each case for minimum required fields, especially `medium` and `carrier`.
 3. If any required field is missing, refuse evaluation for that case and report the exact gap.
 4. Resolve the execution carrier.
-5. Run recall through the chosen carrier.
-6. Score the answer against `question`, `expected`, and `score_rule`.
-7. Report per-case results and an overall summary.
+5. Hand the validated queue and resolved carrier contract to the evaluator runtime.
+6. Let the evaluator runtime obtain or accept the answer text.
+7. Let the evaluator runtime score the answer against `question`, `expected`, and `score_rule`, then report results.
 
 ## Case Contract
 
@@ -145,6 +146,7 @@ Rules:
 - If the queue sets a carrier and the caller does not, use the queue value.
 - If neither the caller nor the queue provides a carrier, refuse execution and recommend `isolated-context-run:subagent`.
 - If a provided carrier is unavailable in the environment, report carrier resolution failure instead of silently downgrading to the current session.
+- Do not treat this skill as the live execution layer; carrier execution belongs to the evaluator runtime or adapter layer.
 
 ## Scoring Rule
 
@@ -189,7 +191,7 @@ Recommended format:
 
 ## Validation Strategy
 
-Do not tie validation to `iitest`.
+Do not tie validation to `iitests`.
 
 Preferred layers:
 
@@ -197,13 +199,15 @@ Preferred layers:
 - carrier-resolution validation from explicit carrier and missing-carrier cases
 - scoring validation from deterministic self-test cases
 
-Use `iitest` only when an upstream flow specifically requires it. The base `recall-eval` contract must stay testable from standalone yaml fixtures.
+Use standalone yaml fixtures for schema and scoring helpers. Use `iitests` when the evaluation needs initialized workspace state, task execution, or prompt-based child-agent recall.
 
 Script entrypoints:
 
 - `node scripts/recall-eval/validate-schema.mjs <yaml-path>`
 - `node scripts/recall-eval/resolve-target.mjs <yaml-path>`
 - `node scripts/recall-eval/run-eval.mjs <yaml-path> --case <id> --answer "<text>"`
+
+These are evaluator runtime entrypoints that implement the contract defined here.
 
 ## Restrictions
 
@@ -214,14 +218,15 @@ Script entrypoints:
 - Do not confuse skill-trigger verification with answer-content evaluation
 - Do not invent extra-repo knowledge when the rule source is undefined
 - Without an execution carrier, refuse evaluation instead of degrading locally
+- Do not let `recall-eval` absorb live runtime, persistence, batch scheduling, or external adapter responsibilities
 
 ## Reference Points
 
 Use these paths when they exist:
 
-- `.instruction/memory/.recall/README.md` for queue field conventions
+- `<memory-target>/.recall/README.md` for memory-target queue field conventions when such a target exists
 - `.instruction/skills/ai/recall-eval/.recall/queue.yaml` for `recall-eval` self-test cases
 - `skills/recall-eval/.recall/queue.yaml` for the target-local example queue
-- `tests/iitest/recall-eval/` for future integration orchestration
+- `iitests/recall-eval/` for initialized-workspace recall orchestration
 - [SAMPLE-QUEUE.yaml](./SAMPLE-QUEUE.yaml) for a minimal compatible fixture
 - [EXAMPLES.md](./EXAMPLES.md) for canonical response shapes

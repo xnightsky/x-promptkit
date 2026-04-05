@@ -1,3 +1,0 @@
-name: recall-eval queue integrity
-queue: skills/recall-eval/.recall/broken-missing-medium.yaml
-expect_failure: true

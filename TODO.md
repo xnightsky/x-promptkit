@@ -22,8 +22,9 @@
 ### 这份 TODO 要保留的架构落点
 
 - `isolated-context-run`：保留为父层 frontdoor skill。
-- `isolated-context-run:subagent`：第一阶段唯一允许独立出去的 carrier 子层。
-- `codex`、`claude`、`opencode`：默认停留在父层内部最小 adapter，不预建完整子 skill。
+- `isolated-context-run:subagent`：保留为独立子层，负责当前会话内原生 subagent 路径。
+- `isolated-context-run:codex`：重新评估为 Codex 真实宿主执行、trace 采集与宿主级验证的前置必要子层。
+- `claude`、`opencode`：当前仍停留在父层内部最小 adapter，暂不预建完整子 skill。
 - `recall-eval`：保留为 `recall-queue-policy` / evaluator contract。
 - `recall-evaluator`：承接 `run / score / report / live / batch / persistence` 的脚本、CLI 与 harness 运行层。
 
@@ -43,7 +44,7 @@
   - `scripts/recall-eval/README.md`
   - `scripts/recall-eval/run-eval.mjs`
   - `tests/recall-eval.test.mjs`
-  - `tests/iitest/recall-eval/README.md`
+  - `iitests/recall-eval/README.md`
 - 外部参考按层分组：
   - Artifact / skill 规范：
     - Agent Skills overview / specification
@@ -93,21 +94,31 @@
   done when: `subagent` 子层只负责 probe、execution、subagent 特有错误分类、结果归一化；且第一阶段唯一允许独立出去的 carrier 是 `subagent`。
   depends on: 父层职责与统一结果骨架
 
-- [x] 保留 `codex`、`claude`、`opencode` 为父层内部最小 adapter。
-  done when: 这 3 个 carrier 继续作为父层内部 adapter 存在，只覆盖最小 probe、最小调用模板、缺失命令提示；暂不承诺外部可寻址子 skill。
+- [ ] 将 `codex` 从父层内部最小 adapter 重新评估为前置必要子层 `isolated-context-run:codex`。
+  done when: `codex` 子层独立承接 Codex 宿主下的 probe、execution、failure taxonomy、trace 采集与结果归一化；父层不再只以 `self-cli -> codex exec` 或 `mode=codex-exec` 的最小映射承载这条真实宿主路径。
   depends on: 父层职责与统一结果骨架
 
-- [x] 明确第二个 carrier 升级为独立子 skill 的准入规则。
-  done when: 只有出现明确独立演进价值、且超出父层最小 adapter 能力边界的 carrier，才从父层迁出；避免为所有 carrier 提前建立完整子 skill。
+- [x] 保留 `claude`、`opencode` 为父层内部最小 adapter。
+  done when: `claude`、`opencode` 继续作为父层内部 adapter 存在，只覆盖最小 probe、最小调用模板、缺失命令提示；在出现与 Codex 同级的真实宿主执行与 trace 验证诉求前，不承诺外部可寻址子 skill。
+  depends on: 父层职责与统一结果骨架
+
+- [x] 明确 carrier 升级为独立子 skill 的准入规则。
+  done when: 只有出现明确独立演进价值、且超出父层最小 adapter 能力边界的 carrier，才从父层迁出；当前 `codex` 已因真实宿主执行与 trace 验证需要而满足迁出条件，其余 carrier 暂不提前建立完整子 skill。
   depends on: `subagent` 第一阶段独立子层边界；父层内部最小 adapter
 
 ### recall-eval
+
+- 验证分层说明：
+  - 契约层：schema / integrity / `source_ref` / `medium` / `carrier` / `score_rule` / 输出骨架
+  - runtime 层：`recall-evaluator` 脚本、carrier adapter、initialized-workspace harness
+  - 真实宿主层：Codex 原生加载 `skills/recall-eval` 后，对自然语言输入的 should-trigger / should-not-trigger / refusal 行为验证，并要求结果 + trace 双证据
+  - 完成标准：前两层只证明实现没坏；`recall-eval` 是否阶段完成，以真实宿主层是否通过为准
 
 - [ ] 将 `recall-eval` 明确拆分为 `recall-queue-policy` 与 `recall-evaluator` 两层。
   done when: `recall-eval` 只负责 queue contract、`source_ref`、`medium`、`carrier`、拒绝规则、输出骨架；`run/score/report/live/batch/persistence` 归入独立 `recall-evaluator`；目录、文档、脚本与测试职责命名一致。
   depends on: none
 
-- [ ] 明确默认 queue fallback 策略；在 `memory` 目录落地前，不把 `.instruction/memory/.recall/queue.yaml` 当作当前可直接运行的默认值。
+- [x] 明确默认 queue fallback 策略；在 `memory` 目录落地前，不把 `<memory-target>/.recall/queue.yaml` 这类示例路径当作当前可直接运行的默认值。
   done when: `SKILL.md`、`EXAMPLES.md`、脚本说明中的默认路径描述一致，并明确当前只接受显式 yaml 路径或目标旁真实 queue；缺少默认 queue 时会清晰报错或拒绝。
   depends on: `recall-eval` 两层拆分
 
@@ -131,25 +142,25 @@
 
 ### recall-eval
 
-- [ ] 增加一个缺少顶层 `source_ref` 的 broken fixture。
+- [x] 增加一个缺少顶层 `source_ref` 的 broken fixture。
   done when: fixture 可被现有校验脚本识别，并产出稳定的缺陷报告。
   depends on: 明确默认 queue fallback 策略
 
-- [ ] 增加一个 `score_rule` 结构非法的 broken fixture。
+- [x] 增加一个 `score_rule` 结构非法的 broken fixture。
   done when: fixture 可被现有校验脚本识别，并明确报出 `score_rule` 结构问题。
   depends on: 明确默认 queue fallback 策略
 
-- [ ] 增加一个缺少 `expected.must_include` 的 broken fixture。
+- [x] 增加一个缺少 `expected.must_include` 的 broken fixture。
   done when: fixture 可被现有校验脚本识别，并明确报出 `expected.must_include` 缺失。
   depends on: 明确默认 queue fallback 策略
 
-- [ ] 增加一个真实指向仓库根 `AGENTS.md` 的 fixture。
+- [x] 增加一个真实指向仓库根 `AGENTS.md` 的 fixture。
   done when: fixture 使用真实 `source_ref` 指向仓库根 `AGENTS.md`，并可被现有脚本读取与解析。
   depends on: 明确默认 queue fallback 策略
 
 ### coverage
 
-- [ ] 给仓库根 `AGENTS.md` 补一份真实 `.recall/queue.yaml`。
+- [x] 给仓库根 `AGENTS.md` 补一份真实 `.recall/queue.yaml`。
   done when: 仓库根存在与 `AGENTS.md` 配套的真实 recall queue，且路径布局与 skill 目录旁 queue 约定一致。
   depends on: 明确默认 queue fallback 策略
 
@@ -161,23 +172,29 @@
 
 ### carrier adapter
 
-- [ ] 在 carrier adapter 层补 `isolated-context-run:subagent` 调用桥。
-  done when: `recall-evaluator` 可通过 `isolated-context-run:subagent` 发起真实调用，并拿到可供打分与落盘的原始回答；调用桥职责停留在 adapter 层，不回流到父层 skill。
+- [x] 在 carrier adapter 层补 `isolated-context-run:subagent` 的 host-injected 调用桥原型。
+  done when: `recall-evaluator` 可通过 adapter 层接入 `isolated-context-run:subagent`，支持请求模板、失败归类、命令桥接与响应归一化；调用桥职责停留在 adapter 层，不回流到父层 skill。
   depends on: `isolated-context-run:subagent` 第一阶段独立子层边界；`recall-eval` 两层拆分
 
 ### integration
 
-- [ ] 把 `tests/iitest/recall-eval/` 从 fixture 编排层接到 `recall-evaluator` 的真实 runner 入口。
-  done when: iitest 不再只验证静态 fixture，而是能驱动 `recall-evaluator` runner 入口并断言结果。
+- [x] 把 `iitests/recall-eval/` 从静态 fixture 层接到 `recall-evaluator` 的 runtime runner 入口。
+  done when: iitests 能驱动 `run-iitest` / harness runner 入口，覆盖初始化 workspace、任务阶段、recall 阶段与评分；这一层仍属于 runtime integration，不作为 skill 真实宿主验证的完成证明。
   depends on: `recall-eval` 两层拆分；明确默认 queue fallback 策略
 
 - [ ] 增加 carrier 失败上报的集成覆盖。
   done when: 至少 1 条集成测试覆盖 carrier 存在但执行失败的上报路径，且失败归因落在 adapter / harness 层而不是 skill 契约层。
-  depends on: 环境失败样例；真实 runner iitest 接入
+  depends on: 环境失败样例；真实 runner iitests 接入
 
 - [ ] 增加 queue-level 与 case-level `source_ref` 混用场景的集成覆盖。
   done when: 至少 1 条集成测试同时覆盖 queue 默认值和 case override 的解析结果。
-  depends on: 真实 runner iitest 接入
+  depends on: 真实 runner iitests 接入
+
+### real host validation
+
+- [ ] 建立以 Codex 为主的 `recall-eval` 真实宿主验证。
+  done when: 真实 Codex 宿主在原生加载 `skills/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `scripts/recall-eval/*.mjs` 伪装为真实宿主通过。
+  depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner iitests 接入
 
 ## P3 live run 与批量评测
 
@@ -185,7 +202,7 @@
 
 - [ ] 为 `recall-evaluator` CLI / harness 增加 live 模式，让它能通过已解析的 carrier 获取模型真实回答，而不是只对预先提供的答案打分。
   done when: live 执行入口能区分“打分已有答案”和“获取真实回答后再打分”两种模式，且运行责任归属 `recall-evaluator` 而不是 `recall-eval` skill。
-  depends on: P0 全部完成；`isolated-context-run:subagent` 调用桥；真实 runner iitest 接入
+  depends on: P0 全部完成；`isolated-context-run:subagent` 调用桥；真实 runner iitests 接入
 
 - [ ] 定义一份稳定的 recall request contract，包含 `source_ref`、case `question`、carrier 约束，以及“只能依据目标提示词回答”的指令。
   done when: 请求模板字段稳定、可复用，并能在 live 模式、后续批量执行和 adapter 层之间共享。
