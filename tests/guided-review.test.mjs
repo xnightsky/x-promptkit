@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
-import { buildReviewPrompt, parseArgs } from "../scripts/guided-review/run-review.mjs";
+import { buildReviewPrompt, parseArgs, runCli } from "../scripts/guided-review/run-review.mjs";
 
 const cwd = process.cwd();
 const node = process.execPath;
@@ -27,21 +27,35 @@ function createTempWorktree() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "guided-review-worktree-"));
 }
 
-function createFakeCodex() {
-  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "guided-review-bin-"));
-  const logPath = path.join(binDir, "codex-log.json");
-  const codexPath = path.join(binDir, "codex");
-  fs.writeFileSync(
-    codexPath,
-    `#!/usr/bin/env node
-import fs from "node:fs";
-const [, , ...args] = process.argv;
-fs.writeFileSync(process.env.GUIDED_REVIEW_FAKE_CODEX_LOG, JSON.stringify({ args }, null, 2));
-process.stdout.write("fake codex ok\\n");
-`,
-  );
-  fs.chmodSync(codexPath, 0o755);
-  return { binDir, logPath };
+function createCaptureStream() {
+  let buffer = "";
+  return {
+    stream: {
+      write(chunk) {
+        buffer += String(chunk);
+        return true;
+      },
+    },
+    read() {
+      return buffer;
+    },
+  };
+}
+
+function createSpawnRecorder(result = {}) {
+  const calls = [];
+  return {
+    calls,
+    spawn(command, args, options) {
+      calls.push({ command, args, options });
+      return {
+        status: 0,
+        stdout: "fake codex ok\n",
+        stderr: "",
+        ...result,
+      };
+    },
+  };
 }
 
 test("parseArgs defaults to uncommitted mode", () => {
@@ -75,35 +89,42 @@ test("script defaults to uncommitted mode in dry-run output", () => {
   assert.match(output, /review --uncommitted/);
 });
 
-test("script passes base mode to codex review", () => {
+test("runCli passes base mode to codex review with an injected spawn bridge", () => {
   const worktree = createTempWorktree();
-  const fakeCodex = createFakeCodex();
+  const stdout = createCaptureStream();
+  const stderr = createCaptureStream();
+  const recorder = createSpawnRecorder();
 
-  const output = runScript(["--worktree", worktree, "--base", "main"], {
-    env: {
-      PATH: `${fakeCodex.binDir}:${process.env.PATH ?? ""}`,
-      GUIDED_REVIEW_FAKE_CODEX_LOG: fakeCodex.logPath,
-    },
+  const exitCode = runCli(["--worktree", worktree, "--base", "main"], {
+    cwd,
+    env: process.env,
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    spawn: recorder.spawn,
   });
 
-  assert.match(output, /fake codex ok/);
-  const call = JSON.parse(fs.readFileSync(fakeCodex.logPath, "utf8"));
-  assert.deepEqual(call.args.slice(0, 5), ["-C", worktree, "review", "--base", "main"]);
+  assert.equal(exitCode, 0);
+  assert.equal(stderr.read(), "");
+  assert.match(stdout.read(), /fake codex ok/);
+  assert.deepEqual(recorder.calls[0].args.slice(0, 5), ["-C", worktree, "review", "--base", "main"]);
 });
 
-test("script passes commit mode and title to codex review", () => {
+test("runCli passes commit mode and title to codex review with an injected spawn bridge", () => {
   const worktree = createTempWorktree();
-  const fakeCodex = createFakeCodex();
+  const stdout = createCaptureStream();
+  const recorder = createSpawnRecorder();
 
-  runScript(["--worktree", worktree, "--commit", "abc123", "--title", "Review title"], {
-    env: {
-      PATH: `${fakeCodex.binDir}:${process.env.PATH ?? ""}`,
-      GUIDED_REVIEW_FAKE_CODEX_LOG: fakeCodex.logPath,
-    },
+  const exitCode = runCli(["--worktree", worktree, "--commit", "abc123", "--title", "Review title"], {
+    cwd,
+    env: process.env,
+    stdout: stdout.stream,
+    stderr: createCaptureStream().stream,
+    spawn: recorder.spawn,
   });
 
-  const call = JSON.parse(fs.readFileSync(fakeCodex.logPath, "utf8"));
-  assert.deepEqual(call.args.slice(0, 7), [
+  assert.equal(exitCode, 0);
+  assert.match(stdout.read(), /fake codex ok/);
+  assert.deepEqual(recorder.calls[0].args.slice(0, 7), [
     "-C",
     worktree,
     "review",
@@ -150,19 +171,34 @@ test("script reports missing codex executable", () => {
   );
 });
 
-test("script appends custom prompt text to the default prompt", () => {
+test("runCli appends custom prompt text to the default prompt", () => {
   const worktree = createTempWorktree();
-  const fakeCodex = createFakeCodex();
+  const recorder = createSpawnRecorder();
 
-  runScript(["--worktree", worktree, "--prompt", "Focus on retry safety."], {
-    env: {
-      PATH: `${fakeCodex.binDir}:${process.env.PATH ?? ""}`,
-      GUIDED_REVIEW_FAKE_CODEX_LOG: fakeCodex.logPath,
-    },
+  const exitCode = runCli(["--worktree", worktree, "--prompt", "Focus on retry safety."], {
+    cwd,
+    env: process.env,
+    stdout: createCaptureStream().stream,
+    stderr: createCaptureStream().stream,
+    spawn: recorder.spawn,
   });
 
-  const call = JSON.parse(fs.readFileSync(fakeCodex.logPath, "utf8"));
-  const prompt = call.args.at(-1);
+  assert.equal(exitCode, 0);
+  const prompt = recorder.calls[0].args.at(-1);
   assert.match(prompt, /guided-code-review workflow/);
   assert.match(prompt, /Focus on retry safety/);
+});
+
+test("script dry-run can validate an isolated-context-style worktree path", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "guided-review-isolated-context-"));
+  const worktree = path.join(tempRoot, ".worktrees", "isolated-context-run-codex");
+  fs.mkdirSync(worktree, { recursive: true });
+
+  const output = runScript(["--worktree", ".worktrees/isolated-context-run-codex", "--dry-run"], {
+    cwd: tempRoot,
+  });
+
+  assert.match(output, /- worktree: `\.worktrees\/isolated-context-run-codex`/);
+  assert.match(output, /codex -C \.worktrees\/isolated-context-run-codex review --uncommitted/);
+  assert.match(output, /guided-code-review workflow/);
 });
