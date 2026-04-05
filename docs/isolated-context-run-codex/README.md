@@ -5,17 +5,20 @@
 建议阅读顺序：
 
 1. [research.md](research.md)
-2. [clean-room-design.md](clean-room-design.md)
-3. [structured-init-design.md](structured-init-design.md)
-4. [exec-v0-contract.md](exec-v0-contract.md)
-5. [probe-run-exec-contract.md](probe-run-exec-contract.md)
-6. [failure-taxonomy.md](failure-taxonomy.md)
-7. [test-plan.md](test-plan.md)
+2. [skill-loading-design.md](skill-loading-design.md)
+3. [clean-room-design.md](clean-room-design.md)
+4. [structured-init-design.md](structured-init-design.md)
+5. [exec-v0-contract.md](exec-v0-contract.md)
+6. [probe-run-exec-contract.md](probe-run-exec-contract.md)
+7. [failure-taxonomy.md](failure-taxonomy.md)
+8. [test-plan.md](test-plan.md)
 
 ## 文档分工
 
 - [research.md](research.md)
   - 总览、边界、分层判断和推进顺序
+- [skill-loading-design.md](skill-loading-design.md)
+  - skills discovery roots、source classes、`link copy`、冲突优先级、测试入口
 - [clean-room-design.md](clean-room-design.md)
   - fake user home、目录模型、环境变量、`workspace_mode`
 - [structured-init-design.md](structured-init-design.md)
