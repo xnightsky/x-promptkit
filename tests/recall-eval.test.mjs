@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const cwd = process.cwd();
@@ -11,6 +13,10 @@ function runScript(scriptName, args = [], options = {}) {
   return execFileSync(node, [path.join(scriptsDir, scriptName), ...args], {
     cwd,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      ...options.env,
+    },
     ...options,
   });
 }
@@ -126,6 +132,32 @@ test("resolve-target prints effective source_ref values", () => {
   assert.match(output, /skills\/isolated-context-run\/SKILL.md#default-priority/);
 });
 
+test("run-eval evaluates an entire queue from an answers-file", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-eval-answers-"));
+  const answersPath = path.join(tempDir, "answers.json");
+  fs.writeFileSync(
+    answersPath,
+    JSON.stringify({
+      "recall_eval.reject_missing_medium": "缺少 medium 时必须拒绝执行，需要先完善 queue。",
+      "recall_eval.reject_missing_carrier":
+        "缺少 carrier 时必须拒绝执行，并返回推荐值 isolated-context-run:subagent。",
+    }),
+  );
+
+  const output = runScript("run-eval.mjs", [
+    "skills/recall-eval/.recall/queue.yaml",
+    "--answers-file",
+    answersPath,
+  ]);
+
+  assert.match(output, /`recall_eval\.reject_missing_medium`: score=2/);
+  assert.match(output, /`recall_eval\.reject_missing_carrier`: score=2/);
+  assert.match(
+    output,
+    /directly evaluable: `recall_eval\.reject_missing_medium`, `recall_eval\.reject_missing_carrier`/,
+  );
+});
+
 test("run-eval scores a fully correct answer as 2", () => {
   const output = runScript("run-eval.mjs", [
     "skills/recall-eval/.recall/queue.yaml",
@@ -150,6 +182,96 @@ test("run-eval scores an overreaching answer as 0", () => {
   ]);
 
   assert.match(output, /score=0/);
+});
+
+test("run-eval can source an answer from the subagent carrier bridge", () => {
+  const output = runScript(
+    "run-eval.mjs",
+    ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
+    {
+      env: {
+        RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_MEDIUM:
+          "缺少 medium 时必须拒绝执行，需要先完善 queue。",
+      },
+    },
+  );
+
+  assert.match(output, /score=2/);
+  assert.match(output, /runtime failures: none/);
+});
+
+test("run-eval reports unsupported carrier overrides", () => {
+  const output = runScript("run-eval.mjs", [
+    "skills/recall-eval/.recall/queue.yaml",
+    "--case",
+    "recall_eval.reject_missing_medium",
+    "--carrier",
+    "custom-carrier",
+  ]);
+
+  assert.match(output, /refused \| unsupported carrier: `custom-carrier`/);
+});
+
+test("run-eval reports unavailable subagent carrier when no bridge is injected", () => {
+  const output = runScript("run-eval.mjs", [
+    "skills/recall-eval/.recall/queue.yaml",
+    "--case",
+    "recall_eval.reject_missing_medium",
+  ]);
+
+  assert.match(output, /not evaluated \| carrier unavailable in current environment/);
+});
+
+test("run-eval reports subagent execution failures separately from queue errors", () => {
+  const output = runScript(
+    "run-eval.mjs",
+    ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
+    {
+      env: {
+        RECALL_EVAL_SUBAGENT_FAIL_RECALL_EVAL_REJECT_MISSING_MEDIUM: "1",
+      },
+    },
+  );
+
+  assert.match(output, /not evaluated \| carrier execution failed: environment failure/);
+  assert.match(output, /runtime failures: `recall_eval\.reject_missing_medium` carrier execution failed: environment failure/);
+});
+
+test("run-eval prefers direct answers over carrier execution", () => {
+  const output = runScript(
+    "run-eval.mjs",
+    [
+      "skills/recall-eval/.recall/queue.yaml",
+      "--case",
+      "recall_eval.reject_missing_medium",
+      "--answer",
+      "缺少 medium 时必须拒绝执行，需要先完善 queue。",
+    ],
+    {
+      env: {
+        RECALL_EVAL_SUBAGENT_FAIL_RECALL_EVAL_REJECT_MISSING_MEDIUM: "1",
+      },
+    },
+  );
+
+  assert.match(output, /score=2/);
+  assert.doesNotMatch(output, /carrier execution failed/);
+});
+
+test("run-eval exits with an error when the selected case id does not exist", () => {
+  assert.throws(
+    () =>
+      runScript("run-eval.mjs", [
+        "skills/recall-eval/.recall/queue.yaml",
+        "--case",
+        "missing.case.id",
+      ]),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /No case found for id: missing\.case\.id/);
+      return true;
+    },
+  );
 });
 
 test("run-eval refuses invalid cases and reports integrity failures", () => {

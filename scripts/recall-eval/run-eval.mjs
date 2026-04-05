@@ -8,6 +8,7 @@ import {
   scoreAnswer,
   validateRecallData,
 } from "./lib.mjs";
+import { executeRecallViaCarrier } from "./carrier-adapter.mjs";
 
 const args = process.argv.slice(2);
 const yamlPath = args[0];
@@ -57,6 +58,7 @@ const caseItems = [];
 const directlyEvaluable = [];
 const refusedForMissingCarrier = [];
 const queueFixesRequired = [];
+const runtimeFailures = [];
 
 for (const caseReport of caseReports) {
   if (caseReport.errors.length === 0) {
@@ -99,7 +101,26 @@ for (const caseReport of caseReports) {
   }
 
   const answerText = answersByCase[caseReport.id];
-  if (typeof answerText !== "string") {
+  let resolvedAnswerText = answerText;
+  if (typeof resolvedAnswerText !== "string") {
+    const runtimeResult = executeRecallViaCarrier(caseReport, effectiveCarrier);
+    if (!runtimeResult.ok) {
+      const resultText =
+        runtimeResult.kind === "unsupported_carrier"
+          ? `refused | ${runtimeResult.reason}`
+          : `not evaluated | ${runtimeResult.reason}`;
+      caseItems.push({
+        id: caseReport.id,
+        result: resultText,
+      });
+      runtimeFailures.push(`\`${caseReport.id}\` ${runtimeResult.reason}`);
+      continue;
+    }
+
+    resolvedAnswerText = runtimeResult.answerText;
+  }
+
+  if (typeof resolvedAnswerText !== "string") {
     caseItems.push({
       id: caseReport.id,
       result: "not evaluated | missing answer input",
@@ -107,7 +128,7 @@ for (const caseReport of caseReports) {
     continue;
   }
 
-  const scored = scoreAnswer(caseReport, answerText);
+  const scored = scoreAnswer(caseReport, resolvedAnswerText);
   caseItems.push({
     id: caseReport.id,
     result: `score=${scored.score} | ${scored.rationale}`,
@@ -133,6 +154,7 @@ console.log(
       refusedForMissingCarrier:
         refusedForMissingCarrier.length > 0 ? refusedForMissingCarrier.join(", ") : "none",
       queueFixesRequired: queueFixesRequired.length > 0 ? queueFixesRequired.join("; ") : "none",
+      runtimeFailures: runtimeFailures.length > 0 ? runtimeFailures.join("; ") : "none",
     },
   }),
 );

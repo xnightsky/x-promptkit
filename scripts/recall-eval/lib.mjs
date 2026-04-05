@@ -342,5 +342,6 @@ export function formatRunEvalOutput({
   lines.push(`- directly evaluable: ${summary.directlyEvaluable}`);
   lines.push(`- refused for missing carrier: ${summary.refusedForMissingCarrier}`);
   lines.push(`- queue fixes required: ${summary.queueFixesRequired}`);
+  lines.push(`- runtime failures: ${summary.runtimeFailures ?? "none"}`);
   return lines.join("\n");
 }
