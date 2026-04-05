@@ -38,6 +38,12 @@ self promptkit
 - `npm run guided-review -- --worktree . --commit <sha> --prompt "重点看兼容性"`
 - `npm run guided-review -- --worktree . --dry-run`
 
+Codex 场景下还支持一个单独的 skill help 入口：
+
+- 消息中出现独立片段 `$guided-code-review --help` 时，优先返回 `skills/guided-code-review/HELP.md` 的帮助骨架
+- 这个入口属于 skill 提示侧契约，不等价于 `guided-review` 这个 npm script
+- `guided-review` 负责包装 `codex review`，`$guided-code-review --help` 负责解释这个 skill 该怎么用
+
 命令约定：
 
 - `--worktree` 必填，用来显式指定 review 目标
