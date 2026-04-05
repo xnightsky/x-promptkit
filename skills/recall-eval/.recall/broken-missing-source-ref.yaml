@@ -1,0 +1,20 @@
+version: 1
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: broken.missing_source_ref
+    question: queue 缺少 source_ref 时怎么处理？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - source_ref
+    score_rule:
+      full: 明确指出缺少 source_ref
+      partial: 只提到配置不完整
+      fail: 忽略 source_ref 缺失
+    tags: [broken]
+    source_scope: SKILL.md#source-ref-rule

@@ -93,8 +93,13 @@ function validateExpected(caseValue, caseErrors) {
 
 function validateScoreRule(caseValue, caseErrors) {
   const scoreRule = caseValue?.score_rule;
-  if (!scoreRule || typeof scoreRule !== "object" || Array.isArray(scoreRule)) {
+  if (scoreRule === undefined) {
     caseErrors.push("missing `score_rule`");
+    return null;
+  }
+
+  if (typeof scoreRule !== "object" || Array.isArray(scoreRule)) {
+    caseErrors.push("`score_rule` must be an object");
     return null;
   }
 

@@ -1,0 +1,21 @@
+version: 1
+source_ref: skills/recall-eval/SKILL.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: broken.missing_must_include
+    question: expected.must_include 缺失时怎么处理？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      should_include:
+        - 必须补齐 expected.must_include
+    score_rule:
+      full: 明确指出缺少 expected.must_include
+      partial: 只提到 expected 不完整
+      fail: 忽略 expected.must_include 缺失
+    tags: [broken]
+    source_scope: SKILL.md#case-contract

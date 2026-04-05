@@ -1,0 +1,26 @@
+version: 1
+source_ref: AGENTS.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: repo_agents.cn_and_canary
+    question: 本仓库的回复语言和输出标记要求是什么？
+    medium: global-memory
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 简体中文
+        - [by=x-promptkit]
+      should_include:
+        - 每次回复末尾
+      must_not_include:
+        - 可以省略 canary
+    score_rule:
+      full: 明确答出必须使用简体中文，并在每次回复末尾附带 canary
+      partial: 只答出语言或只答出 canary 要求之一
+      fail: 回答遗漏或否认上述要求
+    tags: [repo, agents]
+    source_scope: AGENTS.md#top-level

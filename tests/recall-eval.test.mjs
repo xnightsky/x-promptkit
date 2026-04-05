@@ -60,12 +60,61 @@ test("validate-schema fails when carrier is missing", () => {
   );
 });
 
+test("validate-schema fails when effective source_ref is missing", () => {
+  assert.throws(
+    () =>
+      runScript("validate-schema.mjs", [
+        "skills/recall-eval/.recall/broken-missing-source-ref.yaml",
+      ]),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /missing effective `source_ref`/);
+      return true;
+    },
+  );
+});
+
+test("validate-schema fails when score_rule structure is invalid", () => {
+  assert.throws(
+    () =>
+      runScript("validate-schema.mjs", [
+        "skills/recall-eval/.recall/broken-invalid-score-rule.yaml",
+      ]),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /`score_rule` must be an object/);
+      return true;
+    },
+  );
+});
+
+test("validate-schema fails when expected.must_include is missing", () => {
+  assert.throws(
+    () =>
+      runScript("validate-schema.mjs", [
+        "skills/recall-eval/.recall/broken-missing-must-include.yaml",
+      ]),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /missing `expected.must_include`/);
+      return true;
+    },
+  );
+});
+
 test("validate-schema allows case-level source_ref override without queue-level source_ref", () => {
   const output = runScript("validate-schema.mjs", [
     "skills/recall-eval/.recall/queue-with-case-source-override.yaml",
   ]);
 
   assert.match(output, /PASS/);
+});
+
+test("validate-schema passes for the repo-root AGENTS queue", () => {
+  const output = runScript("validate-schema.mjs", [".recall/queue.yaml"]);
+
+  assert.match(output, /PASS/);
+  assert.match(output, /\.recall\/queue\.yaml/);
 });
 
 test("resolve-target prints effective source_ref values", () => {
