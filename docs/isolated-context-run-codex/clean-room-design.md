@@ -3,10 +3,10 @@
 - 状态：专项设计草案
 - 日期：2026-04-05
 - 相关文档：
-  - [isolated-context-run-codex-research.md](isolated-context-run-codex-research.md)
+  - [research.md](research.md)
   - [structured-init-design.md](structured-init-design.md)
-  - [codex-exec-v0-contract.md](codex-exec-v0-contract.md)
-  - [../TODO.md](../TODO.md)
+  - [exec-v0-contract.md](exec-v0-contract.md)
+  - [../../TODO.md](../../TODO.md)
 
 ## 1. 文档目的
 
@@ -29,7 +29,7 @@
 
 后两项分别见：
 
-- clean-room 总览与子层边界：[isolated-context-run-codex-research.md](isolated-context-run-codex-research.md)
+- clean-room 总览与子层边界：[research.md](research.md)
 - `minimal-seed` / `init` 细节：[structured-init-design.md](structured-init-design.md)
 
 ## 2. 目标级别
@@ -259,7 +259,7 @@ clean-room 层不负责：
 
 1. 创建 `run-root`
 2. 创建 fake user home 目录结构
-3. 为 `codex-exec-v0-contract.md` 中约定的 `artifacts/` 和 `meta/` 预留稳定落点
+3. 为 `exec-v0-contract.md` 中约定的 `artifacts/` 和 `meta/` 预留稳定落点
 3. 显式设置环境变量
 4. 根据 `workspace_mode` 构造 `workspace/`
 5. 初始化 `meta/` 和 `artifacts/` 的落盘位置

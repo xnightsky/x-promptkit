@@ -4,8 +4,8 @@
 - 目标：从个人开发者视角梳理当前做 Skill / Capability 开发时可借助的方法论、工具、平台与生态资源，并判断它们的现实门槛、时间/金钱成本与可达性边界
 - 研究时间：2026-04-04
 - 相关文档：
-  - 如果关注“为什么 Skill 测试会卡在中间层、应该如何分层”，见 [capability-skill-dev-toolchain-research.md](/data/projects/x-promptkit/docs/capability-skill-dev-toolchain-research.md)
-  - 如果关注“个人开发者可以通过哪些正式/非正式渠道获取 AI 能力，以及这些渠道的可复用性与风险”，见 [how-to-get-ai.md](/data/projects/x-promptkit/docs/how-to-get-ai.md)
+  - 如果关注“为什么 Skill 测试会卡在中间层、应该如何分层”，见 [capability-skill-dev-toolchain-research.md](capability-skill-dev-toolchain-research.md)
+  - 如果关注“个人开发者可以通过哪些正式/非正式渠道获取 AI 能力，以及这些渠道的可复用性与风险”，见 [how-to-get-ai.md](../guides/how-to-get-ai.md)
 
 ## 1. 这篇文档回答什么
 

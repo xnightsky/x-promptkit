@@ -7,8 +7,8 @@
   - 第三方工具、宿主、API、渠道与市场现象
   - 需要多语言 deep research 的外部调研文档
 - 相关文档：
-  - 方法应用示例见 [how-to-get-ai.md](/data/projects/x-promptkit/docs/how-to-get-ai.md)
-  - 如果关注 Skill / Capability 工具链选择，见 [skill-dev-tool-options.md](/data/projects/x-promptkit/docs/skill-dev-tool-options.md)
+  - 方法应用示例见 [how-to-get-ai.md](../guides/how-to-get-ai.md)
+  - 如果关注 Skill / Capability 工具链选择，见 [skill-dev-tool-options.md](skill-dev-tool-options.md)
 
 ## 1. 这篇文档回答什么
 

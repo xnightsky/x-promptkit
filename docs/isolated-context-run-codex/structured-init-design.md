@@ -3,9 +3,9 @@
 - 状态：专项设计草案
 - 日期：2026-04-05
 - 相关文档：
-  - [isolated-context-run-codex-research.md](isolated-context-run-codex-research.md)
+  - [research.md](research.md)
   - [clean-room-design.md](clean-room-design.md)
-  - [../TODO.md](../TODO.md)
+  - [../../TODO.md](../../TODO.md)
 
 ## 1. 文档目的
 

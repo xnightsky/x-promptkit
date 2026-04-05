@@ -31,7 +31,7 @@
 ### 资料参考
 
 - 本地研究总纲：
-  - `docs/capability-skill-dev-toolchain-research.md`
+  - `docs/research/capability-skill-dev-toolchain-research.md`
   - 重点看第 3 节“现有工具版图”、第 5 节“Capability Dev Kit”、第 8 节“建议的实施顺序”、第 9 节“最终判断”。
   - 核心判断：当前缺的不是单一“大框架”，而是围绕 `Artifact + Injection Adapter + Eval Harness + Sandbox Harness` 的最小 Capability Dev Kit。
 - 本仓库当前契约与运行入口：
@@ -99,7 +99,7 @@
   depends on: 父层职责与统一结果骨架
 
 - [ ] 固定 `isolated-context-run:codex` 的专项设计文档集合。
-  done when: 至少存在并互相引用 `docs/clean-room-design.md`、`docs/structured-init-design.md`、`docs/codex-exec-v0-contract.md`、`docs/probe-run-exec-contract.md`、`docs/failure-taxonomy-design.md`、`docs/codex-runner-test-plan.md`；主文档保持总览角色，不再回流实现细节。
+  done when: 至少存在并互相引用 `docs/isolated-context-run-codex/clean-room-design.md`、`docs/isolated-context-run-codex/structured-init-design.md`、`docs/isolated-context-run-codex/exec-v0-contract.md`、`docs/isolated-context-run-codex/probe-run-exec-contract.md`、`docs/isolated-context-run-codex/failure-taxonomy.md`、`docs/isolated-context-run-codex/test-plan.md`；主文档保持总览角色，不再回流实现细节。
   depends on: `codex` 重新评估为前置必要子层
 
 - [ ] 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约。

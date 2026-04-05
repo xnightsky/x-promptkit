@@ -7,9 +7,9 @@
 - 目标：从个人开发者视角，罗列当前“获取 AI 能力”的主要方式，辅助做工具链与采购决策
 - 研究时间：2026-04-05
 - 相关文档：
-  - 如果关注“这类外部信息文档应该如何搜索、校准、验证与分级引用”，见 [research-source-method.md](/data/projects/x-promptkit/docs/research-source-method.md)
-  - 如果关注“做 Skill / Capability 开发时，哪些工具值得进入主链路”，见 [skill-dev-tool-options.md](/data/projects/x-promptkit/docs/skill-dev-tool-options.md)
-  - 如果关注“为什么 Skill 测试会卡在中间层、宿主注入与评测应该怎么分层”，见 [capability-skill-dev-toolchain-research.md](/data/projects/x-promptkit/docs/capability-skill-dev-toolchain-research.md)
+  - 如果关注“这类外部信息文档应该如何搜索、校准、验证与分级引用”，见 [research-source-method.md](../research/research-source-method.md)
+  - 如果关注“做 Skill / Capability 开发时，哪些工具值得进入主链路”，见 [skill-dev-tool-options.md](../research/skill-dev-tool-options.md)
+  - 如果关注“为什么 Skill 测试会卡在中间层、宿主注入与评测应该怎么分层”，见 [capability-skill-dev-toolchain-research.md](../research/capability-skill-dev-toolchain-research.md)
 - 信源策略：
   - <span style="color:#2e7d32;"><strong>A</strong></span>：官方文档、官方帮助中心、官方定价页
   - <span style="color:#1565c0;"><strong>B</strong></span>：主流媒体、云厂商官方博客、主流公开产品页

@@ -1,0 +1,36 @@
+# isolated-context-run:codex
+
+这是 `isolated-context-run:codex` 的专题文档目录。
+
+建议阅读顺序：
+
+1. [research.md](research.md)
+2. [clean-room-design.md](clean-room-design.md)
+3. [structured-init-design.md](structured-init-design.md)
+4. [exec-v0-contract.md](exec-v0-contract.md)
+5. [probe-run-exec-contract.md](probe-run-exec-contract.md)
+6. [failure-taxonomy.md](failure-taxonomy.md)
+7. [test-plan.md](test-plan.md)
+
+## 文档分工
+
+- [research.md](research.md)
+  - 总览、边界、分层判断和推进顺序
+- [clean-room-design.md](clean-room-design.md)
+  - fake user home、目录模型、环境变量、`workspace_mode`
+- [structured-init-design.md](structured-init-design.md)
+  - `minimal-seed`、结构化 `init`、`run_local`
+- [exec-v0-contract.md](exec-v0-contract.md)
+  - `codex exec` 第一阶段返回契约
+- [probe-run-exec-contract.md](probe-run-exec-contract.md)
+  - 方案 A 下 `probe.mjs` / `run-exec.mjs` 的请求、输出、退出码
+- [failure-taxonomy.md](failure-taxonomy.md)
+  - `failure.kind/reason` 判定表
+- [test-plan.md](test-plan.md)
+  - `unit / cli / harness` 三层测试方案
+
+## 相关文档
+
+- [../../TODO.md](../../TODO.md)
+- [../research/capability-skill-dev-toolchain-research.md](../research/capability-skill-dev-toolchain-research.md)
+- [../research/skill-dev-tool-options.md](../research/skill-dev-tool-options.md)

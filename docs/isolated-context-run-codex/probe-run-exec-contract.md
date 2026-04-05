@@ -3,12 +3,12 @@
 - 状态：专项设计草案
 - 日期：2026-04-05
 - 相关文档：
-  - [isolated-context-run-codex-research.md](isolated-context-run-codex-research.md)
+  - [research.md](research.md)
   - [clean-room-design.md](clean-room-design.md)
-  - [codex-exec-v0-contract.md](codex-exec-v0-contract.md)
+  - [exec-v0-contract.md](exec-v0-contract.md)
   - [structured-init-design.md](structured-init-design.md)
-  - [failure-taxonomy-design.md](failure-taxonomy-design.md)
-  - [../TODO.md](../TODO.md)
+  - [failure-taxonomy.md](failure-taxonomy.md)
+  - [../../TODO.md](../../TODO.md)
 
 ## 1. 文档目的
 
@@ -38,7 +38,7 @@
 
 - `kind` 走主分类
 - `reason` 必须使用稳定的 `snake_case` 代码
-- 具体代码表由 [failure-taxonomy-design.md](failure-taxonomy-design.md) 约束
+- 具体代码表由 [failure-taxonomy.md](failure-taxonomy.md) 约束
 
 ## 2. 方案选择
 
@@ -213,7 +213,7 @@
 - 读取结构化请求
 - 在调用方准备好的工作目录与环境中执行一次 `codex exec --json`
 - 落 `artifacts/`
-- 输出符合 [codex-exec-v0-contract.md](codex-exec-v0-contract.md) 的业务返回体
+- 输出符合 [exec-v0-contract.md](exec-v0-contract.md) 的业务返回体
 
 `run-exec.mjs` 不负责：
 
@@ -320,7 +320,7 @@
 
 ### 5.5 stdout JSON
 
-`run-exec.mjs` 的 stdout 必须直接符合 [codex-exec-v0-contract.md](codex-exec-v0-contract.md)。
+`run-exec.mjs` 的 stdout 必须直接符合 [exec-v0-contract.md](exec-v0-contract.md)。
 
 也就是说：
 
@@ -356,7 +356,7 @@
 - clean-room 负责准备 `working_directory`、`artifacts_dir` 与 `env`
 - 结构化 init 负责构造 `workspace/`
 - `run-exec.mjs` 只消费这些前置结果
-- 最终业务返回体由 `codex-exec-v0-contract.md` 约束
+- 最终业务返回体由 `exec-v0-contract.md` 约束
 
 ## 8. failure 与退出码的边界
 

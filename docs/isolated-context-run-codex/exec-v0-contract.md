@@ -3,12 +3,12 @@
 - 状态：专项设计草案
 - 日期：2026-04-05
 - 相关文档：
-  - [isolated-context-run-codex-research.md](isolated-context-run-codex-research.md)
+  - [research.md](research.md)
   - [clean-room-design.md](clean-room-design.md)
   - [structured-init-design.md](structured-init-design.md)
   - [probe-run-exec-contract.md](probe-run-exec-contract.md)
-  - [failure-taxonomy-design.md](failure-taxonomy-design.md)
-  - [../TODO.md](../TODO.md)
+  - [failure-taxonomy.md](failure-taxonomy.md)
+  - [../../TODO.md](../../TODO.md)
 
 ## 1. 文档目的
 
@@ -262,7 +262,7 @@
 
 更细的 `reason` 取值见：
 
-- [failure-taxonomy-design.md](failure-taxonomy-design.md)
+- [failure-taxonomy.md](failure-taxonomy.md)
 
 ## 8. 与 artifacts 的关系
 

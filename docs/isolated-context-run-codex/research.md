@@ -3,15 +3,15 @@
 - 状态：研究总览 / 决策摘要
 - 日期：2026-04-05
 - 相关文档：
-  - [../TODO.md](../TODO.md)
-  - [capability-skill-dev-toolchain-research.md](capability-skill-dev-toolchain-research.md)
-  - [skill-dev-tool-options.md](skill-dev-tool-options.md)
+  - [../../TODO.md](../../TODO.md)
+  - [capability-skill-dev-toolchain-research.md](../research/capability-skill-dev-toolchain-research.md)
+  - [skill-dev-tool-options.md](../research/skill-dev-tool-options.md)
   - [clean-room-design.md](clean-room-design.md)
   - [structured-init-design.md](structured-init-design.md)
-  - [codex-exec-v0-contract.md](codex-exec-v0-contract.md)
+  - [exec-v0-contract.md](exec-v0-contract.md)
   - [probe-run-exec-contract.md](probe-run-exec-contract.md)
-  - [failure-taxonomy-design.md](failure-taxonomy-design.md)
-  - [codex-runner-test-plan.md](codex-runner-test-plan.md)
+  - [failure-taxonomy.md](failure-taxonomy.md)
+  - [test-plan.md](test-plan.md)
 
 ## 1. 这篇文档回答什么
 
@@ -30,13 +30,13 @@
   - 负责 fake user home、目录模型、环境变量、`workspace_mode` 和运行产物边界
 - [structured-init-design.md](structured-init-design.md)
   - 负责 `minimal-seed` manifest、结构化 `init`、`run_local` 边界与后续 `recall-eval` 接缝
-- [codex-exec-v0-contract.md](codex-exec-v0-contract.md)
+- [exec-v0-contract.md](exec-v0-contract.md)
   - 负责 `codex exec` 第一阶段返回契约、最小证据摘要与 failure 接缝
 - [probe-run-exec-contract.md](probe-run-exec-contract.md)
   - 负责方案 A 下 `probe.mjs` / `run-exec.mjs` 的 CLI 契约与脚本边界
-- [failure-taxonomy-design.md](failure-taxonomy-design.md)
+- [failure-taxonomy.md](failure-taxonomy.md)
   - 负责 `failure.kind/reason` 的稳定判定表与脚本归因边界
-- [codex-runner-test-plan.md](codex-runner-test-plan.md)
+- [test-plan.md](test-plan.md)
   - 负责 `probe.mjs` / `run-exec.mjs` 的 unit、CLI、harness 三层测试方案
 
 本文的核心判断保持不变：
@@ -244,10 +244,10 @@ skill 层不负责：
 
 - [clean-room-design.md](clean-room-design.md)
 - [structured-init-design.md](structured-init-design.md)
-- [codex-exec-v0-contract.md](codex-exec-v0-contract.md)
+- [exec-v0-contract.md](exec-v0-contract.md)
 - [probe-run-exec-contract.md](probe-run-exec-contract.md)
-- [failure-taxonomy-design.md](failure-taxonomy-design.md)
-- [codex-runner-test-plan.md](codex-runner-test-plan.md)
+- [failure-taxonomy.md](failure-taxonomy.md)
+- [test-plan.md](test-plan.md)
 
 脚本入口方案固定采用方案 A：
 
@@ -383,8 +383,8 @@ skill 层不负责：
 
 更完整的字段说明与 required / optional 约束见：
 
-- [codex-exec-v0-contract.md](codex-exec-v0-contract.md)
-- [failure-taxonomy-design.md](failure-taxonomy-design.md)
+- [exec-v0-contract.md](exec-v0-contract.md)
+- [failure-taxonomy.md](failure-taxonomy.md)
 
 ## 7. 建议的失败 taxonomy
 
@@ -418,7 +418,7 @@ skill 层不负责：
 
 更细的 `reason` 代码与判定矩阵见：
 
-- [failure-taxonomy-design.md](failure-taxonomy-design.md)
+- [failure-taxonomy.md](failure-taxonomy.md)
 
 ## 8. 推荐方案
 
@@ -448,7 +448,7 @@ skill 层不负责：
 5. 再把 `recall-eval` 的真实宿主验证接到这个 codex runner 上。
 6. 后续若 batch / CI / resume-thread 需求变重，再评估 `run-sdk.mjs`。
 7. 只有在确实需要 richer protocol 或长连接客户端时，再评估 `app-server`。
-8. 在脚本实现前，先按 [codex-runner-test-plan.md](codex-runner-test-plan.md) 固定 `unit / cli / harness` 三层测试边界与 fake `codex` 注入方式。
+8. 在脚本实现前，先按 [test-plan.md](test-plan.md) 固定 `unit / cli / harness` 三层测试边界与 fake `codex` 注入方式。
 
 ## 10. 参考来源
 
