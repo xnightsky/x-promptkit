@@ -1,0 +1,57 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+
+const mode = process.env.CODEX_FIXTURE_MODE ?? "probe_ok";
+const args = process.argv.slice(2);
+const eventsDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "events");
+
+function writeFileFixture(fileName) {
+  process.stdout.write(fs.readFileSync(path.join(eventsDir, fileName), "utf8"));
+}
+
+if (args[0] === "--version") {
+  if (mode === "version_probe_failed") {
+    process.stderr.write("version probe failed\n");
+    process.exit(1);
+  }
+
+  process.stdout.write("codex-fixture 1.2.3\n");
+  process.exit(0);
+}
+
+if (args[0] === "exec" && args[1] === "--help") {
+  if (mode === "exec_missing") {
+    process.stderr.write("unknown subcommand: exec\n");
+    process.exit(1);
+  }
+
+  if (mode === "json_flag_missing") {
+    process.stdout.write("Usage: codex exec <prompt>\n");
+    process.exit(0);
+  }
+
+  process.stdout.write("Usage: codex exec --json <prompt>\n  --json  emit jsonl events\n");
+  process.exit(0);
+}
+
+if (args[0] === "exec" && args[1] === "--json") {
+  if (mode === "run_auth_failed") {
+    writeFileFixture("run-auth-failed.jsonl");
+    process.stderr.write("401 unauthorized\n");
+    process.exit(1);
+  }
+
+  if (mode === "run_bad_jsonl") {
+    writeFileFixture("run-bad-jsonl.txt");
+    process.exit(0);
+  }
+
+  writeFileFixture("run-ok.jsonl");
+  process.exit(0);
+}
+
+process.stderr.write(`unsupported fixture invocation: ${args.join(" ")}\n`);
+process.exit(1);

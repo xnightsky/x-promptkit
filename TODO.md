@@ -94,23 +94,23 @@
   done when: `subagent` 子层只负责 probe、execution、subagent 特有错误分类、结果归一化；且第一阶段唯一允许独立出去的 carrier 是 `subagent`。
   depends on: 父层职责与统一结果骨架
 
-- [ ] 将 `codex` 从父层内部最小 adapter 重新评估为前置必要子层 `isolated-context-run:codex`。
+- [x] 将 `codex` 从父层内部最小 adapter 重新评估为前置必要子层 `isolated-context-run:codex`。
   done when: `codex` 子层独立承接 Codex 宿主下的 probe、execution、failure taxonomy、trace 采集与结果归一化；父层不再只以 `self-cli -> codex exec` 或 `mode=codex-exec` 的最小映射承载这条真实宿主路径。
   depends on: 父层职责与统一结果骨架
 
-- [ ] 固定 `isolated-context-run:codex` 的专项设计文档集合。
+- [x] 固定 `isolated-context-run:codex` 的专项设计文档集合。
   done when: 至少存在并互相引用 `docs/isolated-context-run-codex/clean-room-design.md`、`docs/isolated-context-run-codex/structured-init-design.md`、`docs/isolated-context-run-codex/exec-v0-contract.md`、`docs/isolated-context-run-codex/probe-run-exec-contract.md`、`docs/isolated-context-run-codex/failure-taxonomy.md`、`docs/isolated-context-run-codex/test-plan.md`；主文档保持总览角色，不再回流实现细节。
   depends on: `codex` 重新评估为前置必要子层
 
-- [ ] 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约。
+- [x] 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约。
   done when: 两个脚本都明确采用“结构化 JSON 输入 -> stdout JSON 输出”；业务失败进入输出 JSON，脚本退出码只用于请求不合法或脚本内部异常；`run-exec.mjs` 直接产出 `codex-exec-v0-contract`。
   depends on: `codex` 重新评估为前置必要子层
 
-- [ ] 固定 `failure.kind/reason` 的 v0 判定表。
+- [x] 固定 `failure.kind/reason` 的 v0 判定表。
   done when: `failure.kind` 只使用 `unavailable`、`environment_failure`、`contract_failure`、`runner_misconfiguration`；`reason` 统一为稳定 `snake_case` 代码；`unsupported_extra_args` 一类请求非法问题不进入业务 failure。
   depends on: 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约
 
-- [ ] 固定 `probe.mjs` / `run-exec.mjs` 的测试分层。
+- [x] 固定 `probe.mjs` / `run-exec.mjs` 的测试分层。
   done when: 文档与后续实现统一采用 `unit / cli / harness` 三层；黑盒 CLI 测试基线固定为 fake `codex` 注入 `PATH`；不把真实 Codex 宿主纳入第一阶段阻塞测试层。
   depends on: 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约；固定 `failure.kind/reason` 的 v0 判定表
 
@@ -202,7 +202,7 @@
   done when: 至少 1 条集成测试覆盖 carrier 存在但执行失败的上报路径，且失败归因落在 adapter / harness 层而不是 skill 契约层。
   depends on: 环境失败样例；真实 runner iitests 接入
 
-- [ ] 为 `isolated-context-run:codex` 增加 `unit / cli / harness` 三层测试。
+- [x] 为 `isolated-context-run:codex` 增加 `unit / cli / harness` 三层测试。
   done when: 至少有 `tests/codex-runner.lib.test.mjs`、`tests/codex-runner.probe.test.mjs`、`tests/codex-runner.run-exec.test.mjs`、`tests/codex-runner.harness.test.mjs`；并覆盖 fake `codex` 的 `probe_ok`、`probe_missing`、`run_ok`、`run_auth_failed`、`run_bad_jsonl` 五种最小行为集。
   depends on: 固定 `probe.mjs` / `run-exec.mjs` 的测试分层
 

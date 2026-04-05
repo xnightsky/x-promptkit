@@ -2,6 +2,19 @@
 
 这是 `isolated-context-run:codex` 的专题文档目录。
 
+当前仓库中的第一阶段 runtime 实现位于：
+
+- [../../scripts/isolated-context-run/README.md](../../scripts/isolated-context-run/README.md)
+- `scripts/isolated-context-run/codex/probe.mjs`
+- `scripts/isolated-context-run/codex/run-exec.mjs`
+- `tests/codex-runner.*.test.mjs`
+
+当前实现状态补充：
+
+- clean-room 已具备 `prepareCodexRunEnvironment(...)` 与 `cleanupCodexRunEnvironment(...)` 配对接口
+- 默认清理只处理当前 runner-managed run root
+- 历史遗留的 `run-xxxxx` git worktree 仍需人工精确回收
+
 建议阅读顺序：
 
 1. [research.md](research.md)
