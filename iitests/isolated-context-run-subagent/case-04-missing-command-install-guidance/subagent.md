@@ -6,7 +6,7 @@
 
 ## Input
 
-Use `/data/projects/x-promptkit/skills/isolated-context-run/SKILL.md`.
+Use `skills/isolated-context-run/SKILL.md`.
 
 Reply to this request:
 

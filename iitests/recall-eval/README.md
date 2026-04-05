@@ -51,8 +51,8 @@ The command receives one JSON request on stdin:
 {
   "phase": "task|recall",
   "prompt": "...",
-  "workspace_root": "/tmp/...",
-  "source_ref": "/tmp/.../AGENTS.md#anchor",
+  "workspace_root": "<workspace-root>",
+  "source_ref": "AGENTS.md#anchor",
   "carrier": "isolated-context-run:subagent",
   "case_id": "case-id",
   "medium": "skill-mechanism"

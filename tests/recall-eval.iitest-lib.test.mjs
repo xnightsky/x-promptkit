@@ -64,8 +64,8 @@ test("buildIitestSubagentRequest includes phase, workspace, and source binding",
     buildIitestSubagentRequest({
       phase: "recall",
       prompt: "你刚才把 alpha 写到了哪里？",
-      workspaceRoot: "/tmp/workspace-123",
-      sourceRef: "/tmp/workspace-123/AGENTS.md",
+      workspaceRoot: "<workspace-root>",
+      sourceRef: "AGENTS.md#anchor",
       carrier: "isolated-context-run:subagent",
       caseId: "case-01",
       medium: "skill-mechanism",
@@ -73,7 +73,7 @@ test("buildIitestSubagentRequest includes phase, workspace, and source binding",
   );
 
   assert.equal(request.phase, "recall");
-  assert.equal(request.workspace_root, "/tmp/workspace-123");
-  assert.equal(request.source_ref, "/tmp/workspace-123/AGENTS.md");
+  assert.equal(request.workspace_root, "<workspace-root>");
+  assert.equal(request.source_ref, "AGENTS.md#anchor");
   assert.equal(request.prompt, "你刚才把 alpha 写到了哪里？");
 });
