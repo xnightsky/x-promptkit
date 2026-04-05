@@ -22,3 +22,25 @@ self promptkit
 
 - 不要在仓库内容里写本机绝对路径，一律改成相对路径或占位符。
 - 不要只改实现不改文档；命令、输出格式、字段语义和开发流程变化都要同步更新说明。
+
+## Guided Review
+
+仓库内新增了一个引导式 CR skill：`skills/guided-code-review/`。
+
+- `SKILL.md`：定义引导式 review、技术细节澄清、回到 review 结论的主流程
+- `EXAMPLES.md`：定义典型交互案例
+- `references/technical-clarification.md`：保留一份技术细节澄清参考文档
+
+配套 wrapper 命令：
+
+- `npm run guided-review -- --worktree . --uncommitted`
+- `npm run guided-review -- --worktree .worktrees/isolated-context-run-codex --base main`
+- `npm run guided-review -- --worktree . --commit <sha> --prompt "重点看兼容性"`
+- `npm run guided-review -- --worktree . --dry-run`
+
+命令约定：
+
+- `--worktree` 必填，用来显式指定 review 目标
+- diff 选择支持 `--uncommitted`、`--base <branch>`、`--commit <sha>`
+- 不显式指定 diff 模式时，默认使用 `--uncommitted`
+- `--dry-run` 只打印最终 `codex review` 命令和 prompt，不执行真实 review
