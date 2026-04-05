@@ -3,7 +3,9 @@
 - 状态：内部研究记录
 - 目标：从个人开发者视角梳理当前做 Skill / Capability 开发时可借助的方法论、工具、平台与生态资源，并判断它们的现实门槛、时间/金钱成本与可达性边界
 - 研究时间：2026-04-04
-- 相关文档：如果关注“为什么 Skill 测试会卡在中间层、应该如何分层”，见 [capability-skill-dev-toolchain-research.md](/data/projects/x-promptkit/docs/capability-skill-dev-toolchain-research.md)
+- 相关文档：
+  - 如果关注“为什么 Skill 测试会卡在中间层、应该如何分层”，见 [capability-skill-dev-toolchain-research.md](/data/projects/x-promptkit/docs/capability-skill-dev-toolchain-research.md)
+  - 如果关注“个人开发者可以通过哪些正式/非正式渠道获取 AI 能力，以及这些渠道的可复用性与风险”，见 [how-to-get-ai.md](/data/projects/x-promptkit/docs/how-to-get-ai.md)
 
 ## 1. 这篇文档回答什么
 
@@ -57,7 +59,7 @@
 | LangChain + pytest | 开发框架 | 用通用 agent 框架加 Python 测试框架自己搭评测 | 中 | 时间 | 灵活但拼装成本高，容易把大量精力耗在 glue code 上 | 中，取决于你接入的模型和依赖环境 | 通常需要 API 或自接模型 | 中 | 已有 LangChain 代码栈时做定制化测试 | 作为零门槛现成方案推荐给所有人 | 可选 |
 | LlamaIndex + pytest | 开发框架 | 用 LlamaIndex 生态配 pytest 自建测试与评估 | 中 | 时间 | 更适合已有 LlamaIndex 场景；纯为 Skill 开发引入可能过重 | 中，取决于模型和依赖环境 | 通常需要 API 或自接模型 | 中 | RAG / retrieval 场景下的定制测试 | 为了测试一个轻量 Skill 而整套引入 | 可选 |
 | Cursor 内做 TDD 式 Prompt / Agent 开发 | 工具使用方式 | 借 IDE agent + 规则/工作流去执行你自己的 TDPE | 高 | 两者都有 | 强绑定 Cursor；免费能起步，但高强度 agent 使用会进入订阅和额度问题 | 中，官方可达性相对好，但仍受支付、地区和网络影响 | 通常需要工具订阅，或消耗内置 usage | 高 | IDE 内快速迭代和试验 | 作为仓库唯一前提或唯一评测链路 | 可选 |
-| Claude 内做 TDD 式 Prompt / Agent 开发 | 工具使用方式 | 借 Claude Code / Claude.ai / Claude API 去执行你自己的 TDPE | 高 | 两者都有 | Anthropic 账号体系、支持地区和套餐路径会直接影响可用性 | 高，个人开发者可能会被支持地区、支付路径或网络条件卡住 | 通常需要 Anthropic 账号、API 或商业计划 | 中 | Claude 生态内的 Prompt / Skill 试验与协作 | 写成所有维护者都可默认使用的前提 | 可选 |
+| Claude 内做 TDD 式 Prompt / Agent 开发 | 工具使用方式 | 借 Claude Code / Claude.ai / Claude API 去执行你自己的 TDPE | 高 | 两者都有 | Anthropic 账号体系、支持地区和套餐路径会直接影响可用性；第一方产品与第三方 harness 的额度覆盖边界也可能变化 | 高，个人开发者可能会被支持地区、支付路径或网络条件卡住 | 通常需要 Anthropic 账号、API 或商业计划 | 中，取决于你复用的是 Claude 官方产品、API，还是第三方宿主 | 在 Claude 官方产品边界内做 Prompt / Skill 试验与协作 | 写成所有维护者都可默认使用的前提，或默认第三方 harness 仍由订阅兜底 | 可选 |
 | Agent Skills / `SKILL.md` | 规范/生态 | 开放格式的能力描述与渐进加载规范 | 中 | 时间 | 规范本身简单，但真正有效的 skill 内容仍要你自己写 | 低，规范本身没有地区门槛 | 否 | 高 | 沉淀可迁移的能力包、约束和资源组织 | 当成完整 runtime、eval 或 sandbox 解决方案 | 主推 |
 | Skill = SOP + 工具 + 测试 | 架构思路 | 把 Skill 从 prompt 升级为有流程、工具和测试的能力单元 | 中 | 时间 | 最大难点在边界设计，不在格式本身 | 低，本身没有渠道门槛 | 否 | 高 | 指导 Skill 设计思路 | 当成现成产品名称或行业标准 | 主推 |
 | Skill 测试覆盖 | 数据资产 / 实践 | 你为 Skill 自己定义的 case、guardrails、机制与回归集 | 中 | 时间 | 最难的是界定测什么，不是写 case 本身 | 低，本身没有渠道门槛 | 否 | 高 | 做真实 Skill 回归与保护边界 | 期待社区有一套通用现成覆盖直接套用 | 主推 |
@@ -98,11 +100,13 @@
 
 - Cursor、Claude、Codex、OpenCode 这类 agent 入口
 - LLM-as-Judge、A/B 测试、Promptfoo 这类会放大模型调用次数的模式或工具
-- 任何你手头明明已有一个 AI 工具套餐，但为了另一条链路又要再买一套接入资格的方案
+- 任何你手头明明已有一个 AI 工具套餐，但为了另一条链路又要再买一套接入资格，或补额外 usage / API 的方案
 
 典型风险不是“它不好”，而是：
 
 - 你已经有某个 AI 入口，但这个新工具不能直接复用
+- 你以为自己是在复用已有套餐，实际上是在切换宿主、认证方式和计费边界
+- 同一家模型的第一方产品内扩展能力，和第三方 harness / 独立 agent 工具，未必共享同一套额度覆盖规则
 - 你以为只是引入一个工具，实际上同时引入了新 API、额度、配额和使用习惯
 - 你还没形成稳定评测流程，就先把调用成本放大了
 
@@ -130,7 +134,7 @@
 大体上可以这样判断：
 
 - 如果你已经深度使用 Cursor，那么“在 Cursor 内做规则化开发”通常比再单独购入另一条 IDE 入口更顺
-- 如果你已经稳定使用 Claude Code 或 Claude API，那么相关的 skill 规范、示例和 Claude 内工作流更容易接上
+- 如果你已经稳定使用 Claude Code 或 Claude API，那么相关的 skill 规范、示例和 Claude 内工作流更容易接上；但这不自动意味着第三方宿主也继续由同一订阅覆盖
 - 如果你已经在 OpenAI / ChatGPT 生态里，Codex 路径通常复用性更高
 - 如果你不想被某一家绑定，OpenCode、OpenSkills 这类 provider-agnostic 方案更值得研究
 
@@ -138,7 +142,8 @@
 
 - “能复用某个账号”不等于“能复用整套能力”
 - 很多看起来兼容多模型的工具，仍然要求你补新的 provider 配置、额度管理或工作流适配
-- 能否复用，应该先看它复用的是 **账号**、**API**、**宿主环境**，还是只是“理论上支持同一家模型”
+- 对 Claude 这类产品，要区分 `Claude.ai`、`Claude Code` 这类第一方宿主，与 OpenCode、OpenClaw 这类第三方宿主；同样叫 MCP，或同样调用 Claude，不代表计费边界相同
+- 能否复用，应该先看它复用的是 **账号**、**API**、**宿主环境**、**计费边界**，还是只是“理论上支持同一家模型”
 
 ## 6. 对本仓库的建议
 
