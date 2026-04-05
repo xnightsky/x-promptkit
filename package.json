@@ -3,6 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "npm run lint:code && npm run lint:docs && npm run lint:repo",
+    "lint:code": "node scripts/tooling/lint-code.mjs",
+    "lint:docs": "node scripts/tooling/lint-docs.mjs",
+    "lint:repo": "node scripts/tooling/lint-repo.mjs",
+    "check": "npm run check:fixtures",
+    "check:fixtures": "node scripts/tooling/check-fixtures.mjs",
+    "verify": "npm run lint && npm run check && npm test",
     "test": "node --test",
     "test:recall-unit": "node --test tests/recall-eval.lib.test.mjs",
     "test:recall-bridge": "node --test tests/recall-eval.carrier-adapter.test.mjs",
