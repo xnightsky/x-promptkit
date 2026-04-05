@@ -4,10 +4,19 @@ These scripts are the current evaluator/runtime entrypoints for the `recall-eval
 
 Commands:
 
+- `npm run lint`
+- `npm run check`
+- `npm run verify`
 - `npm run recall:validate -- <yaml-path>`
 - `npm run recall:resolve -- <yaml-path>`
 - `npm run recall:run -- <yaml-path> --case <id> --answer "<text>"`
 - `npm run recall:iitest -- <suite-yaml> [--case <id>] [--keep-workspace]`
+
+Development rules:
+
+- Runtime or contract changes must update this README, the related `SKILL.md` / `EXAMPLES.md`, and any affected fixtures together.
+- Non-obvious carrier normalization, queue validation branches, and fixed report-shape logic must keep explanatory comments in code.
+- Before claiming the runtime work is complete, run `npm run lint`; if fixtures changed, also run `npm run check`; use `npm run verify` for a full local gate.
 
 Responsibilities:
 
