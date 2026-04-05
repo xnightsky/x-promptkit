@@ -9,7 +9,7 @@ description: Use when reviewing a code change and the reviewer needs guided ques
 
 Guide one review point at a time. Ask focused questions first, clarify technical details only when needed, then return to the review decision.
 
-Use [EXAMPLES.md](./EXAMPLES.md) for concrete interaction shapes and [references/technical-clarification.md](./references/technical-clarification.md) when the reviewer needs a deeper explanation before continuing.
+Use [HELP.md](./HELP.md) for the lightweight help response, [EXAMPLES.md](./EXAMPLES.md) for concrete interaction shapes, and [references/technical-clarification.md](./references/technical-clarification.md) when the reviewer needs a deeper explanation before continuing.
 
 ## Scope
 
@@ -27,6 +27,18 @@ This skill does not own:
 - long detached tutorials unrelated to the current review point
 
 ## Modes
+
+### `help-mode`
+
+Enter this mode when the user message contains an independent `$guided-code-review --help` snippet.
+
+Boundary rules:
+
+- match the exact snippet anywhere in the message
+- require natural boundaries around the snippet, such as whitespace, punctuation, start of line, or end of line
+- do not treat partial strings, aliases, or fuzzy variants as a help request
+- respond with the compact help skeleton from [HELP.md](./HELP.md)
+- do not enter `review-guide`, `detail-clarifier`, or `return-to-review` while serving help mode
 
 ### `review-guide`
 

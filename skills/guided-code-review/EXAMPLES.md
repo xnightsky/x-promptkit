@@ -2,6 +2,37 @@
 
 This file is the companion corpus for [SKILL.md](./SKILL.md). Each case defines trigger phrases, minimum context, expected interaction shape, acceptance criteria, and anti-patterns.
 
+## Case 00: help 请求走独立帮助骨架
+
+触发方式：
+
+- `$guided-code-review --help`
+- “先别开始，给我 `$guided-code-review --help` 看看”
+
+最小上下文：
+
+- 不需要 diff
+- 只需要明确 help 片段是独立出现的
+
+期望行为：
+
+- 命中 `help-mode`
+- 输出 [HELP.md](./HELP.md) 的帮助骨架
+- 说明用途、适用场景、输入要求和快速开始
+- 不进入当前 review 点的提问流程
+
+验收标准：
+
+- 输出包含 `Skill`、`When To Use`、`What To Provide`、`Quick Start`
+- 不输出 `Current Review Point`
+- 不输出 `Guiding Questions`
+- 不输出 `Review Direction`
+
+反例：
+
+- “这里先帮我解释一下字符串 `$guided-code-review --help` 是什么含义”
+- “我想试试 `$guided-code-review --hel`”
+
 ## Case 01: 引导 reviewer 先想清楚再下结论
 
 触发方式：
