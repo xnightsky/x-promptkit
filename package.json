@@ -10,7 +10,7 @@
     "check": "npm run check:fixtures",
     "check:fixtures": "node scripts/tooling/check-fixtures.mjs",
     "verify": "npm run lint && npm run check && npm test",
-    "guided-review": "node scripts/guided-review/run-review.mjs",
+    "guided-review": "node skills/guided-review/scripts/run-review.mjs",
     "test": "node --test",
     "test:recall-unit": "node --test tests/recall-eval.lib.test.mjs",
     "test:recall-bridge": "node --test tests/recall-eval.carrier-adapter.test.mjs",

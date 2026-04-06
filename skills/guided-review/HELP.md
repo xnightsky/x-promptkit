@@ -1,10 +1,10 @@
-# Guided Code Review Help
+# Guided Review Help
 
 ## Skill
 
-`guided-code-review` helps a reviewer work through one concrete review point at a time before deciding whether feedback is actionable.
+`guided-review` helps a reviewer work through one concrete review point at a time before deciding whether feedback is actionable.
 
-This skill is configured for explicit invocation only. Mention `guided-code-review` or use the help snippet to activate it.
+This skill is configured for explicit invocation only. Mention `guided-review` or use the help snippet to activate it.
 
 ## When To Use
 
@@ -15,8 +15,10 @@ This skill is configured for explicit invocation only. Mention `guided-code-revi
 ## What It Does
 
 - 先聚焦当前 review 点，而不是一开始铺开完整 checklist
-- 先问少量高价值问题，再总结已知证据
+- 当前轮先问 1 到 2 个高价值问题，整个 review 点累计通常控制在 2 到 4 个
+- 只要已经拿到部分答案、局部证据或一个风险信号，就先推给你
 - 技术细节不清楚时，先补澄清，再回到当前 review 判断
+- 你可以中途质疑当前判断或追问代码知识点，它会先回答当前问题，再继续剩余问题
 - 证据足够时，再帮你收束成可执行的 review comment
 
 ## What To Provide
@@ -29,7 +31,8 @@ This skill is configured for explicit invocation only. Mention `guided-code-revi
 
 - 这个 skill 只接受显式触发，不会依赖描述自动命中
 - 直接说你想看的 review 点，例如“帮我 review 这个重试逻辑，但先别急着下结论”
-- 如果你只想看帮助，发出独立片段 `$guided-code-review --help`
+- 如果你只想看帮助，发出独立片段 `$guided-review --help`
+- 如果你需要 skill 自带的开发入口，可以运行 `npm run guided-review -- --dry-run`
 - 如果你已经确认问题成立，可以要求它帮你整理 comment
 
 ## Modes
@@ -43,3 +46,4 @@ This skill is configured for explicit invocation only. Mention `guided-code-revi
 - 一上来就做仓库级 checklist 扫描
 - 脱离当前 review 点的大段泛化教程
 - 没有具体代码点或上下文时，直接给高置信度结论
+- 把当前 skill 误当成独立产品级 review CLI
