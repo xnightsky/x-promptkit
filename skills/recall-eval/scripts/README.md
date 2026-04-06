@@ -33,7 +33,7 @@ Test layers:
 - `npm run test:recall-bridge`: carrier adapter contract coverage without requiring a real host subagent
 - `npm run test:recall-cli`: black-box CLI coverage for `validate-schema`, `resolve-target`, and `run-eval`
 - `npm run test:recall-harness`: initialized-workspace harness coverage with a fake child executor
-- `iitests/recall-eval/`: non-blocking repo-root smoke orchestration for initialized-workspace recall via a real host runner
+- `integration-tests/recall-eval/`: non-blocking repo-root smoke orchestration for initialized-workspace recall via a real host runner
 
 `run-iitest.mjs` expects a suite yaml that points at:
 

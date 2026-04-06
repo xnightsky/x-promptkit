@@ -29,7 +29,7 @@ Do not keep ${tempPath} in committed fixtures.
   assert.deepEqual(matches, [repoPath, tempPath]);
 });
 
-test("classifyFixturePath distinguishes recall queues from iitest suites", () => {
+test("classifyFixturePath distinguishes recall queues from integration-test suites", () => {
   assert.deepEqual(classifyFixturePath("skills/recall-eval/.recall/queue.yaml"), {
     kind: "recall",
     expectValid: true,
@@ -38,8 +38,8 @@ test("classifyFixturePath distinguishes recall queues from iitest suites", () =>
     kind: "recall",
     expectValid: false,
   });
-  assert.deepEqual(classifyFixturePath("iitests/recall-eval/smoke.test.yaml"), {
-    kind: "iitest",
+  assert.deepEqual(classifyFixturePath("integration-tests/recall-eval/smoke.test.yaml"), {
+    kind: "integration-test",
     expectValid: true,
   });
 });

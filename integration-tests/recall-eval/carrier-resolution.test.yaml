@@ -1,6 +1,6 @@
 name: recall-eval carrier resolution
-queue: iitests/recall-eval/fixtures/task-memory/.recall/queue.yaml
-fixture_ref: iitests/recall-eval/fixtures/task-memory
+queue: integration-tests/recall-eval/fixtures/task-memory/.recall/queue.yaml
+fixture_ref: integration-tests/recall-eval/fixtures/task-memory
 carrier: isolated-context-run:subagent
 task_prompt: |
   Read the workspace instructions and create `notes/task-log.md` with the single line `alpha`.

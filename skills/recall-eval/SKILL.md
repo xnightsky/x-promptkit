@@ -40,7 +40,7 @@ Recommended convention:
 - keep recall fixtures under `.recall/`
 - prefer names like `queue.yaml`, `selftest.yaml`, or other descriptive yaml names
 - keep real evaluation fixtures next to the prompt target they evaluate
-- keep integration orchestration under `iitests/`
+- keep integration orchestration under `integration-tests/`
 - treat example paths like `<memory-target>/.recall/queue.yaml` as layout examples, not implicit repository defaults
 
 This is only a convention. Any yaml path is acceptable if it matches the recall schema.
@@ -191,7 +191,7 @@ Recommended format:
 
 ## Validation Strategy
 
-Do not tie validation to `iitests`.
+Do not tie validation to `integration-tests`.
 
 Preferred layers:
 
@@ -199,7 +199,7 @@ Preferred layers:
 - carrier-resolution validation from explicit carrier and missing-carrier cases
 - scoring validation from deterministic self-test cases
 
-Use standalone yaml fixtures for schema and scoring helpers. Use `iitests` when the evaluation needs initialized workspace state, task execution, or prompt-based child-agent recall.
+Use standalone yaml fixtures for schema and scoring helpers. Use `integration-tests` when the evaluation needs initialized workspace state, task execution, or prompt-based child-agent recall.
 
 Script entrypoints:
 
@@ -227,6 +227,6 @@ Use these paths when they exist:
 - `<memory-target>/.recall/README.md` for memory-target queue field conventions when such a target exists
 - `.instruction/skills/ai/recall-eval/.recall/queue.yaml` for `recall-eval` self-test cases
 - `skills/recall-eval/.recall/queue.yaml` for the target-local example queue
-- `iitests/recall-eval/` for initialized-workspace recall orchestration
+- `integration-tests/recall-eval/` for initialized-workspace recall orchestration
 - [SAMPLE-QUEUE.yaml](./SAMPLE-QUEUE.yaml) for a minimal compatible fixture
 - [EXAMPLES.md](./EXAMPLES.md) for canonical response shapes

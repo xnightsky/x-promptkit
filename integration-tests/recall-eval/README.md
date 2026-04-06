@@ -1,4 +1,4 @@
-# recall-eval iitests
+# recall-eval integration-tests
 
 These files define repo-root integration orchestration for initialized-workspace recall.
 

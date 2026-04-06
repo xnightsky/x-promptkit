@@ -44,7 +44,7 @@
   - `skills/recall-eval/scripts/README.md`
   - `skills/recall-eval/scripts/run-eval.mjs`
   - `tests/recall-eval.test.mjs`
-  - `iitests/recall-eval/README.md`
+  - `integration-tests/recall-eval/README.md`
 - 外部参考按层分组：
   - Artifact / skill 规范：
     - Agent Skills overview / specification
@@ -198,13 +198,13 @@
 
 ### integration
 
-- [x] 把 `iitests/recall-eval/` 从静态 fixture 层接到 `recall-evaluator` 的 runtime runner 入口。
-  done when: iitests 能驱动 `run-iitest` / harness runner 入口，覆盖初始化 workspace、任务阶段、recall 阶段与评分；这一层仍属于 runtime integration，不作为 skill 真实宿主验证的完成证明。
+- [x] 把 `integration-tests/recall-eval/` 从静态 fixture 层接到 `recall-evaluator` 的 runtime runner 入口。
+  done when: integration-tests 能驱动 `run-iitest` / harness runner 入口，覆盖初始化 workspace、任务阶段、recall 阶段与评分；这一层仍属于 runtime integration，不作为 skill 真实宿主验证的完成证明。
   depends on: `recall-eval` 两层拆分；明确默认 queue fallback 策略
 
 - [ ] 增加 carrier 失败上报的集成覆盖。
   done when: 至少 1 条集成测试覆盖 carrier 存在但执行失败的上报路径，且失败归因落在 adapter / harness 层而不是 skill 契约层。
-  depends on: 环境失败样例；真实 runner iitests 接入
+  depends on: 环境失败样例；真实 runner integration-tests 接入
 
 - [x] 为 `isolated-context-run:codex` 增加 `unit / cli / harness` 三层测试。
   done when: 至少有 `tests/codex-runner.lib.test.mjs`、`tests/codex-runner.probe.test.mjs`、`tests/codex-runner.run-exec.test.mjs`、`tests/codex-runner.harness.test.mjs`；并覆盖 fake `codex` 的 `probe_ok`、`probe_missing`、`run_ok`、`run_auth_failed`、`run_bad_jsonl` 五种最小行为集。
@@ -212,13 +212,13 @@
 
 - [ ] 增加 queue-level 与 case-level `source_ref` 混用场景的集成覆盖。
   done when: 至少 1 条集成测试同时覆盖 queue 默认值和 case override 的解析结果。
-  depends on: 真实 runner iitests 接入
+  depends on: 真实 runner integration-tests 接入
 
 ### real host validation
 
 - [ ] 建立以 Codex 为主的 `recall-eval` 真实宿主验证。
   done when: 真实 Codex 宿主在原生加载 `skills/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `skills/recall-eval/scripts/*.mjs` 伪装为真实宿主通过。
-  depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner iitests 接入
+  depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner integration-tests 接入
 
 ## P3 live run 与批量评测
 
@@ -226,7 +226,7 @@
 
 - [ ] 为 `recall-evaluator` CLI / harness 增加 live 模式，让它能通过已解析的 carrier 获取模型真实回答，而不是只对预先提供的答案打分。
   done when: live 执行入口能区分“打分已有答案”和“获取真实回答后再打分”两种模式，且运行责任归属 `recall-evaluator` 而不是 `recall-eval` skill。
-  depends on: P0 全部完成；`isolated-context-run:subagent` 调用桥；真实 runner iitests 接入
+  depends on: P0 全部完成；`isolated-context-run:subagent` 调用桥；真实 runner integration-tests 接入
 
 - [ ] 定义一份稳定的 recall request contract，包含 `source_ref`、case `question`、carrier 约束，以及“只能依据目标提示词回答”的指令。
   done when: 请求模板字段稳定、可复用，并能在 live 模式、后续批量执行和 adapter 层之间共享。

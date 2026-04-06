@@ -1,8 +1,8 @@
-# isolated-context-run-subagent iitests
+# isolated-context-run-subagent integration-tests
 
-This directory stores independent Markdown-based iitests for the `isolated-context-run` parent layer and the `isolated-context-run:subagent` child layer.
+This directory stores independent Markdown-based integration-tests for the `isolated-context-run` parent layer and the `isolated-context-run:subagent` child layer.
 
-These files do not depend on `recall-eval` and follow the repo-root `iitests/` convention.
+These files do not depend on `recall-eval` and follow the repo-root `integration-tests/` convention.
 
 ## Purpose
 
@@ -30,10 +30,10 @@ For every `case-*` directory in this directory:
 
 Example:
 
-- read `iitests/isolated-context-run-subagent/case-01-default-route-to-sublayer/subagent.md`
+- read `integration-tests/isolated-context-run-subagent/case-01-default-route-to-sublayer/subagent.md`
 - send its `## Input` plus its `## Execution Constraints` to a subagent
 - wait for that subagent to finish
-- validate the returned text with `iitests/isolated-context-run-subagent/case-01-default-route-to-sublayer/main-agent-assert.md`
+- validate the returned text with `integration-tests/isolated-context-run-subagent/case-01-default-route-to-sublayer/main-agent-assert.md`
 
 Do not send the whole `subagent.md` file as-is.
 Do not omit `## Execution Constraints`.

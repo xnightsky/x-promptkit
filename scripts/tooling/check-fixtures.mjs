@@ -33,7 +33,7 @@ for (const filePath of yamlFiles) {
   const suite = YAML.parse(fs.readFileSync(filePath, "utf8"));
   const report = validateIitestSuite(suite);
   if (report.isValid !== fixture.expectValid) {
-    failures.push(`${filePath}: expected valid iitest suite`);
+    failures.push(`${filePath}: expected valid integration-test suite`);
   }
 }
 

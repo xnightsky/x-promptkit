@@ -339,11 +339,11 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ---
 
-## Case 06: 独立于 iitests 的 fixture 验证
+## Case 06: 独立于 integration-tests 的 fixture 验证
 
 触发方式：
 
-- “这个 recall yaml 不接 iitests 能不能先验”
+- “这个 recall yaml 不接 integration-tests 能不能先验”
 - “先只做 queue/schema 级验证”
 
 最小上下文：
@@ -352,40 +352,40 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 期望产出：
 
-- 明确 schema/integrity 检查可以独立于 `iitests`
-- 说明 initialized-workspace recall 才需要 `iitests`；单纯 queue/schema 校验不需要
+- 明确 schema/integrity 检查可以独立于 `integration-tests`
+- 说明 initialized-workspace recall 才需要 `integration-tests`；单纯 queue/schema 校验不需要
 
 验收标准：
 
 - 输出明确区分 fixture 校验和集成执行
-- 不把 `iitests` 写成必选前置
+- 不把 `integration-tests` 写成必选前置
 
 反例：
 
-- 没有 `iitests` 就拒绝做 queue 校验
-- 把 `iitests` 当成 recall-eval 的 schema 解释器
+- 没有 `integration-tests` 就拒绝做 queue 校验
+- 把 `integration-tests` 当成 recall-eval 的 schema 解释器
 
 ---
 
-## Case 07: iitests 只负责集成编排
+## Case 07: integration-tests 只负责集成编排
 
 触发方式：
 
-- “iitests 放哪里”
+- “integration-tests 放哪里”
 - “哪些属于集成层”
 
 最小上下文：
 
-- `iitests/recall-eval/`
+- `integration-tests/recall-eval/`
 - 目标旁 `.recall/`
 
 期望产出：
 
 - 说明真实 queue 跟着目标走
-- 说明 `iitests/recall-eval/` 负责初始化 workspace、执行任务阶段、再跑 recall 阶段
-- 不把 iitests 当成 queue 主存储
+- 说明 `integration-tests/recall-eval/` 负责初始化 workspace、执行任务阶段、再跑 recall 阶段
+- 不把 integration-tests 当成 queue 主存储
 
 反例：
 
-- 把所有真实 queue 都搬到 `iitests/`
+- 把所有真实 queue 都搬到 `integration-tests/`
 - 把 `.recall` 当成纯测试目录而不是目标本地评测资产

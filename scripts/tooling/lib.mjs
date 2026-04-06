@@ -103,9 +103,9 @@ export function classifyFixturePath(relativePath) {
     };
   }
 
-  if (normalizedPath.startsWith("iitests/") && normalizedPath.endsWith(".yaml")) {
+  if (normalizedPath.startsWith("integration-tests/") && normalizedPath.endsWith(".yaml")) {
     return {
-      kind: "iitest",
+      kind: "integration-test",
       expectValid: true,
     };
   }

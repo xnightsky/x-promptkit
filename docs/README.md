@@ -36,6 +36,6 @@
 ## 开发校验
 
 - 文档改动也属于开发改动，提交前至少执行 `npm run lint`。
-- 如果改动同时影响 queue、skill 契约或 iitest suite，再补跑 `npm run check`。
+- 如果改动同时影响 queue、skill 契约或 integration-test suite，再补跑 `npm run check`。
 - 需要完整交付校验时，统一执行 `npm run verify`。
 - 对非显然约束、术语边界和执行限制要补注释或说明，不要只留下结论句。

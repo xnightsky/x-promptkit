@@ -1,8 +1,8 @@
-# isolated-context-run-codex iitests
+# isolated-context-run-codex integration-tests
 
-This directory stores Markdown-based iitests for the `isolated-context-run` frontdoor when it routes into the dedicated Codex sublayer, plus direct child-layer Codex scenarios.
+This directory stores Markdown-based integration-tests for the `isolated-context-run` frontdoor when it routes into the dedicated Codex sublayer, plus direct child-layer Codex scenarios.
 
-Each case follows the same two-file contract as the existing subagent iitests:
+Each case follows the same two-file contract as the existing subagent integration-tests:
 
 - `subagent.md`
 - `main-agent-assert.md`

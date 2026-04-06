@@ -1,6 +1,6 @@
 name: recall-eval queue integrity
 queue: skills/recall-eval/.recall/broken-missing-medium.yaml
-fixture_ref: iitests/recall-eval/fixtures/task-memory
+fixture_ref: integration-tests/recall-eval/fixtures/task-memory
 carrier: isolated-context-run:subagent
 task_prompt: |
   This suite only checks that queue validation fails before any task execution.

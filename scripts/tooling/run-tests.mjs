@@ -18,7 +18,10 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, ["--test", ...testFiles], {
+// The maintained suite includes harness cases that patch fs globals and
+// create/remove real git worktrees. Run the repo test entry serially so the
+// default verification command stays deterministic across environments.
+const result = spawnSync(process.execPath, ["--test", "--test-concurrency=1", ...testFiles], {
   cwd: rootDir,
   stdio: "inherit",
 });
