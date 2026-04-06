@@ -9,7 +9,7 @@ import {
   validateProbeRequest,
   validateRunExecRequest,
   validateWorkspaceProfile,
-} from "../scripts/isolated-context-run/codex/lib.mjs";
+} from "../skills/isolated-context-run-codex/scripts/lib.mjs";
 
 test("validateProbeRequest defaults codex_command for exec-json backend", () => {
   assert.deepEqual(validateProbeRequest({ backend: "exec-json" }), {

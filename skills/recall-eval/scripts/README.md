@@ -1,4 +1,4 @@
-# recall-evaluator runtime (`scripts/recall-eval`)
+# recall-evaluator runtime (`skills/recall-eval/scripts`)
 
 These scripts are the current evaluator/runtime entrypoints for the `recall-eval` contract. They do not turn the skill itself into the live runtime.
 

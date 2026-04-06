@@ -1,14 +1,14 @@
-# isolated-context-run runtime (`scripts/isolated-context-run`)
+# isolated-context-run runtime (`skills/isolated-context-run-codex/scripts`)
 
 These scripts are the runtime-side helpers for isolated carriers. The skill layer stays the frontdoor; the runtime layer owns clean-room, host execution, trace normalization, and artifact persistence.
 
 Current Codex entrypoints:
 
-- `scripts/isolated-context-run/codex/probe.mjs`
-- `scripts/isolated-context-run/codex/run-exec.mjs`
-- `scripts/isolated-context-run/codex/clean-room.mjs`
-- `scripts/isolated-context-run/codex/skill-loading.mjs`
-- `scripts/isolated-context-run/codex/workspace-profile.mjs`
+- `skills/isolated-context-run-codex/scripts/probe.mjs`
+- `skills/isolated-context-run-codex/scripts/run-exec.mjs`
+- `skills/isolated-context-run-codex/scripts/clean-room.mjs`
+- `skills/isolated-context-run-codex/scripts/skill-loading.mjs`
+- `skills/isolated-context-run-codex/scripts/workspace-profile.mjs`
 
 Recommended local checks for Codex runner work:
 

@@ -9,14 +9,17 @@ import {
   cleanupCodexRunEnvironment,
   prepareCodexRunEnvironment,
   resolveGitCommandRepoRoot,
-} from "../scripts/isolated-context-run/codex/clean-room.mjs";
-import { materializeResolvedSkillView } from "../scripts/isolated-context-run/codex/skill-loading.mjs";
-import { runExecRequest } from "../scripts/isolated-context-run/codex/run-exec.mjs";
+} from "../skills/isolated-context-run-codex/scripts/clean-room.mjs";
+import { materializeResolvedSkillView } from "../skills/isolated-context-run-codex/scripts/skill-loading.mjs";
+import { runExecRequest } from "../skills/isolated-context-run-codex/scripts/run-exec.mjs";
 
 const repoRoot = process.cwd();
 const fixtureBinDir = path.join(repoRoot, "tests", "fixtures", "codex-runner", "fake-bin");
 const fixtureCodexCommand =
   process.platform === "win32" ? path.join(fixtureBinDir, "codex.cmd") : "codex";
+// These harness cases patch fs globals and create/remove real git worktrees,
+// so they must not overlap under the Node test runner.
+const serial = { concurrency: false };
 
 function gitWorktreeList() {
   return execFileSync("git", ["worktree", "list", "--porcelain"], {
@@ -25,7 +28,7 @@ function gitWorktreeList() {
   });
 }
 
-test("resolveGitCommandRepoRoot maps a Windows gitdir reference back to the mounted repo root", (t) => {
+test("resolveGitCommandRepoRoot maps a Windows gitdir reference back to the mounted repo root", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-git-meta-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -44,7 +47,7 @@ test("resolveGitCommandRepoRoot maps a Windows gitdir reference back to the moun
   );
 });
 
-test("prepareCodexRunEnvironment creates a git-worktree clean room with metadata", (t) => {
+test("prepareCodexRunEnvironment creates a git-worktree clean room with metadata", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-git-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -67,7 +70,7 @@ test("prepareCodexRunEnvironment creates a git-worktree clean room with metadata
   assert.equal(gitWorktreeList().includes(prepared.workingDirectory), false);
 });
 
-test("prepareCodexRunEnvironment defaults to workspace-link and records resolved metadata", (t) => {
+test("prepareCodexRunEnvironment defaults to workspace-link and records resolved metadata", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-link-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -103,7 +106,7 @@ test("prepareCodexRunEnvironment defaults to workspace-link and records resolved
   assert.equal(fs.existsSync(fixtureRoot), true);
 });
 
-test("prepareCodexRunEnvironment documents workspace-link write-through behavior", (t) => {
+test("prepareCodexRunEnvironment documents workspace-link write-through behavior", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-write-through-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -125,7 +128,7 @@ test("prepareCodexRunEnvironment documents workspace-link write-through behavior
   assert.equal(fs.existsSync(path.join(fixtureRoot, "notes.md")), true);
 });
 
-test("prepareCodexRunEnvironment falls back from default workspace-link to git-worktree", (t) => {
+test("prepareCodexRunEnvironment falls back from default workspace-link to git-worktree", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-fallback-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -158,7 +161,7 @@ test("prepareCodexRunEnvironment falls back from default workspace-link to git-w
   assert.equal(gitWorktreeList().includes(prepared.workingDirectory), false);
 });
 
-test("prepareCodexRunEnvironment does not silently downgrade explicit workspace-link requests", (t) => {
+test("prepareCodexRunEnvironment does not silently downgrade explicit workspace-link requests", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-link-explicit-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -186,7 +189,7 @@ test("prepareCodexRunEnvironment does not silently downgrade explicit workspace-
   );
 });
 
-test("prepareCodexRunEnvironment supports minimal-seed with init steps and init report", (t) => {
+test("prepareCodexRunEnvironment supports minimal-seed with init steps and init report", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-seed-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -228,7 +231,7 @@ test("prepareCodexRunEnvironment supports minimal-seed with init steps and init 
   assert.equal(fs.existsSync(prepared.runRoot), false);
 });
 
-test("materializeResolvedSkillView links the winning skill source into the target root", (t) => {
+test("materializeResolvedSkillView links the winning skill source into the target root", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-view-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -257,7 +260,7 @@ test("materializeResolvedSkillView links the winning skill source into the targe
   assert.equal(fs.readFileSync(path.join(linkedPath, "SKILL.md"), "utf8"), "# dev\n");
 });
 
-test("prepareCodexRunEnvironment materializes the resolved skills view into tmp HOME for run-exec", (t) => {
+test("prepareCodexRunEnvironment materializes the resolved skills view into tmp HOME for run-exec", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-runtime-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -327,7 +330,7 @@ test("prepareCodexRunEnvironment materializes the resolved skills view into tmp 
   ]);
 });
 
-test("prepareCodexRunEnvironment seeds tmp CODEX_HOME with minimal inherited auth files only", (t) => {
+test("prepareCodexRunEnvironment seeds tmp CODEX_HOME with minimal inherited auth files only", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-home-seed-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -391,7 +394,7 @@ test("prepareCodexRunEnvironment seeds tmp CODEX_HOME with minimal inherited aut
   assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "tmp")), false);
 });
 
-test("runExecRequest writes the expected artifacts for successful runs", (t) => {
+test("runExecRequest writes the expected artifacts for successful runs", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-harness-run-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -442,7 +445,7 @@ test("runExecRequest writes the expected artifacts for successful runs", (t) => 
   assert.equal(fs.existsSync(prepared.runRoot), false);
 });
 
-test("cleanupCodexRunEnvironment keeps the prepared root when explicitly requested", (t) => {
+test("cleanupCodexRunEnvironment keeps the prepared root when explicitly requested", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-keep-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -464,7 +467,7 @@ test("cleanupCodexRunEnvironment keeps the prepared root when explicitly request
   assert.equal(fs.existsSync(prepared.runRoot), true);
 });
 
-test("cleanupCodexRunEnvironment is idempotent for git-worktree runs", (t) => {
+test("cleanupCodexRunEnvironment is idempotent for git-worktree runs", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-idempotent-"));
   t.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });

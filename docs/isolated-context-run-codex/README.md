@@ -4,9 +4,9 @@
 
 当前仓库中的第一阶段 runtime 实现位于：
 
-- [../../scripts/isolated-context-run/README.md](../../scripts/isolated-context-run/README.md)
-- `scripts/isolated-context-run/codex/probe.mjs`
-- `scripts/isolated-context-run/codex/run-exec.mjs`
+- [../../skills/isolated-context-run-codex/scripts/README.md](../../skills/isolated-context-run-codex/scripts/README.md)
+- `skills/isolated-context-run-codex/scripts/probe.mjs`
+- `skills/isolated-context-run-codex/scripts/run-exec.mjs`
 - `tests/codex-runner.*.test.mjs`
 
 当前实现状态补充：

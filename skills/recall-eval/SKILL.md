@@ -203,9 +203,9 @@ Use standalone yaml fixtures for schema and scoring helpers. Use `iitests` when 
 
 Script entrypoints:
 
-- `node scripts/recall-eval/validate-schema.mjs <yaml-path>`
-- `node scripts/recall-eval/resolve-target.mjs <yaml-path>`
-- `node scripts/recall-eval/run-eval.mjs <yaml-path> --case <id> --answer "<text>"`
+- `node skills/recall-eval/scripts/validate-schema.mjs <yaml-path>`
+- `node skills/recall-eval/scripts/resolve-target.mjs <yaml-path>`
+- `node skills/recall-eval/scripts/run-eval.mjs <yaml-path> --case <id> --answer "<text>"`
 
 These are evaluator runtime entrypoints that implement the contract defined here.
 

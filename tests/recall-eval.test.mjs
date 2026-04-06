@@ -7,7 +7,7 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const node = process.execPath;
-const scriptsDir = path.join(cwd, "scripts", "recall-eval");
+const scriptsDir = path.join(cwd, "skills", "recall-eval", "scripts");
 
 function runScript(scriptName, args = [], options = {}) {
   return execFileSync(node, [path.join(scriptsDir, scriptName), ...args], {

@@ -19,10 +19,10 @@
     "test:codex-cli": "node --test tests/codex-runner.probe.test.mjs tests/codex-runner.run-exec.test.mjs",
     "test:codex-harness": "node --test tests/codex-runner.harness.test.mjs",
     "test:codex-real": "node --test tests/codex-runner.real.test.mjs",
-    "recall:iitest": "node scripts/recall-eval/run-iitest.mjs",
-    "recall:validate": "node scripts/recall-eval/validate-schema.mjs",
-    "recall:resolve": "node scripts/recall-eval/resolve-target.mjs",
-    "recall:run": "node scripts/recall-eval/run-eval.mjs"
+    "recall:iitest": "node skills/recall-eval/scripts/run-iitest.mjs",
+    "recall:validate": "node skills/recall-eval/scripts/validate-schema.mjs",
+    "recall:resolve": "node skills/recall-eval/scripts/resolve-target.mjs",
+    "recall:run": "node skills/recall-eval/scripts/run-eval.mjs"
   },
   "dependencies": {
     "yaml": "^2.8.3"

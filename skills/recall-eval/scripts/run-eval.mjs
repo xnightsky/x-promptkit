@@ -20,7 +20,7 @@ function valueFor(flag) {
 
 if (!yamlPath) {
   console.log(
-    "Usage: node scripts/recall-eval/run-eval.mjs <yaml-path> [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path>] [--carrier <carrier>]",
+    "Usage: node skills/recall-eval/scripts/run-eval.mjs <yaml-path> [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path>] [--carrier <carrier>]",
   );
   process.exit(1);
 }

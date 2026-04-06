@@ -5,7 +5,7 @@ import {
   buildRecallRequest,
   executeRecallViaCarrier,
   SUBAGENT_CARRIER,
-} from "../scripts/recall-eval/carrier-adapter.mjs";
+} from "../skills/recall-eval/scripts/carrier-adapter.mjs";
 
 function makeCaseReport(overrides = {}) {
   return {

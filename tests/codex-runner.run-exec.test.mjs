@@ -10,7 +10,13 @@ const node = process.execPath;
 const fixtureBinDir = path.join(cwd, "tests", "fixtures", "codex-runner", "fake-bin");
 const fixtureCodexCommand =
   process.platform === "win32" ? path.join(fixtureBinDir, "codex.cmd") : "codex";
-const runExecScript = path.join(cwd, "scripts", "isolated-context-run", "codex", "run-exec.mjs");
+const runExecScript = path.join(
+  cwd,
+  "skills",
+  "isolated-context-run-codex",
+  "scripts",
+  "run-exec.mjs",
+);
 
 function createRunExecRequest(tempRoot) {
   const workingDirectory = path.join(tempRoot, "workspace");

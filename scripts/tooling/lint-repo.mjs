@@ -27,7 +27,7 @@ const policyDocs = [
     requiredSnippets: ["npm run lint", "npm run verify", "注释"],
   },
   {
-    path: "scripts/recall-eval/README.md",
+    path: "skills/recall-eval/scripts/README.md",
     requiredSnippets: ["npm run lint", "npm run check", "npm run verify"],
   },
 ];

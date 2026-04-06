@@ -7,8 +7,8 @@ import path from "node:path";
 import {
   cleanupCodexRunEnvironment,
   prepareCodexRunEnvironment,
-} from "../scripts/isolated-context-run/codex/clean-room.mjs";
-import { runExecRequest } from "../scripts/isolated-context-run/codex/run-exec.mjs";
+} from "../skills/isolated-context-run-codex/scripts/clean-room.mjs";
+import { runExecRequest } from "../skills/isolated-context-run-codex/scripts/run-exec.mjs";
 
 const repoRoot = process.cwd();
 

@@ -22,4 +22,4 @@ self promptkit
 
 - 不要在仓库内容里写本机绝对路径，一律改成相对路径或占位符。
 - 不要只改实现不改文档；命令、输出格式、字段语义和开发流程变化都要同步更新说明。
-- `isolated-context-run:codex` 的 runtime 说明见 `scripts/isolated-context-run/README.md`，专题设计见 `docs/isolated-context-run-codex/README.md`。
+- `isolated-context-run:codex` 的 runtime 说明见 `skills/isolated-context-run-codex/scripts/README.md`，专题设计见 `docs/isolated-context-run-codex/README.md`。

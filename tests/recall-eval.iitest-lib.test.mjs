@@ -9,7 +9,7 @@ import {
   createWorkspaceFromFixture,
   validateIitestSuite,
   verifyWorkspaceAssert,
-} from "../scripts/recall-eval/iitest-lib.mjs";
+} from "../skills/recall-eval/scripts/iitest-lib.mjs";
 
 test("validateIitestSuite rejects suites missing fixture_ref", () => {
   const report = validateIitestSuite({

@@ -41,8 +41,8 @@
   - `skills/isolated-context-run-subagent/EXAMPLES.md`
   - `skills/recall-eval/SKILL.md`
   - `skills/recall-eval/EXAMPLES.md`
-  - `scripts/recall-eval/README.md`
-  - `scripts/recall-eval/run-eval.mjs`
+  - `skills/recall-eval/scripts/README.md`
+  - `skills/recall-eval/scripts/run-eval.mjs`
   - `tests/recall-eval.test.mjs`
   - `iitests/recall-eval/README.md`
 - 外部参考按层分组：
@@ -217,7 +217,7 @@
 ### real host validation
 
 - [ ] 建立以 Codex 为主的 `recall-eval` 真实宿主验证。
-  done when: 真实 Codex 宿主在原生加载 `skills/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `scripts/recall-eval/*.mjs` 伪装为真实宿主通过。
+  done when: 真实 Codex 宿主在原生加载 `skills/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `skills/recall-eval/scripts/*.mjs` 伪装为真实宿主通过。
   depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner iitests 接入
 
 ## P3 live run 与批量评测

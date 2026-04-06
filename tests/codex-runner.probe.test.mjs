@@ -10,7 +10,7 @@ const node = process.execPath;
 const fixtureBinDir = path.join(cwd, "tests", "fixtures", "codex-runner", "fake-bin");
 const fixtureCodexCommand =
   process.platform === "win32" ? path.join(fixtureBinDir, "codex.cmd") : "codex";
-const probeScript = path.join(cwd, "scripts", "isolated-context-run", "codex", "probe.mjs");
+const probeScript = path.join(cwd, "skills", "isolated-context-run-codex", "scripts", "probe.mjs");
 
 function runProbe(args = [], options = {}) {
   return execFileSync(node, [probeScript, ...args], {

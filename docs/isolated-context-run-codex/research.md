@@ -217,7 +217,7 @@ skill 层不负责：
 
 建议新增目录：
 
-`scripts/isolated-context-run/codex/`
+`skills/isolated-context-run-codex/scripts/`
 
 第一阶段建议包含：
 
@@ -442,7 +442,7 @@ skill 层不负责：
 建议按下面顺序推进：
 
 1. 新增 `skills/isolated-context-run-codex/`，固定子层边界。
-2. 新增 `scripts/isolated-context-run/codex/`，先落 `probe`、`run-exec`、`normalize-trace`、`normalize-failure`、`clean-room`。
+2. 新增 `skills/isolated-context-run-codex/scripts/`，先落 `probe`、`run-exec`、`normalize-trace`、`normalize-failure`、`clean-room`。
 3. 在实现 `clean-room.mjs` 前，先对照两份专项设计文档定死 fake user home、`workspace_mode`、manifest 和 `run_local` 约束。
 4. 让父层 `isolated-context-run` 在 Codex 宿主场景路由到这个子层，而不是只给一条 `codex exec` 文本映射。
 5. 再把 `recall-eval` 的真实宿主验证接到这个 codex runner 上。

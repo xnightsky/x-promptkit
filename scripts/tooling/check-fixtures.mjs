@@ -2,8 +2,8 @@
 import fs from "node:fs";
 import YAML from "yaml";
 
-import { validateIitestSuite } from "../recall-eval/iitest-lib.mjs";
-import { loadRecallYaml, validateRecallData } from "../recall-eval/lib.mjs";
+import { validateIitestSuite } from "../../skills/recall-eval/scripts/iitest-lib.mjs";
+import { loadRecallYaml, validateRecallData } from "../../skills/recall-eval/scripts/lib.mjs";
 import { classifyFixturePath, formatFailures, walkRepoFiles } from "./lib.mjs";
 
 const rootDir = process.cwd();

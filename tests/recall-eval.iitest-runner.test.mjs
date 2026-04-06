@@ -7,7 +7,7 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const node = process.execPath;
-const scriptsDir = path.join(cwd, "scripts", "recall-eval");
+const scriptsDir = path.join(cwd, "skills", "recall-eval", "scripts");
 
 function runIitest(args = [], options = {}) {
   return execFileSync(node, [path.join(scriptsDir, "run-iitest.mjs"), ...args], {

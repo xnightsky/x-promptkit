@@ -6,7 +6,7 @@ import {
   resolveEffectiveCarrier,
   scoreAnswer,
   validateRecallData,
-} from "../scripts/recall-eval/lib.mjs";
+} from "../skills/recall-eval/scripts/lib.mjs";
 
 test("validateRecallData inherits queue-level source_ref when case-level override is absent", () => {
   const report = validateRecallData({

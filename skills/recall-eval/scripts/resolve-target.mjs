@@ -7,7 +7,9 @@ const caseFlagIndex = args.indexOf("--case");
 const selectedCaseId = caseFlagIndex >= 0 ? args[caseFlagIndex + 1] : null;
 
 if (!yamlPath) {
-  console.log("Usage: node scripts/recall-eval/resolve-target.mjs <yaml-path> [--case <id>]");
+  console.log(
+    "Usage: node skills/recall-eval/scripts/resolve-target.mjs <yaml-path> [--case <id>]",
+  );
   process.exit(1);
 }
 
