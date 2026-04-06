@@ -6,7 +6,7 @@
 
 ## Input
 
-You are validating the skill contract in `/data/projects/x-promptkit/skills/isolated-context-run-subagent/SKILL.md`.
+You are validating the skill contract in `skills/isolated-context-run-subagent/SKILL.md`.
 
 Produce two short result blocks using the child-layer skill's required result structure.
 

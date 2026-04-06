@@ -51,6 +51,10 @@ function isTruthyEnv(value) {
   return value === "1" || value === "true" || value === "yes";
 }
 
+function trimSpawnText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export function loadIitestSuite(inputPath, cwd = process.cwd()) {
   const absolutePath = path.resolve(cwd, inputPath);
   const raw = readFileUtf8(absolutePath);
@@ -212,22 +216,31 @@ export function buildIitestSubagentRequest({
 }
 
 function runCommandBridge(command, request, env) {
-  const shell = env.RECALL_EVAL_SUBAGENT_SHELL || env.SHELL || "/bin/sh";
-  const result = spawnSync(shell, ["-lc", command], {
+  const result = spawnSync(command, {
     env,
     encoding: "utf8",
     input: request,
+    shell: env.RECALL_EVAL_SUBAGENT_SHELL || true,
   });
+  const stderrText = trimSpawnText(result.stderr);
+
+  if (result.error) {
+    return {
+      ok: false,
+      kind: "environment_failure",
+      reason: `carrier execution failed: ${stderrText || result.error.message}`,
+    };
+  }
 
   if (result.status !== 0) {
     return {
       ok: false,
       kind: "environment_failure",
-      reason: `carrier execution failed: ${result.stderr.trim() || `command exited with ${result.status}`}`,
+      reason: `carrier execution failed: ${stderrText || `command exited with ${result.status}`}`,
     };
   }
 
-  const answerText = result.stdout.trim();
+  const answerText = trimSpawnText(result.stdout);
   if (!isNonEmptyString(answerText)) {
     return {
       ok: false,

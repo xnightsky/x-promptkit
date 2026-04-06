@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Temporary local planning notes
 .tmp/
+
+# Local git worktrees
+.worktrees/

@@ -6,7 +6,7 @@
 
 ## Input
 
-You are validating the skill contract in `/data/projects/x-promptkit/skills/isolated-context-run/SKILL.md`.
+You are validating the skill contract in `skills/isolated-context-run/SKILL.md`.
 
 Answer the following request using the skill's required result structure:
 
