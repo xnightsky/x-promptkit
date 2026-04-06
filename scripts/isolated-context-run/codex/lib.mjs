@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 export const REQUIRED_ENV_KEYS = [
   "HOME",
@@ -81,6 +82,22 @@ function inferEnvironmentReason(text) {
 
 function normalizeArtifactsDirRel(artifactsDirRel = "artifacts") {
   return artifactsDirRel.replace(/\\/g, "/");
+}
+
+function needsWindowsShell(command) {
+  return process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
+}
+
+export function spawnCodexProcess(command, args, options = {}) {
+  if (needsWindowsShell(command)) {
+    // Batch files are not directly executable through CreateProcess; routing
+    // them through `cmd.exe /c` preserves argument boundaries without `shell: true`.
+    return spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", command, ...args], {
+      ...options,
+    });
+  }
+
+  return spawnSync(command, args, options);
 }
 
 export function readJsonInputFromArgs(argv, stdinText = null) {

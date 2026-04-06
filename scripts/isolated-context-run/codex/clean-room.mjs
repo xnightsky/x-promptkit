@@ -58,12 +58,64 @@ function prepareRunRoot(tempRoot) {
   };
 }
 
+function isWindowsAbsolutePath(candidate) {
+  return typeof candidate === "string" && /^[A-Za-z]:[\\/]/.test(candidate);
+}
+
+function toWslMountedPath(windowsPath) {
+  const drive = windowsPath.slice(0, 1).toLowerCase();
+  const rest = windowsPath.slice(2).replace(/\\/g, "/");
+  const rootedRest = rest.startsWith("/") ? rest : `/${rest}`;
+  return path.posix.join("/", "mnt", drive, rootedRest);
+}
+
+function resolveGitDirReference(repoRoot, reference, platform) {
+  if (isWindowsAbsolutePath(reference) && platform === "linux") {
+    return toWslMountedPath(reference);
+  }
+
+  if (path.isAbsolute(reference) || isWindowsAbsolutePath(reference)) {
+    return path.normalize(reference);
+  }
+
+  return path.resolve(repoRoot, reference);
+}
+
+export function resolveGitCommandRepoRoot(repoRoot, options = {}) {
+  const platform = options.platform ?? process.platform;
+  const gitPath = path.join(repoRoot, ".git");
+
+  if (!fs.existsSync(gitPath) || !fs.statSync(gitPath).isFile()) {
+    return repoRoot;
+  }
+
+  const gitFileText = fs.readFileSync(gitPath, "utf8").trim();
+  if (!gitFileText.startsWith("gitdir:")) {
+    return repoRoot;
+  }
+
+  const gitDirPath = resolveGitDirReference(repoRoot, gitFileText.slice("gitdir:".length).trim(), platform);
+  const worktreesDir = path.dirname(gitDirPath);
+  const gitCommonDir = path.dirname(worktreesDir);
+
+  if (path.basename(worktreesDir) !== "worktrees" || path.basename(gitCommonDir) !== ".git") {
+    return repoRoot;
+  }
+
+  return path.dirname(gitCommonDir);
+}
+
 function createGitWorktreeWorkspace(repoRoot, revision, workspaceRoot) {
   // `git-worktree` keeps the repository shape realistic without copying the
   // whole repo into the fake HOME tree.
-  const result = spawnSync("git", ["-C", repoRoot, "worktree", "add", "--detach", workspaceRoot, revision], {
-    encoding: "utf8",
-  });
+  const controlRepoRoot = resolveGitCommandRepoRoot(repoRoot);
+  const result = spawnSync(
+    "git",
+    ["-C", controlRepoRoot, "worktree", "add", "--detach", workspaceRoot, revision],
+    {
+      encoding: "utf8",
+    },
+  );
 
   if (result.status !== 0) {
     throw new Error(`git-worktree setup failed: ${result.stderr || result.stdout}`);
@@ -71,9 +123,14 @@ function createGitWorktreeWorkspace(repoRoot, revision, workspaceRoot) {
 }
 
 function removeGitWorktree(repoRoot, workspaceRoot) {
-  const result = spawnSync("git", ["-C", repoRoot, "worktree", "remove", "--force", workspaceRoot], {
-    encoding: "utf8",
-  });
+  const controlRepoRoot = resolveGitCommandRepoRoot(repoRoot);
+  const result = spawnSync(
+    "git",
+    ["-C", controlRepoRoot, "worktree", "remove", "--force", workspaceRoot],
+    {
+      encoding: "utf8",
+    },
+  );
 
   if (result.status === 0) {
     return;

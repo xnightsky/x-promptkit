@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-import { readJsonInputFromArgs, validateProbeRequest } from "./lib.mjs";
+import { readJsonInputFromArgs, spawnCodexProcess, validateProbeRequest } from "./lib.mjs";
 
 function runProbeRequest(request, options = {}) {
   const normalized = validateProbeRequest(request);
@@ -26,7 +27,7 @@ function runProbeRequest(request, options = {}) {
     };
   }
 
-  const versionResult = spawnSync(normalized.codexCommand, ["--version"], {
+  const versionResult = spawnCodexProcess(normalized.codexCommand, ["--version"], {
     encoding: "utf8",
     env,
   });
@@ -67,7 +68,7 @@ function runProbeRequest(request, options = {}) {
     };
   }
 
-  const helpResult = spawnSync(normalized.codexCommand, ["exec", "--help"], {
+  const helpResult = spawnCodexProcess(normalized.codexCommand, ["exec", "--help"], {
     encoding: "utf8",
     env,
   });
@@ -132,7 +133,8 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Normalize the CLI entrypoint through file URLs so Windows paths match.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main();
 }
 

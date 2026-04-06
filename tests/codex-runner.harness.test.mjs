@@ -8,19 +8,41 @@ import { execFileSync } from "node:child_process";
 import {
   cleanupCodexRunEnvironment,
   prepareCodexRunEnvironment,
+  resolveGitCommandRepoRoot,
 } from "../scripts/isolated-context-run/codex/clean-room.mjs";
 import { materializeResolvedSkillView } from "../scripts/isolated-context-run/codex/skill-loading.mjs";
 import { runExecRequest } from "../scripts/isolated-context-run/codex/run-exec.mjs";
 
 const repoRoot = process.cwd();
 const fixtureBinDir = path.join(repoRoot, "tests", "fixtures", "codex-runner", "fake-bin");
+const fixtureCodexCommand =
+  process.platform === "win32" ? path.join(fixtureBinDir, "codex.cmd") : "codex";
 
 function gitWorktreeList() {
   return execFileSync("git", ["worktree", "list", "--porcelain"], {
-    cwd: repoRoot,
+    cwd: resolveGitCommandRepoRoot(repoRoot),
     encoding: "utf8",
   });
 }
+
+test("resolveGitCommandRepoRoot maps a Windows gitdir reference back to the mounted repo root", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-git-meta-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  const repoPath = path.join(tempRoot, "repo");
+  fs.mkdirSync(repoPath, { recursive: true });
+  fs.writeFileSync(
+    path.join(repoPath, ".git"),
+    "gitdir: D:/workspace/project/x-promptkit/.git/worktrees/review-isolated-context-run-codex\n",
+  );
+
+  assert.equal(
+    resolveGitCommandRepoRoot(repoPath, { platform: "linux" }),
+    path.posix.join("/", "mnt", "d", "workspace", "project", "x-promptkit"),
+  );
+});
 
 test("prepareCodexRunEnvironment creates a git-worktree clean room with metadata", (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-git-"));
@@ -136,6 +158,7 @@ test("runExecRequest writes the expected artifacts for successful runs", (t) => 
   const result = runExecRequest(
     {
       backend: "exec-json",
+      codex_command: fixtureCodexCommand,
       task: { prompt: "say hello" },
       working_directory: prepared.workingDirectory,
       artifacts_dir: prepared.artifactsDir,
@@ -145,7 +168,7 @@ test("runExecRequest writes the expected artifacts for successful runs", (t) => 
     {
       env: {
         ...process.env,
-        PATH: `${fixtureBinDir}:${process.env.PATH}`,
+        PATH: `${fixtureBinDir}${path.delimiter}${process.env.PATH}`,
         CODEX_FIXTURE_MODE: "run_ok",
       },
     },

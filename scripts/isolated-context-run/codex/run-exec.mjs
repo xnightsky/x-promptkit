@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
-import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
-  normalizeCodexExecResult,
   readJsonInputFromArgs,
+  spawnCodexProcess,
   validateRunExecRequest,
   writeExecutionArtifacts,
 } from "./lib.mjs";
@@ -100,7 +101,7 @@ export function runExecRequest(request, options = {}) {
   // The runner consumes a prepared workspace and environment. Request-shape
   // errors already exited earlier; everything below is normalized into the
   // stdout business contract instead of process exit codes.
-  const childResult = spawnSync(
+  const childResult = spawnCodexProcess(
     normalized.codexCommand,
     ["exec", "--json", ...normalized.extraArgs, normalized.task.prompt],
     {
@@ -163,6 +164,7 @@ function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Normalize the CLI entrypoint through file URLs so Windows paths match.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main();
 }

@@ -8,6 +8,8 @@ import path from "node:path";
 const cwd = process.cwd();
 const node = process.execPath;
 const fixtureBinDir = path.join(cwd, "tests", "fixtures", "codex-runner", "fake-bin");
+const fixtureCodexCommand =
+  process.platform === "win32" ? path.join(fixtureBinDir, "codex.cmd") : "codex";
 const probeScript = path.join(cwd, "scripts", "isolated-context-run", "codex", "probe.mjs");
 
 function runProbe(args = [], options = {}) {
@@ -17,7 +19,7 @@ function runProbe(args = [], options = {}) {
     input: options.input,
     env: {
       ...process.env,
-      PATH: `${fixtureBinDir}:${process.env.PATH}`,
+      PATH: `${fixtureBinDir}${path.delimiter}${process.env.PATH}`,
       ...options.env,
     },
   });
@@ -25,7 +27,7 @@ function runProbe(args = [], options = {}) {
 
 test("probe accepts stdin json and reports exec-json availability", () => {
   const output = runProbe([], {
-    input: JSON.stringify({ backend: "exec-json" }),
+    input: JSON.stringify({ backend: "exec-json", codex_command: fixtureCodexCommand }),
     env: { CODEX_FIXTURE_MODE: "probe_ok" },
   });
   const parsed = JSON.parse(output);
@@ -60,7 +62,7 @@ test("probe supports --input files and returns unavailable for missing codex com
 test("probe reports missing exec subcommand and json flag separately", () => {
   const execUnavailable = JSON.parse(
     runProbe([], {
-      input: JSON.stringify({ backend: "exec-json" }),
+      input: JSON.stringify({ backend: "exec-json", codex_command: fixtureCodexCommand }),
       env: { CODEX_FIXTURE_MODE: "exec_missing" },
     }),
   );
@@ -71,7 +73,7 @@ test("probe reports missing exec subcommand and json flag separately", () => {
 
   const jsonUnavailable = JSON.parse(
     runProbe([], {
-      input: JSON.stringify({ backend: "exec-json" }),
+      input: JSON.stringify({ backend: "exec-json", codex_command: fixtureCodexCommand }),
       env: { CODEX_FIXTURE_MODE: "json_flag_missing" },
     }),
   );

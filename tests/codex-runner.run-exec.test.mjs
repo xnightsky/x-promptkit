@@ -8,6 +8,8 @@ import path from "node:path";
 const cwd = process.cwd();
 const node = process.execPath;
 const fixtureBinDir = path.join(cwd, "tests", "fixtures", "codex-runner", "fake-bin");
+const fixtureCodexCommand =
+  process.platform === "win32" ? path.join(fixtureBinDir, "codex.cmd") : "codex";
 const runExecScript = path.join(cwd, "scripts", "isolated-context-run", "codex", "run-exec.mjs");
 
 function createRunExecRequest(tempRoot) {
@@ -34,6 +36,7 @@ function createRunExecRequest(tempRoot) {
 
   return {
     backend: "exec-json",
+    codex_command: fixtureCodexCommand,
     task: { prompt: "say hello" },
     working_directory: workingDirectory,
     artifacts_dir: artifactsDir,
@@ -49,7 +52,7 @@ function runExec(args = [], options = {}) {
     input: options.input,
     env: {
       ...process.env,
-      PATH: `${fixtureBinDir}:${process.env.PATH}`,
+      PATH: `${fixtureBinDir}${path.delimiter}${process.env.PATH}`,
       ...options.env,
     },
   });

@@ -3,10 +3,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 const mode = process.env.CODEX_FIXTURE_MODE ?? "probe_ok";
 const args = process.argv.slice(2);
-const eventsDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "events");
+const fixtureFilePath = fileURLToPath(import.meta.url);
+const eventsDir = path.resolve(path.dirname(fixtureFilePath), "..", "events");
 
 function writeFileFixture(fileName) {
   process.stdout.write(fs.readFileSync(path.join(eventsDir, fileName), "utf8"));

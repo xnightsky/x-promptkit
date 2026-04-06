@@ -10,7 +10,8 @@ export function materializeResolvedSkillView({ targetRoot, entries }) {
   for (const entry of resolvedEntries) {
     const linkPath = path.join(targetRoot, entry.skillName);
     fs.rmSync(linkPath, { recursive: true, force: true });
-    fs.symlinkSync(entry.sourcePath, linkPath, "dir");
+    // Windows can create directory junctions without elevated symlink rights.
+    fs.symlinkSync(entry.sourcePath, linkPath, process.platform === "win32" ? "junction" : "dir");
   }
 
   return {
