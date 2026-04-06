@@ -25,28 +25,37 @@ self promptkit
 
 ## Guided Review
 
-仓库内新增了一个引导式 CR skill：`skills/guided-code-review/`。
+仓库内当前维护的是一个引导式 CR skill：`skills/guided-review/`。
 
-- `SKILL.md`：定义引导式 review、技术细节澄清、回到 review 结论的主流程
-- `EXAMPLES.md`：定义典型交互案例
-- `references/technical-clarification.md`：保留一份技术细节澄清参考文档
+- 主体是 skill，不是独立产品级 CLI
+- `SKILL.md`、`HELP.md`、`EXAMPLES.md` 定义交互契约
+- `skills/guided-review/scripts/` 是该 skill 自带的开发与验证入口
+- `docs/guided-review/` 记录设计边界和开发计划
 
-配套 wrapper 命令：
+配套开发入口：
 
-- `npm run guided-review -- --worktree . --uncommitted`
-- `npm run guided-review -- --worktree .worktrees/isolated-context-run-codex --base main`
-- `npm run guided-review -- --worktree . --commit <sha> --prompt "重点看兼容性"`
-- `npm run guided-review -- --worktree . --dry-run`
+- `npm run guided-review -- --dry-run`
+- `npm run guided-review -- --base origin/main --head origin/feat/demo --dry-run`
+- `npm run guided-review -- --worktree .worktrees/isolated-context-run-codex --base origin/main --dry-run`
+- `npm run guided-review -- --commit <sha> --prompt "重点看兼容性"`
+
+当前脚本入口会先为 `guided-review` 准备稳定的 review context，再调用 `codex review`，包括：
+
+- repo / worktree 解析
+- base / head / commit 范围收敛
+- 预生成 review context，减少模型重复做机械 git 枚举
+- guided review prompt 拼装
 
 Codex 场景下还支持一个单独的 skill help 入口：
 
-- 消息中出现独立片段 `$guided-code-review --help` 时，优先返回 `skills/guided-code-review/HELP.md` 的帮助骨架
+- 消息中出现独立片段 `$guided-review --help` 时，优先返回 `skills/guided-review/HELP.md` 的帮助骨架
 - 这个入口属于 skill 提示侧契约，不等价于 `guided-review` 这个 npm script
-- `guided-review` 负责包装 `codex review`，`$guided-code-review --help` 负责解释这个 skill 该怎么用
+- `guided-review` 的 npm script 只是 skill 的开发与验证入口
 
-命令约定：
+当前命令约定：
 
-- `--worktree` 必填，用来显式指定 review 目标
-- diff 选择支持 `--uncommitted`、`--base <branch>`、`--commit <sha>`
+- `--repo <path>` 可选，默认当前 repo
+- `--worktree <path>` 是显式覆盖项
+- diff 选择支持 `--uncommitted`、`--base <branch> [--head <ref>]`、`--commit <sha>`
 - 不显式指定 diff 模式时，默认使用 `--uncommitted`
-- `--dry-run` 只打印最终 `codex review` 命令和 prompt，不执行真实 review
+- `--dry-run` 会打印解析结果、prepared review context 和最终命令

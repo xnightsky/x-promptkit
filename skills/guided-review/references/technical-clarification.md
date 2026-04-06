@@ -7,6 +7,7 @@ Use this reference only when the reviewer is blocked on a technical detail and t
 Enter clarification mode when one of these is true:
 
 - the reviewer says they do not understand the mechanism involved
+- the reviewer interrupts the current review to challenge your judgment or ask a code-knowledge question
 - the risk depends on framework or library semantics
 - the concern depends on concurrency, retries, ordering, caching, or compatibility details
 - the current judgment would otherwise be speculative
@@ -33,7 +34,7 @@ Use this sequence:
 2. State what evidence is already local.
 3. Fill the missing detail from the best remaining source.
 4. Translate the detail back into review impact.
-5. State the next review question or conclusion.
+5. State the next review question or conclusion, then continue the remaining guided-question loop instead of restarting from scratch.
 
 ## Common Detail Types
 
