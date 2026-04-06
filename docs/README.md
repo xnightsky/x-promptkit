@@ -2,6 +2,8 @@
 
 当前文档按 3 组组织：
 
+- `agent-interrupt-interaction/`
+  - Codex agent 中断、交互、审批与 supervisor 控制面调研
 - `isolated-context-run-codex/`
   - `isolated-context-run:codex` 专题文档
   - 从总览、clean-room、结构化 init、返回契约、脚本契约、failure taxonomy 到测试方案
@@ -13,6 +15,11 @@
 
 ## 目录
 
+- [agent-interrupt-interaction/README.md](agent-interrupt-interaction/README.md)
+- [agent-interrupt-interaction/codex.md](agent-interrupt-interaction/codex.md)
+- [agent-interrupt-interaction/claude-code.md](agent-interrupt-interaction/claude-code.md)
+- [agent-interrupt-interaction/skill.md](agent-interrupt-interaction/skill.md)
+- [agent-interrupt-interaction/langchain.md](agent-interrupt-interaction/langchain.md)
 - [isolated-context-run-codex/README.md](isolated-context-run-codex/README.md)
 - [research/capability-skill-dev-toolchain-research.md](research/capability-skill-dev-toolchain-research.md)
 - [research/research-source-method.md](research/research-source-method.md)
