@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DEFAULT_IGNORED_DIRS = new Set([".git", "node_modules", ".worktrees"]);
+const DEFAULT_IGNORED_DIRS = new Set([".deprecated", ".git", "node_modules", ".worktrees"]);
 const MARKDOWN_LINK_PATTERN = /\[[^\]]+\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 const UNIX_ABSOLUTE_PATH_PATTERN =
   /(^|[\s("'`])((?:\/(?:data|home|opt|private|tmp|Users|var|Volumes|mnt)[^ \n\r\t"'`)<]+))/g;
