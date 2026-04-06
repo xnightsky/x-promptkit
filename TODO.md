@@ -43,8 +43,10 @@
   - `skills/recall-eval/EXAMPLES.md`
   - `skills/recall-evaluator/README.md`
   - `skills/recall-evaluator/scripts/run-eval.mjs`
+  - `skills/recall-evaluator/scripts/run-iitest.mjs`
   - `tests/recall-eval.test.mjs`
   - `integration-tests/recall-eval/README.md`
+  - `integration-tests/recall-eval/real-host.trigger.test.mjs`
 - 外部参考按层分组：
   - Artifact / skill 规范：
     - Agent Skills overview / specification
@@ -72,6 +74,7 @@
 ### 使用说明
 
 - 下面的阶段性任务默认继承上述路线判断。
+- `integration-tests/` 下的 YAML、Markdown、fixture、脚本与 `.test.mjs` 一律按真实集成测试资产管理，不再按“仅说明”或“仅 smoke”降级理解。
 - 如果后续出现与本章冲突的新任务，应优先先改这里的判断依据，再调整具体条目，避免 TODO 只剩任务名而失去上下文。
 
 ## P0 架构定向与边界
@@ -220,6 +223,10 @@
   done when: 真实 Codex 宿主在原生加载 `skills/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `skills/recall-evaluator/scripts/*.mjs` 伪装为真实宿主通过。
   depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner integration-tests 接入
 
+- [x] 将 `npm run test:recall-real` 固定为 `recall-eval` reopen 的显式真实宿主阻塞入口。
+  done when: `test:recall-real` 直接执行 `integration-tests/recall-eval/real-host.trigger.test.mjs`，不静默跳过；`recall-eval` 重新开放前必须与 `test:codex-real` 一起通过。
+  depends on: 建立以 Codex 为主的 `recall-eval` 真实宿主验证
+
 ## P3 live run 与批量评测
 
 ### recall-evaluator
@@ -228,8 +235,8 @@
   done when: live 执行入口能区分“打分已有答案”和“获取真实回答后再打分”两种模式，且运行责任归属 `recall-evaluator` 而不是 `recall-eval` skill。
   depends on: P0 全部完成；`isolated-context-run:subagent` 调用桥；真实 runner integration-tests 接入
 
-- [ ] 定义一份稳定的 recall request contract，包含 `source_ref`、case `question`、carrier 约束，以及“只能依据目标提示词回答”的指令。
-  done when: 请求模板字段稳定、可复用，并能在 live 模式、后续批量执行和 adapter 层之间共享。
+- [x] 定义一份稳定的 recall request contract，包含 `source_ref`、case `question`、carrier 约束，以及“只能依据目标提示词回答”的指令。
+  done when: live request 已固定为共享 JSON contract，至少包含 `source_ref`、`question`、`carrier`、`case_id`、`medium`；文档、测试、命令桥与 harness 输入统一复用这一份契约，不回退为当前会话本地执行。
   depends on: live 模式
 
 - [ ] 持久化 run 产物，保证可复现：`queue` 路径、`case id`、`source_ref`、`carrier`、原始回答、`score`、`rationale`、`timestamp`、`run id`。
