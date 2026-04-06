@@ -147,16 +147,54 @@
 
 ## 5. workspace_mode
 
-### 5.1 两种模式
+### 5.1 三种模式
 
-`clean-room v0` 固定支持两种 `workspace_mode`：
+`clean-room v0` 固定支持三种 `workspace_mode`：
 
-1. `git-worktree`
-2. `minimal-seed`
+1. `workspace-link`
+2. `git-worktree`
+3. `minimal-seed`
 
-二者都使用同一个 fake user home，但工作区来源不同。
+三者都使用同一个 fake user home，但工作区来源不同。
 
-### 5.2 `git-worktree`
+默认链为：
+
+- `workspace-link -> git-worktree`
+
+说明：
+
+- 只有隐式默认请求允许从 `workspace-link` 自动降级到 `git-worktree`
+- 显式 `workspace_mode=workspace-link` 失败时必须直接报错
+- `minimal-seed` 不进入默认降级链
+
+### 5.2 `workspace-link`
+
+定义：
+
+- 将当前源工作区目录以目录链接方式挂到 `<run-root>/workspace`
+
+用途：
+
+- 优先验证 `tmp HOME` 隔离与 runner 数据回收
+- 保留当前工作区的真实路径内容与技能资产
+- 为正式真实宿主测试提供“非复制、可回收”的默认路径
+
+优点：
+
+- 不需要回收单独的 Git worktree 数据
+- 更接近“当前工作区直接运行”的真实形态
+- 可与完整 skills 挂载视图一起验证 linked workspace 行为
+
+局限：
+
+- 允许写穿透到源工作区
+- 不提供比 `git-worktree` 更强的工作区隔离
+
+结论：
+
+- `workspace-link` 是 `clean-room v0` 的默认优先模式
+
+### 5.3 `git-worktree`
 
 定义：
 
@@ -181,9 +219,9 @@
 
 结论：
 
-- `git-worktree` 是 `clean-room v0` 的默认模式
+- `git-worktree` 是 `workspace-link` 不可用时的默认降级模式
 
-### 5.3 `minimal-seed`
+### 5.4 `minimal-seed`
 
 定义：
 
@@ -217,9 +255,9 @@
 `meta/` 最小要求：
 
 - `run.json`
-  - 本次运行的入口参数、时间戳、carrier/backend、`workspace_mode`
+  - 本次运行的入口参数、时间戳、carrier/backend、`workspace_mode_requested/resolved`
 - `workspace-manifest.json`
-  - `workspace/` 的来源说明
+  - `workspace/` 的来源说明、是否发生 fallback、若为 `workspace-link` 则记录链接模式
 - `environment.json`
   - 本次运行的环境指纹
 - `init-report.json`

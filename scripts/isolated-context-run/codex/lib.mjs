@@ -84,17 +84,111 @@ function normalizeArtifactsDirRel(artifactsDirRel = "artifacts") {
   return artifactsDirRel.replace(/\\/g, "/");
 }
 
+function extractAgentMessageText(item) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  if (item.type === "agent_message" && typeof item.text === "string" && item.text.length > 0) {
+    return item.text;
+  }
+
+  if (!Array.isArray(item.content)) {
+    return null;
+  }
+
+  const textParts = item.content
+    .map((entry) => {
+      if (typeof entry?.text === "string") {
+        return entry.text;
+      }
+      return null;
+    })
+    .filter((entry) => typeof entry === "string" && entry.length > 0);
+
+  return textParts.length > 0 ? textParts.join("\n") : null;
+}
+
 function needsWindowsShell(command) {
   return process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
 }
 
+function resolveWindowsCommandPath(command, env = process.env) {
+  if (process.platform !== "win32" || path.extname(command).length > 0 || command.includes(path.sep)) {
+    return command;
+  }
+
+  const result = spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", "where", command], {
+    encoding: "utf8",
+    env,
+  });
+
+  if (result.status !== 0) {
+    return command;
+  }
+
+  const candidates = result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const preferredSuffixes = [".cmd", ".bat", ".exe", ".ps1"];
+
+  // Scoop/npm installs often expose an extensionless POSIX shim first on
+  // Windows. We must prefer a native Windows entrypoint so `spawnSync` does
+  // not trip on the shell wrapper with EPERM.
+  for (const suffix of preferredSuffixes) {
+    const match = candidates.find((candidate) => candidate.toLowerCase().endsWith(suffix));
+    if (match) {
+      return match;
+    }
+  }
+
+  return candidates[0] ?? command;
+}
+
+function spawnWindowsPowerShellScript(scriptPath, args, options = {}) {
+  const shellArgs = ["-NoLogo", "-NoProfile", "-File", scriptPath, ...args];
+  const pwshResult = spawnSync("pwsh.exe", shellArgs, options);
+
+  if (pwshResult.error?.code !== "ENOENT") {
+    return pwshResult;
+  }
+
+  return spawnSync("powershell.exe", shellArgs, options);
+}
+
 export function spawnCodexProcess(command, args, options = {}) {
+  const env = options.env ?? process.env;
   if (needsWindowsShell(command)) {
     // Batch files are not directly executable through CreateProcess; routing
     // them through `cmd.exe /c` preserves argument boundaries without `shell: true`.
     return spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", command, ...args], {
       ...options,
     });
+  }
+
+  if (process.platform === "win32") {
+    const resolvedCommand = resolveWindowsCommandPath(command, env);
+    if (/\.ps1$/i.test(resolvedCommand)) {
+      return spawnWindowsPowerShellScript(resolvedCommand, args, {
+        ...options,
+        env,
+      });
+    }
+
+    if (resolvedCommand !== command) {
+      if (needsWindowsShell(resolvedCommand)) {
+        return spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", resolvedCommand, ...args], {
+          ...options,
+          env,
+        });
+      }
+
+      return spawnSync(resolvedCommand, args, {
+        ...options,
+        env,
+      });
+    }
   }
 
   return spawnSync(command, args, options);
@@ -237,6 +331,13 @@ export function normalizeCodexExecResult({
       turnStatus = event.status ?? "completed";
       finalText = event.result?.final_text ?? event.final_text ?? finalText;
       refusal = event.result?.refusal ?? event.refusal ?? refusal;
+    }
+
+    if (event?.type === "item.completed") {
+      const agentMessageText = extractAgentMessageText(event.item);
+      if (typeof agentMessageText === "string" && agentMessageText.length > 0) {
+        finalText = agentMessageText;
+      }
     }
 
     if (event?.type === "turn.failed") {

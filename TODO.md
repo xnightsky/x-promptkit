@@ -114,6 +114,10 @@
   done when: 文档与后续实现统一采用 `unit / cli / harness` 三层；黑盒 CLI 测试基线固定为 fake `codex` 注入 `PATH`；不把真实 Codex 宿主纳入第一阶段阻塞测试层。
   depends on: 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约；固定 `failure.kind/reason` 的 v0 判定表
 
+- [x] 增加 `workspace-link` 默认链与正式真实测试门槛。
+  done when: `clean-room` 默认优先走 `workspace-link`，失败时仅在隐式默认链下回退到 `git-worktree`；显式 `workspace-link` 请求不允许静默降级；至少有 2 条阻塞真实测试分别覆盖 `tmp HOME + workspace-link` 的真实 Codex 运行，以及挂载完整 `isolated-context-run` skill 视图后的真实运行。
+  depends on: 固定 `probe.mjs` / `run-exec.mjs` 的测试分层
+
 - [x] 保留 `claude`、`opencode` 为父层内部最小 adapter。
   done when: `claude`、`opencode` 继续作为父层内部 adapter 存在，只覆盖最小 probe、最小调用模板、缺失命令提示；在出现与 Codex 同级的真实宿主执行与 trace 验证诉求前，不承诺外部可寻址子 skill。
   depends on: 父层职责与统一结果骨架

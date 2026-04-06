@@ -18,6 +18,7 @@
     "test:codex-unit": "node --test tests/codex-runner.lib.test.mjs",
     "test:codex-cli": "node --test tests/codex-runner.probe.test.mjs tests/codex-runner.run-exec.test.mjs",
     "test:codex-harness": "node --test tests/codex-runner.harness.test.mjs",
+    "test:codex-real": "node --test tests/codex-runner.real.test.mjs",
     "recall:iitest": "node scripts/recall-eval/run-iitest.mjs",
     "recall:validate": "node scripts/recall-eval/validate-schema.mjs",
     "recall:resolve": "node scripts/recall-eval/resolve-target.mjs",

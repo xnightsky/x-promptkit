@@ -20,6 +20,9 @@ function ensureDir(directoryPath) {
 }
 
 const MINIMAL_CODEX_HOME_FILES = ["config.toml", "auth.json"];
+const DEFAULT_WORKSPACE_MODE = "workspace-link";
+const DEFAULT_WORKSPACE_MODE_FALLBACK = "git-worktree";
+const WORKSPACE_LINK_WARNING = "workspace_link_create_failed_fell_back";
 
 function resolveSourceCodexHome(env = process.env) {
   if (typeof env.CODEX_HOME === "string" && env.CODEX_HOME.trim().length > 0) {
@@ -92,6 +95,10 @@ function prepareRunRoot(tempRoot) {
   };
 }
 
+function workspaceLinkMode(platform = process.platform) {
+  return platform === "win32" ? "directory_junction" : "directory_symlink";
+}
+
 function isWindowsAbsolutePath(candidate) {
   return typeof candidate === "string" && /^[A-Za-z]:[\\/]/.test(candidate);
 }
@@ -156,6 +163,20 @@ function createGitWorktreeWorkspace(repoRoot, revision, workspaceRoot) {
   }
 }
 
+function createWorkspaceLinkWorkspace(repoRoot, workspaceRoot) {
+  if (!fs.existsSync(repoRoot) || !fs.statSync(repoRoot).isDirectory()) {
+    throw new Error(`workspace-link source missing: ${repoRoot}`);
+  }
+
+  fs.rmSync(workspaceRoot, { recursive: true, force: true });
+  fs.symlinkSync(repoRoot, workspaceRoot, process.platform === "win32" ? "junction" : "dir");
+
+  return {
+    mode: workspaceLinkMode(),
+    source: repoRoot,
+  };
+}
+
 function removeGitWorktree(repoRoot, workspaceRoot) {
   const controlRepoRoot = resolveGitCommandRepoRoot(repoRoot);
   const result = spawnSync(
@@ -184,13 +205,16 @@ function removeGitWorktree(repoRoot, workspaceRoot) {
 
 export function prepareCodexRunEnvironment({
   tempRoot,
-  workspace_mode = "git-worktree",
+  workspace_mode,
   repo_root,
   revision = "HEAD",
   workspace_profile = null,
   skill_entries = [],
 }) {
+  const explicitWorkspaceMode = workspace_mode !== undefined && workspace_mode !== null;
+  const workspaceModeRequested = workspace_mode ?? DEFAULT_WORKSPACE_MODE;
   const prepared = prepareRunRoot(tempRoot);
+  const workspaceWarnings = [];
   const env = {
     HOME: prepared.runRoot,
     CODEX_HOME: prepared.codexHome,
@@ -206,9 +230,28 @@ export function prepareCodexRunEnvironment({
 
   seedMinimalCodexHome(prepared.codexHome);
 
-  if (workspace_mode === "git-worktree") {
+  let workspaceModeResolved = workspaceModeRequested;
+  let fallbackApplied = false;
+  let fallbackReason = null;
+  let workspaceLink = null;
+
+  if (workspaceModeRequested === DEFAULT_WORKSPACE_MODE) {
+    try {
+      workspaceLink = createWorkspaceLinkWorkspace(repo_root, prepared.workspace);
+    } catch (error) {
+      if (explicitWorkspaceMode) {
+        throw new Error(`workspace-link setup failed: ${error.message}`);
+      }
+
+      workspaceModeResolved = DEFAULT_WORKSPACE_MODE_FALLBACK;
+      fallbackApplied = true;
+      fallbackReason = "workspace_link_create_failed";
+      workspaceWarnings.push(WORKSPACE_LINK_WARNING);
+      createGitWorktreeWorkspace(repo_root, revision, prepared.workspace);
+    }
+  } else if (workspaceModeRequested === "git-worktree") {
     createGitWorktreeWorkspace(repo_root, revision, prepared.workspace);
-  } else if (workspace_mode === "minimal-seed") {
+  } else if (workspaceModeRequested === "minimal-seed") {
     const profile = validateWorkspaceProfile(workspace_profile ?? {
       workspace: { mode: "minimal-seed" },
       seed: { copy: [] },
@@ -220,14 +263,19 @@ export function prepareCodexRunEnvironment({
       metaDir: prepared.meta,
     });
   } else {
-    throw new Error(`unsupported workspace mode: \`${workspace_mode}\``);
+    throw new Error(`unsupported workspace mode: \`${workspaceModeRequested}\``);
   }
 
   writeMetadata(path.join(prepared.meta, "run.json"), {
     runner_managed: true,
-    workspace_mode,
+    workspace_mode_requested: workspaceModeRequested,
+    workspace_mode_resolved: workspaceModeResolved,
+    workspace_mode_default_chain: [DEFAULT_WORKSPACE_MODE, DEFAULT_WORKSPACE_MODE_FALLBACK],
     repo_root,
     revision,
+    fallback_applied: fallbackApplied,
+    fallback_reason: fallbackReason,
+    workspace_link: workspaceLink,
     cleanup_policy: {
       default: "auto",
       keep_workspace: false,
@@ -235,8 +283,13 @@ export function prepareCodexRunEnvironment({
     },
   });
   writeMetadata(path.join(prepared.meta, "workspace-manifest.json"), {
-    workspace_mode,
+    workspace_mode_requested: workspaceModeRequested,
+    workspace_mode_resolved: workspaceModeResolved,
     workspace_root: prepared.workspace,
+    fallback_applied: fallbackApplied,
+    fallback_reason: fallbackReason,
+    workspace_link: workspaceLink,
+    warnings: workspaceWarnings,
   });
   const resolvedSkillViewReport = materializeResolvedSkillView({
     targetRoot: prepared.agentsDir,
@@ -256,7 +309,11 @@ export function prepareCodexRunEnvironment({
     metaDir: prepared.meta,
     agentsSkillsRoot: prepared.agentsDir,
     resolvedSkillView: resolvedSkillViewReport.resolvedSkillView,
-    workspaceMode: workspace_mode,
+    workspaceMode: workspaceModeResolved,
+    workspaceModeRequested,
+    workspaceModeResolved,
+    workspaceWarnings,
+    workspaceLink,
     repoRoot: repo_root,
     revision,
     workspaceManagedByRunner: true,
@@ -275,7 +332,11 @@ export function cleanupCodexRunEnvironment(prepared, options = {}) {
   // Cleanup must stay scoped to the exact prepared object. We never scan for
   // other `run-*` roots because existing historical worktrees require explicit
   // manual removal.
-  if (prepared.workspaceManagedByRunner === true && prepared.workspaceMode === "git-worktree" && !keepWorkspace) {
+  if (
+    prepared.workspaceManagedByRunner === true &&
+    prepared.workspaceModeResolved === "git-worktree" &&
+    !keepWorkspace
+  ) {
     removeGitWorktree(prepared.repoRoot, prepared.workingDirectory);
   }
 

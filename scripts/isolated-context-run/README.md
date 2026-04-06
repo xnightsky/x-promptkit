@@ -15,6 +15,7 @@ Recommended local checks for Codex runner work:
 - `npm run test:codex-unit`
 - `npm run test:codex-cli`
 - `npm run test:codex-harness`
+- `npm run test:codex-real`
 - `npm run lint`
 - `npm run check`
 
@@ -27,6 +28,7 @@ Contract notes:
 Lifecycle notes:
 
 - `prepareCodexRunEnvironment(...)` and `cleanupCodexRunEnvironment(...)` are the paired clean-room lifecycle helpers.
+- default workspace preparation now prefers `workspace-link` and only falls back to `git-worktree` when the link setup fails under an implicit default request.
 - Default behavior is auto-cleanup for the exact runner-managed environment returned by `prepareCodexRunEnvironment(...)`.
 - `keepWorkspace` or `keepRunRoot` are explicit debug-only escape hatches for preserving evidence.
 - Historical `run-xxxxx` git worktrees are not auto-scanned or bulk-deleted; they require precise manual cleanup by path.

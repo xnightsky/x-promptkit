@@ -12,7 +12,7 @@
 
 ## 1. 文档目的
 
-本文只回答 `probe.mjs` 与 `run-exec.mjs` 在第一阶段如何测试。
+本文回答 `probe.mjs`、`run-exec.mjs` 与 `clean-room workspace_mode` 在当前阶段如何测试。
 
 本文负责：
 
@@ -20,10 +20,10 @@
 - fake `codex` 基线
 - fixture 目录建议
 - 每层最小覆盖点
+- 正式真实测试门槛
 
 本文不负责：
 
-- 真实 Codex 宿主 smoke 方案
 - `recall-eval` 真实宿主验证
 - `sdk` / `app-server` 的测试设计
 
@@ -35,7 +35,9 @@
 2. `cli`
 3. `harness`
 
-不把真实 Codex 宿主验证放进第一阶段阻塞测试层。
+除 `unit / cli / harness` 外，再补一层正式真实测试：
+
+4. `real`
 
 ## 3. fake `codex` 基线
 
@@ -62,6 +64,7 @@
 - `tests/codex-runner.probe.test.mjs`
 - `tests/codex-runner.run-exec.test.mjs`
 - `tests/codex-runner.harness.test.mjs`
+- `tests/codex-runner.real.test.mjs`
 
 职责划分：
 
@@ -73,6 +76,8 @@
   - `run-exec.mjs` 黑盒 CLI
 - `harness.test`
   - artifact 落盘与工作目录接线
+- `real.test`
+  - 真实 Codex 宿主 + `tmp HOME` + `workspace-link` + 完整 skills 挂载的正式阻塞验证
 
 ## 5. 建议的 fixture 布局
 
@@ -187,6 +192,10 @@
 - `run_auth_failed` 后仍有最小 artifact
 - `result.json` 与 stdout JSON 一致
 - `evidence.json` 与返回体中的 `evidence` 一致
+- `workspace-link` 默认成功
+- `workspace-link` 写穿透行为
+- 默认链从 `workspace-link` 降级到 `git-worktree`
+- 显式 `workspace-link` 不允许静默降级
 
 第一阶段最小 artifact 断言：
 
@@ -203,16 +212,28 @@
 - `test:codex-unit`
 - `test:codex-cli`
 - `test:codex-harness`
+- `test:codex-real`
 
-是否追加总入口聚合脚本，可以在实现阶段再决定；本方案先只固定分层。
+`test:codex-real` 属于正式阻塞测试，不是 smoke。
 
-## 11. v0 明确不做的事
+## 11. 正式真实测试
+
+当前阶段要求两条真实测试同时通过：
+
+1. 真实 Codex CLI 在 `tmp HOME + workspace-link` 下完成一次可归一化运行
+2. 真实 Codex CLI 在挂载完整 `isolated-context-run` / `isolated-context-run:codex` skills 视图后，仍能在 linked workspace 中稳定完成运行
+
+这两条测试共同证明：
+
+- 默认 `workspace-link` 没有破坏真实 Codex 宿主执行
+- 完整 skill 资产与 linked workspace 共存时不会破坏 runner 行为
+
+## 12. v0 明确不做的事
 
 第一阶段明确不要求：
 
-- 真实 Codex 宿主作为日常必跑测试依赖
 - mock `child_process` 作为主基线
 - 完整多 turn 语义测试
 - `sdk` / `app-server` 的测试复用
 
-`v0` 先保证 `probe.mjs` / `run-exec.mjs` 的 CLI 契约、artifact 落盘和 failure 归因不漂移。
+`v0` 先保证 `probe.mjs` / `run-exec.mjs` 的 CLI 契约、artifact 落盘、`workspace-link` 默认链与真实宿主阻塞验证不漂移。

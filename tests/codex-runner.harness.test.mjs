@@ -67,6 +67,125 @@ test("prepareCodexRunEnvironment creates a git-worktree clean room with metadata
   assert.equal(gitWorktreeList().includes(prepared.workingDirectory), false);
 });
 
+test("prepareCodexRunEnvironment defaults to workspace-link and records resolved metadata", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-link-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const fixtureRoot = path.join(tempRoot, "fixture");
+  fs.mkdirSync(fixtureRoot, { recursive: true });
+  fs.writeFileSync(path.join(fixtureRoot, "AGENTS.md"), "workspace link source\n");
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    repo_root: fixtureRoot,
+  });
+
+  assert.equal(prepared.workspaceModeRequested, "workspace-link");
+  assert.equal(prepared.workspaceModeResolved, "workspace-link");
+  assert.equal(prepared.workspaceLink?.mode, process.platform === "win32" ? "directory_junction" : "directory_symlink");
+  assert.equal(fs.lstatSync(prepared.workingDirectory).isSymbolicLink(), true);
+  assert.equal(fs.readFileSync(path.join(prepared.workingDirectory, "AGENTS.md"), "utf8"), "workspace link source\n");
+
+  const runMeta = JSON.parse(fs.readFileSync(path.join(prepared.metaDir, "run.json"), "utf8"));
+  assert.equal(runMeta.workspace_mode_requested, "workspace-link");
+  assert.equal(runMeta.workspace_mode_resolved, "workspace-link");
+  assert.equal(runMeta.fallback_applied, false);
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(prepared.metaDir, "workspace-manifest.json"), "utf8"));
+  assert.equal(manifest.workspace_mode_requested, "workspace-link");
+  assert.equal(manifest.workspace_mode_resolved, "workspace-link");
+  assert.equal(manifest.fallback_applied, false);
+  assert.equal(manifest.workspace_link.mode, process.platform === "win32" ? "directory_junction" : "directory_symlink");
+
+  cleanupCodexRunEnvironment(prepared);
+  assert.equal(fs.existsSync(prepared.runRoot), false);
+  assert.equal(fs.existsSync(fixtureRoot), true);
+});
+
+test("prepareCodexRunEnvironment documents workspace-link write-through behavior", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-write-through-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const fixtureRoot = path.join(tempRoot, "fixture");
+  fs.mkdirSync(fixtureRoot, { recursive: true });
+  fs.writeFileSync(path.join(fixtureRoot, "AGENTS.md"), "workspace link source\n");
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    repo_root: fixtureRoot,
+  });
+
+  fs.writeFileSync(path.join(prepared.workingDirectory, "notes.md"), "write through\n");
+  assert.equal(fs.readFileSync(path.join(fixtureRoot, "notes.md"), "utf8"), "write through\n");
+
+  cleanupCodexRunEnvironment(prepared);
+  assert.equal(fs.existsSync(prepared.runRoot), false);
+  assert.equal(fs.existsSync(path.join(fixtureRoot, "notes.md")), true);
+});
+
+test("prepareCodexRunEnvironment falls back from default workspace-link to git-worktree", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-fallback-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  const originalSymlinkSync = fs.symlinkSync;
+  fs.symlinkSync = () => {
+    throw new Error("simulated workspace-link failure");
+  };
+  t.after(() => {
+    fs.symlinkSync = originalSymlinkSync;
+  });
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    repo_root: repoRoot,
+    revision: "HEAD",
+  });
+
+  assert.equal(prepared.workspaceModeRequested, "workspace-link");
+  assert.equal(prepared.workspaceModeResolved, "git-worktree");
+  assert.deepEqual(prepared.workspaceWarnings, ["workspace_link_create_failed_fell_back"]);
+
+  const runMeta = JSON.parse(fs.readFileSync(path.join(prepared.metaDir, "run.json"), "utf8"));
+  assert.equal(runMeta.fallback_applied, true);
+  assert.equal(runMeta.fallback_reason, "workspace_link_create_failed");
+
+  cleanupCodexRunEnvironment(prepared);
+  assert.equal(fs.existsSync(prepared.runRoot), false);
+  assert.equal(gitWorktreeList().includes(prepared.workingDirectory), false);
+});
+
+test("prepareCodexRunEnvironment does not silently downgrade explicit workspace-link requests", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-link-explicit-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const fixtureRoot = path.join(tempRoot, "fixture");
+  fs.mkdirSync(fixtureRoot, { recursive: true });
+  fs.writeFileSync(path.join(fixtureRoot, "AGENTS.md"), "workspace link source\n");
+
+  const originalSymlinkSync = fs.symlinkSync;
+  fs.symlinkSync = () => {
+    throw new Error("simulated workspace-link failure");
+  };
+  t.after(() => {
+    fs.symlinkSync = originalSymlinkSync;
+  });
+
+  assert.throws(
+    () =>
+      prepareCodexRunEnvironment({
+        tempRoot,
+        workspace_mode: "workspace-link",
+        repo_root: fixtureRoot,
+      }),
+    /workspace-link setup failed: simulated workspace-link failure/,
+  );
+});
+
 test("prepareCodexRunEnvironment supports minimal-seed with init steps and init report", (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-clean-room-seed-"));
   t.after(() => {

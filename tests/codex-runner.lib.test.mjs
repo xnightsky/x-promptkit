@@ -85,6 +85,33 @@ test("normalizeCodexExecResult accepts a completed final_text and records non-fa
   assert.deepEqual(result.evidence.warnings, ["missing_thread_id"]);
 });
 
+test("normalizeCodexExecResult accepts final text from item.completed agent messages", () => {
+  const result = normalizeCodexExecResult({
+    exitCode: 0,
+    stdoutText: [
+      JSON.stringify({ type: "thread.started", thread_id: "thread-1" }),
+      JSON.stringify({ type: "turn.started" }),
+      JSON.stringify({
+        type: "item.completed",
+        item: {
+          id: "item_0",
+          type: "agent_message",
+          text: "workspace link ok",
+        },
+      }),
+      JSON.stringify({ type: "turn.completed", usage: { input_tokens: 1, output_tokens: 1 } }),
+      "",
+    ].join("\n"),
+    stderrText: "",
+    artifactsDirRel: "artifacts",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.result.final_text, "workspace link ok");
+  assert.equal(result.execution.thread_id, "thread-1");
+  assert.deepEqual(result.evidence.warnings, []);
+});
+
 test("normalizeCodexExecResult classifies bad jsonl as contract failure", () => {
   const result = normalizeCodexExecResult({
     exitCode: 0,
