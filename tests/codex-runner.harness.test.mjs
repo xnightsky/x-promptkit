@@ -138,6 +138,140 @@ test("materializeResolvedSkillView links the winning skill source into the targe
   assert.equal(fs.readFileSync(path.join(linkedPath, "SKILL.md"), "utf8"), "# dev\n");
 });
 
+test("prepareCodexRunEnvironment materializes the resolved skills view into tmp HOME for run-exec", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-runtime-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const skillSource = path.join(tempRoot, "sources", "demo-skill");
+  fs.mkdirSync(skillSource, { recursive: true });
+  fs.writeFileSync(path.join(skillSource, "SKILL.md"), "# demo\n");
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    workspace_mode: "minimal-seed",
+    repo_root: repoRoot,
+    workspace_profile: {
+      workspace: { mode: "minimal-seed" },
+      seed: {
+        copy: [{ from: "AGENTS.md", to: "AGENTS.md" }],
+      },
+    },
+    skill_entries: [
+      { sourceClass: "dev-path-mount", skillName: "demo-skill", sourcePath: skillSource },
+    ],
+  });
+
+  const mountedSkillPath = path.join(prepared.agentsSkillsRoot, "demo-skill", "SKILL.md");
+  assert.equal(fs.existsSync(mountedSkillPath), true);
+
+  const result = runExecRequest(
+    {
+      backend: "exec-json",
+      codex_command: fixtureCodexCommand,
+      task: { prompt: "check skill view" },
+      working_directory: prepared.workingDirectory,
+      artifacts_dir: prepared.artifactsDir,
+      env: prepared.env,
+      extra_args: [],
+    },
+    {
+      env: {
+        ...process.env,
+        PATH: `${fixtureBinDir}${path.delimiter}${process.env.PATH}`,
+        CODEX_FIXTURE_MODE: "run_skill_view_check",
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.result.final_text, "skill view ok");
+
+  const resolvedSkillViewPath = path.join(prepared.metaDir, "resolved-skill-view.json");
+  assert.equal(fs.existsSync(resolvedSkillViewPath), true);
+  const resolvedSkillView = JSON.parse(fs.readFileSync(resolvedSkillViewPath, "utf8"));
+  assert.equal(resolvedSkillView.resolved_skill_view.root, ".agents/skills");
+  assert.deepEqual(resolvedSkillView.resolved_skill_view.skills, [
+    {
+      id: "demo-skill",
+      source_class: "dev-path-mount",
+      source_ref: skillSource,
+      mount_relpath: ".agents/skills/demo-skill",
+      link_copy: {
+        mode: process.platform === "win32" ? "directory_junction" : "directory_symlink",
+      },
+      artifacts: {
+        skill_md: true,
+        openai_yaml: false,
+      },
+    },
+  ]);
+});
+
+test("prepareCodexRunEnvironment seeds tmp CODEX_HOME with minimal inherited auth files only", (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-home-seed-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  const sourceHome = path.join(tempRoot, "source-home");
+  const sourceCodexHome = path.join(sourceHome, ".codex");
+  fs.mkdirSync(path.join(sourceCodexHome, "sessions"), { recursive: true });
+  fs.mkdirSync(path.join(sourceCodexHome, "skills"), { recursive: true });
+  fs.mkdirSync(path.join(sourceCodexHome, "worktrees"), { recursive: true });
+  fs.mkdirSync(path.join(sourceCodexHome, "sqlite"), { recursive: true });
+  fs.mkdirSync(path.join(sourceCodexHome, "logs"), { recursive: true });
+  fs.mkdirSync(path.join(sourceCodexHome, "tmp"), { recursive: true });
+  fs.writeFileSync(path.join(sourceCodexHome, "config.toml"), 'model_provider = "packycode"\n');
+  fs.writeFileSync(path.join(sourceCodexHome, "auth.json"), '{ "packycode": "token" }\n');
+  fs.writeFileSync(path.join(sourceCodexHome, "sessions", "history.json"), "{}\n");
+
+  const originalCodexHome = process.env.CODEX_HOME;
+  const originalHome = process.env.HOME;
+  process.env.CODEX_HOME = sourceCodexHome;
+  process.env.HOME = sourceHome;
+  t.after(() => {
+    if (originalCodexHome === undefined) {
+      delete process.env.CODEX_HOME;
+    } else {
+      process.env.CODEX_HOME = originalCodexHome;
+    }
+
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+  });
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    workspace_mode: "minimal-seed",
+    repo_root: repoRoot,
+    workspace_profile: {
+      workspace: { mode: "minimal-seed" },
+      seed: {
+        copy: [{ from: "AGENTS.md", to: "AGENTS.md" }],
+      },
+    },
+  });
+
+  assert.equal(
+    fs.readFileSync(path.join(prepared.runRoot, ".codex", "config.toml"), "utf8"),
+    'model_provider = "packycode"\n',
+  );
+  assert.equal(
+    fs.readFileSync(path.join(prepared.runRoot, ".codex", "auth.json"), "utf8"),
+    '{ "packycode": "token" }\n',
+  );
+  assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "sessions")), false);
+  assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "skills")), false);
+  assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "worktrees")), false);
+  assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "sqlite")), false);
+  assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "logs")), false);
+  assert.equal(fs.existsSync(path.join(prepared.runRoot, ".codex", "tmp")), false);
+});
+
 test("runExecRequest writes the expected artifacts for successful runs", (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-harness-run-"));
   t.after(() => {

@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 
 import { applyWorkspaceProfile } from "./workspace-profile.mjs";
 import { validateWorkspaceProfile } from "./lib.mjs";
+import { materializeResolvedSkillView } from "./skill-loading.mjs";
 
 function buildRunId() {
   return `run-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -16,6 +17,39 @@ function writeMetadata(filePath, value) {
 
 function ensureDir(directoryPath) {
   fs.mkdirSync(directoryPath, { recursive: true });
+}
+
+const MINIMAL_CODEX_HOME_FILES = ["config.toml", "auth.json"];
+
+function resolveSourceCodexHome(env = process.env) {
+  if (typeof env.CODEX_HOME === "string" && env.CODEX_HOME.trim().length > 0) {
+    return path.resolve(env.CODEX_HOME);
+  }
+
+  if (typeof env.HOME === "string" && env.HOME.trim().length > 0) {
+    return path.join(env.HOME, ".codex");
+  }
+
+  return path.join(os.homedir(), ".codex");
+}
+
+function seedMinimalCodexHome(targetCodexHome, env = process.env) {
+  const sourceCodexHome = resolveSourceCodexHome(env);
+
+  if (!fs.existsSync(sourceCodexHome) || !fs.statSync(sourceCodexHome).isDirectory()) {
+    return;
+  }
+
+  // The clean room should reuse only stable user config and auth material.
+  // Runtime state stays isolated so tmp HOME does not inherit history or logs.
+  for (const fileName of MINIMAL_CODEX_HOME_FILES) {
+    const sourcePath = path.join(sourceCodexHome, fileName);
+    if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+      continue;
+    }
+
+    fs.copyFileSync(sourcePath, path.join(targetCodexHome, fileName));
+  }
 }
 
 function prepareRunRoot(tempRoot) {
@@ -154,6 +188,7 @@ export function prepareCodexRunEnvironment({
   repo_root,
   revision = "HEAD",
   workspace_profile = null,
+  skill_entries = [],
 }) {
   const prepared = prepareRunRoot(tempRoot);
   const env = {
@@ -168,6 +203,8 @@ export function prepareCodexRunEnvironment({
     LC_ALL: "C.UTF-8",
     TZ: "UTC",
   };
+
+  seedMinimalCodexHome(prepared.codexHome);
 
   if (workspace_mode === "git-worktree") {
     createGitWorktreeWorkspace(repo_root, revision, prepared.workspace);
@@ -201,6 +238,15 @@ export function prepareCodexRunEnvironment({
     workspace_mode,
     workspace_root: prepared.workspace,
   });
+  const resolvedSkillViewReport = materializeResolvedSkillView({
+    targetRoot: prepared.agentsDir,
+    entries: skill_entries,
+    targetRootRel: ".agents/skills",
+  });
+  writeMetadata(path.join(prepared.meta, "resolved-skill-view.json"), {
+    resolved_skill_view: resolvedSkillViewReport.resolvedSkillView,
+    excluded_skills: resolvedSkillViewReport.excludedSkills,
+  });
   writeMetadata(path.join(prepared.meta, "environment.json"), env);
 
   return {
@@ -209,6 +255,7 @@ export function prepareCodexRunEnvironment({
     artifactsDir: prepared.artifacts,
     metaDir: prepared.meta,
     agentsSkillsRoot: prepared.agentsDir,
+    resolvedSkillView: resolvedSkillViewReport.resolvedSkillView,
     workspaceMode: workspace_mode,
     repoRoot: repo_root,
     revision,

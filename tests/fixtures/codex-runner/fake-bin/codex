@@ -14,6 +14,14 @@ function writeFileFixture(fileName) {
   process.stdout.write(fs.readFileSync(path.join(eventsDir, fileName), "utf8"));
 }
 
+function writeTurnCompleted(finalText) {
+  process.stdout.write(`{"type":"thread.started","thread_id":"fixture-thread"}\n`);
+  process.stdout.write(`{"type":"turn.started"}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ type: "turn.completed", status: "completed", result: { final_text: finalText, refusal: false } })}\n`,
+  );
+}
+
 if (args[0] === "--version") {
   if (mode === "version_probe_failed") {
     process.stderr.write("version probe failed\n");
@@ -40,6 +48,23 @@ if (args[0] === "exec" && args[1] === "--help") {
 }
 
 if (args[0] === "exec" && args[1] === "--json") {
+  if (mode === "run_skill_view_check") {
+    const skillPath = path.join(process.env.HOME ?? "", ".agents", "skills", "demo-skill", "SKILL.md");
+    if (!fs.existsSync(skillPath)) {
+      process.stderr.write(`missing skill view: ${skillPath}\n`);
+      process.exit(1);
+    }
+
+    const skillText = fs.readFileSync(skillPath, "utf8");
+    if (!skillText.includes("# demo")) {
+      process.stderr.write("unexpected skill contents\n");
+      process.exit(1);
+    }
+
+    writeTurnCompleted("skill view ok");
+    process.exit(0);
+  }
+
   if (mode === "run_auth_failed") {
     writeFileFixture("run-auth-failed.jsonl");
     process.stderr.write("401 unauthorized\n");
