@@ -1,5 +1,7 @@
 # isolated-context-run-subagent integration-tests
 
+Overview: see [../README.md](../README.md). This directory is the Markdown case integration-test variant for the `isolated-context-run` parent layer and the `isolated-context-run:subagent` child layer.
+
 This directory stores independent Markdown-based integration-tests for the `isolated-context-run` parent layer and the `isolated-context-run:subagent` child layer.
 
 These files do not depend on `recall-eval` and follow the repo-root `integration-tests/` convention.

@@ -1,5 +1,7 @@
 # recall-eval integration-tests
 
+Overview: see [../README.md](../README.md). This directory is the YAML orchestration / fixture integration-test variant for initialized-workspace recall.
+
 These files define repo-root integration orchestration for initialized-workspace recall.
 
 They are not the schema source of truth. Real recall fixtures live next to the prompt targets under `.recall/`.
