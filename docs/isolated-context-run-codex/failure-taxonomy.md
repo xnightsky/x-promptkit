@@ -192,12 +192,19 @@
 - `thread_id` 缺失
 - 出现未知事件类型
 - 少量非关键事件缺失
+- 隐式默认的 `workspace-link` 创建失败后已成功降级到 `git-worktree`
 
 建议 warning 代码：
 
 - `missing_thread_id`
 - `missing_turn_completed`
 - `unknown_event_types_present`
+- `workspace_link_create_failed_fell_back`
+
+补充规则：
+
+- 显式 `workspace_mode=workspace-link` 创建失败，应归到 `runner_misconfiguration/clean_room_not_satisfied`
+- 只有隐式默认链才允许把 `workspace-link` 创建失败降级成 warning
 
 只有当这些问题导致 `codex-exec-v0-contract` 无法成立时，才升级为：
 

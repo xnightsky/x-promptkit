@@ -13,6 +13,8 @@ This parent skill owns runner comparison, default priority, override handling, a
 
 If the current host session already has native subagent capability, route that path to [isolated-context-run:subagent](../isolated-context-run-subagent/SKILL.md) instead of expanding subagent internals here.
 
+If the selected host path is Codex, route that path to [isolated-context-run:codex](../isolated-context-run-codex/SKILL.md) instead of exposing `codex exec` as the public runner identity.
+
 ## Runner Model
 
 Normal runners:
@@ -49,9 +51,11 @@ Rules:
 - If `subagent` is available, it wins by default.
 - If `subagent` is unavailable and `self-cli` exists, explain the downgrade and select `self-cli`.
 - Never insert `subagent-wrapper-cli` into the default chain.
-- Do not jump straight to `codex exec`, `claude -p`, or `opencode run` unless the caller explicitly requested `self-cli` or an explicit `mode=...`.
+- Do not jump straight to `claude -p` or `opencode run` unless the caller explicitly requested `self-cli` or an explicit `mode=...`.
+- In a Codex host, parent-level selection still surfaces the public runner as `isolated-context-run:codex`.
 
 When `subagent` wins in a host session with native subagent capability, select `isolated-context-run:subagent`.
+When a Codex host path wins, select `isolated-context-run:codex`.
 
 ## Availability And Failure
 
@@ -102,11 +106,10 @@ Common `Selected Runner` literals:
 
 - `subagent`
 - `No runnable selection from this probe.`
-- `self-cli -> codex exec`
+- `isolated-context-run:codex`
 - `self-cli -> claude -p`
 - `self-cli -> opencode run`
 - `isolated-context-run:subagent`
-- `mode=codex-exec -> codex exec`
 - `mode=claude-p -> claude -p`
 - `mode=opencode-run -> opencode run`
 
@@ -123,5 +126,6 @@ Optional extension blocks after `Override`:
 - Do not contradict caller-provided host facts, probe results, or override constraints.
 - Do not treat explicit runner ids as aliases for host auto-detection.
 - Do not expand native subagent execution internals in this parent layer.
+- Do not expose `codex exec` as the public selected runner; route Codex host work to `isolated-context-run:codex`.
 - Do not silently downgrade from an explicit override.
 - Use [EXAMPLES.md](./EXAMPLES.md) for canonical scenario shapes and anti-patterns.

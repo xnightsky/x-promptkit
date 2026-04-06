@@ -152,10 +152,10 @@ Default Priority
 `subagent -> self-cli`
 
 Selected Runner
-`self-cli -> codex exec`
+`isolated-context-run:codex`
 
 Why
-This is an explicit override: caller explicitly requested `self-cli`. In a Codex host, `self-cli` maps to `codex exec`.
+This is an explicit override: caller explicitly requested `self-cli`. In a Codex host, the public runner is normalized to `isolated-context-run:codex`, while the backend still maps to `codex exec`.
 
 Override
 `self-cli requested explicitly`
@@ -166,7 +166,7 @@ Execution Template
 
 验收标准：
 
-- Codex 环境解释为 `codex exec`
+- Codex 环境对外解释为 `isolated-context-run:codex`
 - Claude 环境解释为 `claude -p`
 - OpenCode 环境解释为 `opencode run`
 - 至少说明宿主识别或 help probe 这类证据来源
@@ -209,10 +209,10 @@ Default Priority
 `subagent -> self-cli`
 
 Selected Runner
-`mode=codex-exec -> codex exec`
+`isolated-context-run:codex`
 
 Why
-Selection came from an explicit caller override. `subagent` would win by default here, but explicit runner ids do not participate in the default fallback chain.
+Selection came from an explicit caller override. `subagent` would win by default here, but explicit runner ids do not participate in the default fallback chain. The Codex-specific override still normalizes to the dedicated Codex sublayer.
 
 Override
 `mode=codex-exec`
@@ -283,7 +283,7 @@ Default Priority
 `subagent -> self-cli`
 
 Selected Runner
-`self-cli -> codex exec`
+`isolated-context-run:codex`
 
 Why
 The runner exists in the current environment, but execution failed after startup. This is an environment failure, not `unavailable`.
