@@ -7,7 +7,7 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const node = process.execPath;
-const scriptsDir = path.join(cwd, "skills", "recall-eval", "scripts");
+const scriptsDir = path.join(cwd, "skills", "recall-evaluator", "scripts");
 
 function runScript(scriptName, args = [], options = {}) {
   return execFileSync(node, [path.join(scriptsDir, scriptName), ...args], {
@@ -184,10 +184,10 @@ test("run-eval scores an overreaching answer as 0", () => {
   assert.match(output, /score=0/);
 });
 
-test("run-eval can source an answer from the subagent carrier bridge", () => {
+test("run-eval can source an answer from the subagent carrier bridge in live mode", () => {
   const output = runScript(
     "run-eval.mjs",
-    ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
+    ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium", "--live"],
     {
       env: {
         RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_MEDIUM:
@@ -212,17 +212,33 @@ test("run-eval reports unsupported carrier overrides", () => {
   assert.match(output, /refused \| unsupported carrier: `custom-carrier`/);
 });
 
-test("run-eval reports unavailable subagent carrier when no bridge is injected", () => {
+test("run-eval reports unavailable subagent carrier when no bridge is injected in live mode", () => {
   const output = runScript("run-eval.mjs", [
     "skills/recall-eval/.recall/queue.yaml",
     "--case",
     "recall_eval.reject_missing_medium",
+    "--live",
   ]);
 
   assert.match(output, /not evaluated \| carrier unavailable in current environment/);
 });
 
-test("run-eval reports subagent execution failures separately from queue errors", () => {
+test("run-eval reports subagent execution failures separately from queue errors in live mode", () => {
+  const output = runScript(
+    "run-eval.mjs",
+    ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium", "--live"],
+    {
+      env: {
+        RECALL_EVAL_SUBAGENT_FAIL_RECALL_EVAL_REJECT_MISSING_MEDIUM: "1",
+      },
+    },
+  );
+
+  assert.match(output, /not evaluated \| carrier execution failed: environment failure/);
+  assert.match(output, /runtime failures: `recall_eval\.reject_missing_medium` carrier execution failed: environment failure/);
+});
+
+test("run-eval does not call the carrier without --live when no direct answer is provided", () => {
   const output = runScript(
     "run-eval.mjs",
     ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
@@ -233,8 +249,27 @@ test("run-eval reports subagent execution failures separately from queue errors"
     },
   );
 
-  assert.match(output, /not evaluated \| carrier execution failed: environment failure/);
-  assert.match(output, /runtime failures: `recall_eval\.reject_missing_medium` carrier execution failed: environment failure/);
+  assert.match(output, /not evaluated \| missing answer input/);
+  assert.doesNotMatch(output, /carrier execution failed/);
+});
+
+test("run-eval rejects mixing --live with direct answer input", () => {
+  assert.throws(
+    () =>
+      runScript("run-eval.mjs", [
+        "skills/recall-eval/.recall/queue.yaml",
+        "--case",
+        "recall_eval.reject_missing_medium",
+        "--live",
+        "--answer",
+        "缺少 medium 时必须拒绝执行。",
+      ]),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /--live cannot be combined with direct answer inputs/);
+      return true;
+    },
+  );
 });
 
 test("run-eval prefers direct answers over carrier execution", () => {

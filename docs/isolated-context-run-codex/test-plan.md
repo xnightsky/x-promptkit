@@ -213,6 +213,7 @@
 - `test:codex-cli`
 - `test:codex-harness`
 - `test:codex-real`
+- `test:recall-real`
 
 `test:codex-real` 属于正式阻塞测试，不是 smoke。
 
@@ -227,6 +228,10 @@
 
 - 默认 `workspace-link` 没有破坏真实 Codex 宿主执行
 - 完整 skill 资产与 linked workspace 共存时不会破坏 runner 行为
+
+在 `recall-eval` reopen 阶段，还要额外通过：
+
+3. `test:recall-real` 在真实 Codex 宿主下覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，并同时验证最终回答与 trace / artifact 证据
 
 ## 12. v0 明确不做的事
 

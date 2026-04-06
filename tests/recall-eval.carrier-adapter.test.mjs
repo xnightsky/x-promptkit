@@ -5,7 +5,7 @@ import {
   buildRecallRequest,
   executeRecallViaCarrier,
   SUBAGENT_CARRIER,
-} from "../skills/recall-eval/scripts/carrier-adapter.mjs";
+} from "../skills/recall-evaluator/scripts/carrier-adapter.mjs";
 
 function makeCaseReport(overrides = {}) {
   return {
@@ -22,15 +22,18 @@ function makeCaseReport(overrides = {}) {
 }
 
 test("buildRecallRequest includes the core request contract fields", () => {
-  const request = buildRecallRequest({
+  const request = JSON.parse(buildRecallRequest({
     caseReport: makeCaseReport(),
     carrier: SUBAGENT_CARRIER,
-  });
+  }));
 
-  assert.match(request, /source_ref: skills\/recall-eval\/SKILL\.md/);
-  assert.match(request, /medium: skill-mechanism/);
-  assert.match(request, /carrier: isolated-context-run:subagent/);
-  assert.match(request, /question: recall queue 缺少 medium 时，能否继续执行？/);
+  assert.equal(request.phase, "recall");
+  assert.equal(request.source_ref, "skills/recall-eval/SKILL.md");
+  assert.equal(request.medium, "skill-mechanism");
+  assert.equal(request.carrier, "isolated-context-run:subagent");
+  assert.equal(request.case_id, "recall_eval.reject_missing_medium");
+  assert.equal(request.question, "recall queue 缺少 medium 时，能否继续执行？");
+  assert.equal(request.prompt, "recall queue 缺少 medium 时，能否继续执行？");
 });
 
 test("executeRecallViaCarrier rejects missing carriers", () => {
@@ -51,8 +54,8 @@ test("executeRecallViaCarrier rejects unsupported carriers", () => {
 
 test("executeRecallViaCarrier uses an injected subagent executor", () => {
   const result = executeRecallViaCarrier(makeCaseReport(), SUBAGENT_CARRIER, {
-    subagentExecutor: ({ request }) =>
-      request.includes("source_ref: skills/recall-eval/SKILL.md")
+    subagentExecutor: (request) =>
+      request.source_ref === "skills/recall-eval/SKILL.md"
         ? "缺少 medium 时必须拒绝执行。"
         : "",
   });
@@ -91,7 +94,8 @@ test("executeRecallViaCarrier can bridge through a command that reads the reques
     "let data = '';",
     "process.stdin.on('data', (chunk) => { data += chunk; });",
     "process.stdin.on('end', () => {",
-    "  process.stdout.write(data.includes('source_ref: skills/recall-eval/SKILL.md') ? 'bridge ok' : 'bad');",
+    "  const request = JSON.parse(data);",
+    "  process.stdout.write(request.source_ref === 'skills/recall-eval/SKILL.md' ? 'bridge ok' : 'bad');",
     "});",
   ].join(" ");
   const command = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;

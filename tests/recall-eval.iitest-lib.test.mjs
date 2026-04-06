@@ -7,9 +7,10 @@ import path from "node:path";
 import {
   buildIitestSubagentRequest,
   createWorkspaceFromFixture,
+  remapSourceRefToWorkspace,
   validateIitestSuite,
   verifyWorkspaceAssert,
-} from "../skills/recall-eval/scripts/iitest-lib.mjs";
+} from "../skills/recall-evaluator/scripts/iitest-lib.mjs";
 
 test("validateIitestSuite rejects suites missing fixture_ref", () => {
   const report = validateIitestSuite({
@@ -76,4 +77,16 @@ test("buildIitestSubagentRequest includes phase, workspace, and source binding",
   assert.equal(request.workspace_root, "<workspace-root>");
   assert.equal(request.source_ref, "AGENTS.md#anchor");
   assert.equal(request.prompt, "你刚才把 alpha 写到了哪里？");
+});
+
+test("remapSourceRefToWorkspace remaps fixture-local source_ref into the temp workspace", () => {
+  const fixtureAbsolutePath = path.resolve("fixture-root");
+  const workspaceRoot = path.resolve("temp-workspace");
+  const remapped = remapSourceRefToWorkspace(
+    "docs/prompt.md#rule-1",
+    fixtureAbsolutePath,
+    workspaceRoot,
+  );
+
+  assert.equal(remapped, `${path.join(workspaceRoot, "docs", "prompt.md")}#rule-1`);
 });

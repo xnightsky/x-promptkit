@@ -1,0 +1,14 @@
+name: recall-eval carrier execution failure
+queue: integration-tests/recall-eval/fixtures/task-memory/.recall/queue.yaml
+fixture_ref: integration-tests/recall-eval/fixtures/task-memory
+carrier: isolated-context-run:subagent
+task_prompt: |
+  Read the workspace instructions and create `notes/task-log.md` with the single line `alpha`.
+workspace_assert:
+  must_exist:
+    - notes/task-log.md
+  file_contains:
+    - path: notes/task-log.md
+      text: alpha
+cases:
+  - task_memory.recall_written_file

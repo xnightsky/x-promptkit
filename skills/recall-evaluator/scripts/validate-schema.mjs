@@ -4,7 +4,7 @@ import { formatValidationReport, loadRecallYaml, validateRecallData } from "./li
 const yamlPath = process.argv[2];
 
 if (!yamlPath) {
-  console.log("Usage: node skills/recall-eval/scripts/validate-schema.mjs <yaml-path>");
+  console.log("Usage: node skills/recall-evaluator/scripts/validate-schema.mjs <yaml-path>");
   process.exit(1);
 }
 

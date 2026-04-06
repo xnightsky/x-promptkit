@@ -1,0 +1,24 @@
+version: 1
+source_ref: AGENTS.md
+fallback_answer: 未明确
+scoring:
+  "2": 明确命中 case-level source_ref
+  "1": 只答到 queue-level source_ref
+  "0": 绑定错误或未答出 source_ref
+cases:
+  - id: task_memory.recall_case_override
+    source_ref: docs/policy.md#recall-override
+    question: 这轮 recall 绑定到哪份 source_ref？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - docs/policy.md#recall-override
+      must_not_include:
+        - AGENTS.md#top-level
+    score_rule:
+      full: 明确答出 case-level source_ref override
+      partial: 只提到 policy 文档但没答出完整 source_ref
+      fail: 答成 queue-level source_ref 或其他来源
+    tags: [iitest, workspace, source-ref]
+    source_scope: docs/policy.md#recall-override

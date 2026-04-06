@@ -8,21 +8,15 @@ import {
   scoreAnswer,
   validateRecallData,
 } from "./lib.mjs";
-import { executeRecallViaCarrier } from "./carrier-adapter.mjs";
+import { executeRecallViaCarrier, isSupportedRecallCarrier } from "./carrier-adapter.mjs";
 
 const args = process.argv.slice(2);
 const yamlPath = args[0];
+const liveMode = args.includes("--live");
 
 function valueFor(flag) {
   const index = args.indexOf(flag);
   return index >= 0 ? args[index + 1] : null;
-}
-
-if (!yamlPath) {
-  console.log(
-    "Usage: node skills/recall-eval/scripts/run-eval.mjs <yaml-path> [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path>] [--carrier <carrier>]",
-  );
-  process.exit(1);
 }
 
 const selectedCaseId = valueFor("--case");
@@ -30,6 +24,18 @@ const cliCarrier = valueFor("--carrier");
 const answer = valueFor("--answer");
 const answerFile = valueFor("--answer-file");
 const answersFile = valueFor("--answers-file");
+
+if (!yamlPath) {
+  console.log(
+    "Usage: node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path> [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path> | --live] [--carrier <carrier>]",
+  );
+  process.exit(1);
+}
+
+if (liveMode && (answer !== null || answerFile !== null || answersFile !== null)) {
+  console.log("--live cannot be combined with direct answer inputs");
+  process.exit(1);
+}
 
 const { path: inputPath, data } = loadRecallYaml(yamlPath);
 const report = validateRecallData(data);
@@ -102,7 +108,20 @@ for (const caseReport of caseReports) {
 
   const answerText = answersByCase[caseReport.id];
   let resolvedAnswerText = answerText;
-  if (typeof resolvedAnswerText !== "string") {
+  if (
+    typeof resolvedAnswerText !== "string" &&
+    typeof cliCarrier === "string" &&
+    !isSupportedRecallCarrier(effectiveCarrier)
+  ) {
+    caseItems.push({
+      id: caseReport.id,
+      result: `refused | unsupported carrier: \`${effectiveCarrier}\``,
+    });
+    runtimeFailures.push(`\`${caseReport.id}\` unsupported carrier: \`${effectiveCarrier}\``);
+    continue;
+  }
+
+  if (typeof resolvedAnswerText !== "string" && liveMode) {
     const runtimeResult = executeRecallViaCarrier(caseReport, effectiveCarrier);
     if (!runtimeResult.ok) {
       const resultText =

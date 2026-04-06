@@ -11,7 +11,7 @@ function valueFor(flag) {
 
 if (!suitePath) {
   console.log(
-    "Usage: node skills/recall-eval/scripts/run-iitest.mjs <suite-yaml> [--case <id>] [--keep-workspace]",
+    "Usage: node skills/recall-evaluator/scripts/run-iitest.mjs <suite-yaml> [--case <id>] [--keep-workspace]",
   );
   process.exit(1);
 }

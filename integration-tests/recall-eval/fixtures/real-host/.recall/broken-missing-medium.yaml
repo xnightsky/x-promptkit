@@ -1,0 +1,22 @@
+version: 1
+source_ref: AGENTS.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且边界完整
+  "1": 方向正确但缺关键限制
+  "0": 回答错误或忽略拒绝规则
+cases:
+  - id: real_host.broken_missing_medium
+    question: 这个 broken queue 还能继续 recall evaluation 吗？
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 缺少 medium
+      must_not_include:
+        - 继续执行
+    score_rule:
+      full: 明确指出缺少 medium 并拒绝执行
+      partial: 只提到 queue 有问题，但没说 medium
+      fail: 允许继续执行
+    tags: [real-host, broken]
+    source_scope: AGENTS.md#top-level

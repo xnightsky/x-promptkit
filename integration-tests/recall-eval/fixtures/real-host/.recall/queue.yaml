@@ -1,0 +1,26 @@
+version: 1
+source_ref: AGENTS.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且边界完整
+  "1": 方向正确但缺关键限制
+  "0": 回答错误或忽略拒绝规则
+cases:
+  - id: real_host.reject_missing_medium
+    question: recall queue 缺少 medium 时，是否还能继续执行？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 拒绝执行
+        - medium
+      should_include:
+        - 需要先完善 queue
+      must_not_include:
+        - 自行猜测 medium
+    score_rule:
+      full: 明确拒绝执行并指出 medium 缺失
+      partial: 提到 medium 有问题，但拒绝边界不完整
+      fail: 允许继续执行或自行猜测 medium
+    tags: [real-host, queue]
+    source_scope: AGENTS.md#top-level

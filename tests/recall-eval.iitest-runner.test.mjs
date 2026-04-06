@@ -7,7 +7,7 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const node = process.execPath;
-const scriptsDir = path.join(cwd, "skills", "recall-eval", "scripts");
+const scriptsDir = path.join(cwd, "skills", "recall-evaluator", "scripts");
 
 function runIitest(args = [], options = {}) {
   return execFileSync(node, [path.join(scriptsDir, "run-iitest.mjs"), ...args], {
@@ -112,4 +112,75 @@ test("run-iitest initializes a temp workspace, executes the task phase, and scor
   assert.match(output, /Task Execution/);
   assert.match(output, /workspace assert: pass/);
   assert.match(output, /`task_memory\.recall_written_file`: score=2/);
+});
+
+test("run-iitest reports recall-phase carrier failures separately from workspace assertions", () => {
+  const taskExecutorScript = [
+    "process.stdin.setEncoding('utf8');",
+    "let data = '';",
+    "process.stdin.on('data', (chunk) => { data += chunk; });",
+    "process.stdin.on('end', () => {",
+    "  const request = JSON.parse(data);",
+    "  const fs = require('node:fs');",
+    "  const path = require('node:path');",
+    "  fs.mkdirSync(path.join(request.workspace_root, 'notes'), { recursive: true });",
+    "  fs.writeFileSync(path.join(request.workspace_root, 'notes', 'task-log.md'), 'alpha\\n');",
+    "  process.stdout.write('task ok');",
+    "});",
+  ].join(" ");
+  const taskExecutorCommand = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(taskExecutorScript)}`;
+
+  assert.throws(
+    () =>
+      runIitest(["integration-tests/recall-eval/smoke.test.yaml"], {
+        env: {
+          RECALL_EVAL_SUBAGENT_EXECUTOR_COMMAND_TASK: taskExecutorCommand,
+          RECALL_EVAL_SUBAGENT_FAIL_RECALL_TASK_MEMORY_RECALL_WRITTEN_FILE: "1",
+          RECALL_EVAL_SUBAGENT_ERROR_RECALL_TASK_MEMORY_RECALL_WRITTEN_FILE: "bridge down",
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /workspace assert: pass/);
+      assert.match(
+        error.stdout,
+        /`task_memory\.recall_written_file`: not evaluated \| carrier execution failed: bridge down/,
+      );
+      assert.match(
+        error.stdout,
+        /runtime failures: `task_memory\.recall_written_file` carrier execution failed: bridge down/,
+      );
+      return true;
+    },
+  );
+});
+
+test("run-iitest uses case-level source_ref overrides during recall", () => {
+  const executorScript = [
+    "process.stdin.setEncoding('utf8');",
+    "let data = '';",
+    "process.stdin.on('data', (chunk) => { data += chunk; });",
+    "process.stdin.on('end', () => {",
+    "  const request = JSON.parse(data);",
+    "  const fs = require('node:fs');",
+    "  const path = require('node:path');",
+    "  if (request.phase === 'task') {",
+    "    fs.mkdirSync(path.join(request.workspace_root, 'notes'), { recursive: true });",
+    "    fs.writeFileSync(path.join(request.workspace_root, 'notes', 'task-log.md'), 'alpha\\n');",
+    "    process.stdout.write('task ok');",
+    "    return;",
+    "  }",
+    "  process.stdout.write(String(request.source_ref).includes('docs') ? 'docs/policy.md#recall-override' : 'bad-source-ref');",
+    "});",
+  ].join(" ");
+  const executorCommand = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(executorScript)}`;
+
+  const output = runIitest(["integration-tests/recall-eval/mixed-source-ref.test.yaml"], {
+    env: {
+      RECALL_EVAL_SUBAGENT_EXECUTOR_COMMAND: executorCommand,
+    },
+  });
+
+  assert.match(output, /`task_memory\.recall_case_override`: score=2/);
+  assert.match(output, /directly evaluable: `task_memory\.recall_case_override`/);
 });

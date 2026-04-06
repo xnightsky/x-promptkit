@@ -323,6 +323,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 期望产出：
 
 - 使用 `validate-schema.mjs`
+- 运行入口位于 `skills/recall-evaluator/scripts/`
 - 输出 PASS 或 FAIL
 - 失败时逐条列出缺字段
 

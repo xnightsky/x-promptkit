@@ -29,19 +29,20 @@ function trimSpawnText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export function isSupportedRecallCarrier(carrier) {
+  return carrier === SUBAGENT_CARRIER;
+}
+
 export function buildRecallRequest({ caseReport, carrier }) {
-  return [
-    "You are the recall-evaluator runtime bridge.",
-    "Only answer the question using the explicit target bound by `source_ref`.",
-    "Do not explain your process.",
-    "Do not emit headings, summaries, or markdown wrappers.",
-    "Return only the answer body.",
-    "",
-    `source_ref: ${caseReport.effectiveSourceRef}`,
-    `medium: ${caseReport.caseValue.medium}`,
-    `carrier: ${carrier}`,
-    `question: ${caseReport.caseValue.question}`,
-  ].join("\n");
+  return JSON.stringify({
+    phase: "recall",
+    source_ref: caseReport.effectiveSourceRef,
+    question: caseReport.caseValue.question,
+    prompt: caseReport.caseValue.question,
+    carrier,
+    case_id: caseReport.id,
+    medium: caseReport.caseValue.medium,
+  });
 }
 
 function runCommandBridge(command, request, env) {
@@ -93,7 +94,7 @@ export function executeRecallViaCarrier(caseReport, carrier, options = {}) {
     };
   }
 
-  if (carrier !== SUBAGENT_CARRIER) {
+  if (!isSupportedRecallCarrier(carrier)) {
     return {
       ok: false,
       kind: "unsupported_carrier",
@@ -125,7 +126,7 @@ export function executeRecallViaCarrier(caseReport, carrier, options = {}) {
   const request = buildRecallRequest({ caseReport, carrier });
   if (typeof options.subagentExecutor === "function") {
     try {
-      const answerText = String(options.subagentExecutor({ caseReport, carrier, request }) ?? "").trim();
+      const answerText = String(options.subagentExecutor(JSON.parse(request)) ?? "").trim();
       if (!isNonEmptyString(answerText)) {
         return {
           ok: false,
