@@ -7,7 +7,11 @@
 - [../../skills/isolated-context-run-codex/scripts/README.md](../../skills/isolated-context-run-codex/scripts/README.md)
 - `skills/isolated-context-run-codex/scripts/probe.mjs`
 - `skills/isolated-context-run-codex/scripts/run-exec.mjs`
-- `tests/codex-runner.*.test.mjs`
+- `tests/codex-runner.lib.test.mjs`
+- `tests/codex-runner.probe.test.mjs`
+- `tests/codex-runner.run-exec.test.mjs`
+- `integration-tests/codex-runner.harness.test.mjs`
+- `integration-tests/codex-runner.real.test.mjs`
 
 当前实现状态补充：
 

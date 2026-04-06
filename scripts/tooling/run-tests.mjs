@@ -8,13 +8,18 @@ const rootDir = process.cwd();
 const testFiles = walkRepoFiles(rootDir, {
   extensions: [".mjs"],
 }).filter((filePath) => {
-  // Limit the default test entry to actively maintained tests under tests/.
+  // Keep fast/unit-style Node tests under tests/ and high-side-effect Node
+  // integration cases under integration-tests/, while ignoring the Markdown/YAML
+  // integration assets that live alongside them.
   const normalizedPath = filePath.split(path.sep).join("/");
-  return normalizedPath.startsWith("tests/") && normalizedPath.endsWith(".test.mjs");
+  return (
+    (normalizedPath.startsWith("tests/") || normalizedPath.startsWith("integration-tests/")) &&
+    normalizedPath.endsWith(".test.mjs")
+  );
 });
 
 if (testFiles.length === 0) {
-  console.error("test: no active test files were found under tests/");
+  console.error("test: no active test files were found under tests/ or integration-tests/");
   process.exit(1);
 }
 

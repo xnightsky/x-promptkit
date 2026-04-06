@@ -63,8 +63,8 @@
 - `tests/codex-runner.lib.test.mjs`
 - `tests/codex-runner.probe.test.mjs`
 - `tests/codex-runner.run-exec.test.mjs`
-- `tests/codex-runner.harness.test.mjs`
-- `tests/codex-runner.real.test.mjs`
+- `integration-tests/codex-runner.harness.test.mjs`
+- `integration-tests/codex-runner.real.test.mjs`
 
 职责划分：
 

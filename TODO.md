@@ -207,7 +207,7 @@
   depends on: 环境失败样例；真实 runner integration-tests 接入
 
 - [x] 为 `isolated-context-run:codex` 增加 `unit / cli / harness` 三层测试。
-  done when: 至少有 `tests/codex-runner.lib.test.mjs`、`tests/codex-runner.probe.test.mjs`、`tests/codex-runner.run-exec.test.mjs`、`tests/codex-runner.harness.test.mjs`；并覆盖 fake `codex` 的 `probe_ok`、`probe_missing`、`run_ok`、`run_auth_failed`、`run_bad_jsonl` 五种最小行为集。
+  done when: 至少有 `tests/codex-runner.lib.test.mjs`、`tests/codex-runner.probe.test.mjs`、`tests/codex-runner.run-exec.test.mjs`、`integration-tests/codex-runner.harness.test.mjs`；并覆盖 fake `codex` 的 `probe_ok`、`probe_missing`、`run_ok`、`run_auth_failed`、`run_bad_jsonl` 五种最小行为集。
   depends on: 固定 `probe.mjs` / `run-exec.mjs` 的测试分层
 
 - [ ] 增加 queue-level 与 case-level `source_ref` 混用场景的集成覆盖。
