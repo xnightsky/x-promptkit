@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Local git worktrees
 .worktrees/
+
+# Local Codex marker file in repo root
+/.codex
