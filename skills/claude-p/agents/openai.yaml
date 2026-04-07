@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude -p"
+  short_description: "生成并执行单条 Claude -p 命令"
+  default_prompt: "Use $claude-p to compose a precise claude -p command for the current task."
+
+policy:
+  allow_implicit_invocation: false
