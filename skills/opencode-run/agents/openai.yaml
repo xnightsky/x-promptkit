@@ -1,0 +1,7 @@
+interface:
+  display_name: "OpenCode Run"
+  short_description: "生成并执行单条 OpenCode Run 命令"
+  default_prompt: "Use $opencode-run to compose a precise opencode run command for the current task."
+
+policy:
+  allow_implicit_invocation: false
