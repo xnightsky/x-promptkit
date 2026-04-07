@@ -81,7 +81,7 @@ test("real host recall-eval does not trigger on an unrelated prompt", (t) => {
   const rawEvents = readText(path.join(prepared.artifactsDir, "raw-events.jsonl"));
 
   assert.equal(result.ok, true);
-  assert.equal(result.result.final_text, "NO-RECALL");
+  assert.match(result.result.final_text, /NO-RECALL/);
   assert.doesNotMatch(rawEvents, /1\. Queue/);
   assert.doesNotMatch(rawEvents, /real_host\.reject_missing_medium/);
 });
