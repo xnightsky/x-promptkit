@@ -1,0 +1,7 @@
+interface:
+  display_name: "OpenCode Run With Superpowers"
+  short_description: "生成带 superpowers 前缀的 OpenCode Run 命令"
+  default_prompt: "Use $opencode-run-with-superpowers to compose an opencode run command that prepends a superpowers skill load."
+
+policy:
+  allow_implicit_invocation: false

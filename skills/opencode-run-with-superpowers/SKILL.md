@@ -1,0 +1,117 @@
+---
+name: opencode-run-with-superpowers
+description: Use when the user explicitly wants a task wrapped as a single `opencode run` command that prepends a superpowers skill load, wants that prefixed command executed directly, or wants the current task handed off unchanged to an external OpenCode agent with an explicit superpowers prefix
+interface:
+  display_name: "OpenCode Run With Superpowers"
+  short_description: "生成带 superpowers 前缀的 OpenCode Run 命令"
+  default_prompt: "Use $opencode-run-with-superpowers to compose an opencode run command that prepends a superpowers skill load."
+policy:
+  allow_implicit_invocation: false
+---
+
+# Opencode Run With Superpowers
+
+## Overview
+
+Construct exactly one `opencode run` command for the requested task, but only when the user explicitly wants a superpowers prefix.
+
+Keep the user's scope tight, preserve the original Chinese meaning, and add only the minimum escaping needed for a runnable shell command.
+
+Use [EXAMPLES.md](./EXAMPLES.md) for canonical command shapes, default-skill fallback, execution-result summaries, and anti-patterns.
+
+## Workflow
+
+Process requests in this order:
+
+1. Confirm the target working directory.
+2. Confirm which superpowers skill should be loaded.
+3. Compress the user's task into one goal.
+4. Construct the command.
+5. Apply only the required shell escaping.
+6. Either return the command or execute it, depending on the user's request.
+
+## Working Directory
+
+- If the user already gave a directory, use it directly.
+- Otherwise use the current repository directory.
+- Keep the directory decision explicit in the command shape rather than implying it from prose.
+
+## Superpowers Skill Selection
+
+- Only add the superpowers prefix when the user explicitly requested it.
+- If the user explicitly named a superpowers skill, use that exact skill.
+- If the user asked for "with superpowers" but did not name a specific skill, use `superpowers/brainstorming`.
+- Do not guess any fallback other than `superpowers/brainstorming`.
+- Do not rewrite ordinary skills as `superpowers/...`.
+- Do not append a second skill after the prefix.
+
+## Task Compression
+
+- Reduce the user request to a single goal.
+- Do not broaden the scope.
+- Do not add extra phases, extra stop conditions, or implementation suggestions the user did not ask for.
+- When the user wants the current task handed off to an external agent, keep the task semantically unchanged apart from minimal compression needed to make it a single runnable instruction.
+
+## Command Template
+
+Default command template:
+
+```bash
+cd <workdir> && opencode run "use skill tool to load superpowers/<skill>; <task>"
+```
+
+Rules:
+
+- Keep the outer double quotes.
+- If the user already provided a complete `opencode run` command, make only the minimum correction needed for quoting, escaping, the working-directory prelude, or the required superpowers prefix.
+- Keep the semicolon separator inside the quoted task payload.
+- Do not rewrite the task text just to make it look cleaner.
+- Do not add any skill after the first `superpowers/<skill>` load prefix.
+
+## Shell Escaping
+
+Apply only the minimum escaping needed for the command to survive shell parsing.
+
+- Escape double quotes inside the task text as `\"`.
+- Escape bare `$` inside the task text as `\$`.
+- Keep the outer double quotes unchanged.
+- Do not rewrite the surrounding Chinese wording.
+- Do not introduce extra quoting layers unless the existing command is otherwise invalid.
+
+## Return Mode
+
+If the user only asked for the command:
+
+- return only the command
+- do not add explanation
+
+If the user asked to execute directly:
+
+- run the command
+- report only the key result
+- do not dump intermediate polling noise unless the user asks for it
+
+## Execution Observation Policy
+
+Treat `opencode run` as a one-shot non-interactive command.
+
+- After launch, the default report is a single "started" style update.
+- If the host requires waiting to determine completion, use `600000 ms` by default.
+- Automatic waiting must never use less than `300000 ms`.
+- Without an explicit request for ongoing monitoring, auto-check at most once.
+- After a timeout, stop polling unless the user asked for continued monitoring.
+- With continued monitoring, use `600000 ms` intervals.
+- Repeated "still running" or timeout updates should be emitted at most once every 30 minutes.
+- Exit, crash, error, or a direct user request to inspect status should be reported immediately.
+
+## Restrictions
+
+- Do not add the superpowers prefix unless the user explicitly asked for it.
+- Do not rewrite ordinary skills as `superpowers/...`.
+- Do not guess any fallback skill other than `superpowers/brainstorming`.
+- Do not automatically add extra skills.
+- Do not automatically add extra stop conditions.
+- Do not automatically add implementation advice.
+- Do not automatically add extra context.
+- Do not narrate every wait cycle back to the user.
+- Do not silently expand a task into a multi-stage workflow.
