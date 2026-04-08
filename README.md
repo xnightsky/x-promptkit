@@ -85,7 +85,8 @@
 
 - [`skills/claude-p/SKILL.md`](./skills/claude-p/SKILL.md)
   - 用在你明确要一条 `claude -p` 命令时
-  - 默认命令骨架是 `cd <workdir> && claude -p "<task>"`
+  - 默认命令骨架是 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"`
+  - 默认带该参数是为了避免非交互执行被权限审批阻塞，但不应被描述成“所有守卫都被绕过”
 - [`skills/opencode-run/SKILL.md`](./skills/opencode-run/SKILL.md)
   - 用在你明确要一条 `opencode run` 命令时
   - 默认命令骨架是 `cd <workdir> && opencode run "<task>"`

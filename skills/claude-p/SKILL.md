@@ -15,6 +15,8 @@ policy:
 
 Construct exactly one `claude -p` command for the requested task. Keep the user's scope tight, preserve the original Chinese meaning, and add only the minimum escaping needed for a runnable shell command.
 
+Default to the repository's proven unattended Claude Code invocation so non-interactive runs do not stop on edit or tool approval prompts. The canonical command shape in this repo is `IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"`.
+
 Use [EXAMPLES.md](./EXAMPLES.md) for canonical command shapes, execution-result summaries, and anti-patterns.
 
 ## Workflow
@@ -45,15 +47,26 @@ Process requests in this order:
 Default command template:
 
 ```bash
-cd <workdir> && claude -p "<task>"
+cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"
 ```
 
 Rules:
 
 - Keep the outer double quotes.
 - If the user already provided a complete `claude -p` command, make only the minimum correction needed for quoting, escaping, or the working-directory prelude.
+- If the user did not provide sandbox or permission flags, add `IS_SANDBOX=1` and `--dangerously-skip-permissions` by default.
+- This is the default first-pass template, not a retry-only fallback after a permission-blocked run.
+- Treat `--dangerously-skip-permissions` as the current canonical CLI flag. Do not invent or preserve non-existent names such as `dangerouslyDisableSandbox`.
+- Keep `-p` after `--dangerously-skip-permissions`. Do not reorder the command into another flag layout unless the user explicitly provided one.
 - Do not rewrite the task text just to make it look cleaner.
 - Do not add any skill-loading prefix, slash-command syntax, or extra CLI flags unless the user explicitly asked for them.
+
+## Permission Boundary
+
+- `IS_SANDBOX=1 claude --dangerously-skip-permissions -p ...` is the repository's default unattended command shape.
+- `--dangerously-skip-permissions` is intended for unattended execution and maps to Claude Code's `bypassPermissions` mode.
+- This default exists to avoid permission prompts blocking `claude -p` runs.
+- Do not describe it as bypassing every possible guardrail. Hooks, deny rules, and other host-side restrictions may still block operations.
 
 ## Shell Escaping
 
