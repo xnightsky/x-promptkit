@@ -203,10 +203,11 @@ Use standalone yaml fixtures for schema and scoring helpers. Use `integration-te
 
 Script entrypoints:
 
-- `node skills/recall-evaluator/scripts/validate-schema.mjs <yaml-path>`
-- `node skills/recall-evaluator/scripts/resolve-target.mjs <yaml-path>`
-- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path> --case <id> --answer "<text>"`
-- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path> --case <id> --live`
+- `node skills/recall-evaluator/scripts/validate-schema.mjs <yaml-path|target-path>`
+- `node skills/recall-evaluator/scripts/resolve-target.mjs <yaml-path|target-path>`
+- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --answer "<text>"`
+- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --live`
+- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] --live`
 
 These are evaluator runtime entrypoints that implement the contract defined here.
 

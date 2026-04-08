@@ -8,12 +8,20 @@ const selectedCaseId = caseFlagIndex >= 0 ? args[caseFlagIndex + 1] : null;
 
 if (!yamlPath) {
   console.log(
-    "Usage: node skills/recall-evaluator/scripts/resolve-target.mjs <yaml-path> [--case <id>]",
+    "Usage: node skills/recall-evaluator/scripts/resolve-target.mjs <yaml-path|target-path> [--case <id>]",
   );
   process.exit(1);
 }
 
-const { path: inputPath, data } = loadRecallYaml(yamlPath);
+let loadedQueue;
+try {
+  loadedQueue = loadRecallYaml(yamlPath);
+} catch (error) {
+  console.log(error.message);
+  process.exit(1);
+}
+
+const { path: inputPath, data } = loadedQueue;
 const report = validateRecallData(data);
 const queueSourceRef = typeof data?.source_ref === "string" ? data.source_ref : "unresolved";
 const caseReports = selectedCaseId

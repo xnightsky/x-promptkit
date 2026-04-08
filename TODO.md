@@ -75,6 +75,7 @@
 
 - 下面的阶段性任务默认继承上述路线判断。
 - `integration-tests/` 下的 YAML、Markdown、fixture、脚本与 `.test.mjs` 一律按真实集成测试资产管理，不再按“仅说明”或“仅 smoke”降级理解。
+- 若某次交付中 `npm run verify` 被用户主动中断，不得宣称“全量仓库回归已完成”；应明确记录为“局部验证已通过，完整 verify 待补跑”。
 - 如果后续出现与本章冲突的新任务，应优先先改这里的判断依据，再调整具体条目，避免 TODO 只剩任务名而失去上下文。
 
 ## P0 架构定向与边界
@@ -239,15 +240,15 @@
   done when: live request 已固定为共享 JSON contract，至少包含 `source_ref`、`question`、`carrier`、`case_id`、`medium`；文档、测试、命令桥与 harness 输入统一复用这一份契约，不回退为当前会话本地执行。
   depends on: live 模式
 
-- [ ] 持久化 run 产物，保证可复现：`queue` 路径、`case id`、`source_ref`、`carrier`、原始回答、`score`、`rationale`、`timestamp`、`run id`。
+- [x] 持久化 run 产物，保证可复现：`queue` 路径、`case id`、`source_ref`、`carrier`、原始回答、`score`、`rationale`、`timestamp`、`run id`。
   done when: 每次 live 执行都能落盘完整运行记录，且后续可按 `run id` 回看。
   depends on: live 模式；稳定 request contract
 
-- [ ] 支持不传 `--case` 直接跑完整个 queue，并支持跨多个 target 的批量执行。
+- [x] 支持不传 `--case` 直接跑完整个 queue，并支持跨多个 target 的批量执行。
   done when: evaluator CLI 能按单 case、整 queue、跨 target 三种粒度执行，并输出可区分的汇总结果。
   depends on: 持久化 run 产物
 
-- [ ] 增加对目标旁 `.recall/queue.yaml` 的目录发现能力。
+- [x] 增加对目标旁 `.recall/queue.yaml` 的目录发现能力。
   done when: 给定 target 时，系统能自动发现同级 `.recall/queue.yaml`，并在缺失时返回清晰错误。
   depends on: 支持整 queue/批量执行
 

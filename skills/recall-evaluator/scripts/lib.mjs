@@ -1,10 +1,13 @@
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import YAML from "yaml";
 
 const REQUIRED_TOP_LEVEL_FIELDS = ["version", "fallback_answer", "scoring", "cases"];
 const REQUIRED_SCORE_KEYS = ["0", "1", "2"];
 const REQUIRED_SCORE_RULE_KEYS = ["full", "partial", "fail"];
+const YAML_FILE_PATTERN = /\.ya?ml$/i;
+export const DEFAULT_LIVE_RUNS_DIR = "./.tmp/recall-runs";
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -18,20 +21,77 @@ function readFileUtf8(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function normalizePathForOutput(filePath) {
+  return String(filePath ?? "").replace(/\\/g, "/");
+}
+
 export function resolveYamlPath(inputPath, cwd = process.cwd()) {
   return path.resolve(cwd, inputPath);
 }
 
+export function resolveRecallInputPath(inputPath, cwd = process.cwd()) {
+  const absoluteInputPath = resolveYamlPath(inputPath, cwd);
+
+  if (YAML_FILE_PATTERN.test(inputPath)) {
+    return {
+      path: normalizePathForOutput(inputPath),
+      absolutePath: absoluteInputPath,
+      discovery: {
+        mode: "explicit_yaml",
+        originalInputPath: inputPath,
+      },
+    };
+  }
+
+  if (!fs.existsSync(absoluteInputPath)) {
+    throw new Error(`Cannot resolve target path: ${inputPath}`);
+  }
+
+  const inputStats = fs.statSync(absoluteInputPath);
+  const targetRoot = inputStats.isDirectory()
+    ? absoluteInputPath
+    : inputStats.isFile()
+      ? path.dirname(absoluteInputPath)
+      : null;
+  const discoveryMode = inputStats.isDirectory()
+    ? "target_directory"
+    : inputStats.isFile()
+      ? "target_file"
+      : "unsupported_target";
+
+  if (!targetRoot) {
+    throw new Error(`Unsupported target path: ${inputPath}`);
+  }
+
+  const discoveredQueuePath = path.join(targetRoot, ".recall", "queue.yaml");
+  if (!fs.existsSync(discoveredQueuePath) || !fs.statSync(discoveredQueuePath).isFile()) {
+    throw new Error(
+      `No target-local queue found for target: ${inputPath} (expected ${normalizePathForOutput(path.relative(cwd, discoveredQueuePath))})`,
+    );
+  }
+
+  return {
+    path: normalizePathForOutput(path.relative(cwd, discoveredQueuePath)),
+    absolutePath: discoveredQueuePath,
+    discovery: {
+      mode: discoveryMode,
+      originalInputPath: inputPath,
+    },
+  };
+}
+
 export function loadRecallYaml(inputPath, cwd = process.cwd()) {
-  const absolutePath = resolveYamlPath(inputPath, cwd);
+  const resolvedInput = resolveRecallInputPath(inputPath, cwd);
+  const absolutePath = resolvedInput.absolutePath;
   const raw = readFileUtf8(absolutePath);
   const data = YAML.parse(raw);
 
   return {
-    path: inputPath,
+    path: resolvedInput.path,
     absolutePath,
     raw,
     data,
+    discovery: resolvedInput.discovery,
   };
 }
 
@@ -314,6 +374,65 @@ export function readAnswersFile(filePath) {
   return JSON.parse(raw);
 }
 
+export function createLiveRunId(now = new Date(), suffix = randomUUID()) {
+  const timestampPart = now.toISOString().replace(/[:.]/g, "-");
+  return `recall-run-${timestampPart}-${suffix}`;
+}
+
+export function resolveRunsDir(inputPath, cwd = process.cwd()) {
+  return path.resolve(cwd, isNonEmptyString(inputPath) ? inputPath : DEFAULT_LIVE_RUNS_DIR);
+}
+
+export function buildLiveRunArtifactRecord({
+  runId,
+  mode,
+  startedAt,
+  completedAt,
+  queuePath,
+  selectedCaseId,
+  carrierOverride,
+  cases,
+}) {
+  return {
+    version: 1,
+    run_id: runId,
+    mode,
+    started_at: startedAt,
+    completed_at: completedAt,
+    queue_path: queuePath,
+    selected_case_id: selectedCaseId ?? null,
+    carrier_override: carrierOverride ?? null,
+    cases: cases.map((item) => ({
+      case_id: item.caseId,
+      source_ref: item.sourceRef ?? null,
+      carrier: item.carrier ?? null,
+      question: item.question ?? null,
+      answer_text: item.answerText ?? null,
+      score: item.score ?? null,
+      rationale: item.rationale ?? null,
+      status: item.status,
+      timestamp: item.timestamp,
+      runtime_failure: item.runtimeFailure ?? null,
+    })),
+  };
+}
+
+export function persistLiveRunArtifact({ runsDir, runRecord, cwd = process.cwd() }) {
+  const resolvedRunsDir = resolveRunsDir(runsDir, cwd);
+  const runDirectory = path.join(resolvedRunsDir, runRecord.run_id);
+  const artifactPath = path.join(runDirectory, "result.json");
+
+  fs.mkdirSync(runDirectory, { recursive: true });
+  fs.writeFileSync(artifactPath, `${JSON.stringify(runRecord, null, 2)}\n`);
+
+  return {
+    runsDir: resolvedRunsDir,
+    runDirectory,
+    artifactPath,
+    relativeArtifactPath: normalizePathForOutput(path.relative(cwd, artifactPath)),
+  };
+}
+
 export function formatRunEvalOutput({
   yamlPath,
   carrierLabel,
@@ -343,5 +462,33 @@ export function formatRunEvalOutput({
   lines.push(`- refused for missing carrier: ${summary.refusedForMissingCarrier}`);
   lines.push(`- queue fixes required: ${summary.queueFixesRequired}`);
   lines.push(`- runtime failures: ${summary.runtimeFailures ?? "none"}`);
+  lines.push(`- run artifact: ${summary.runArtifact ?? "none"}`);
+  return lines.join("\n");
+}
+
+export function formatBatchRunEvalOutput({ mode, targets }) {
+  const lines = [];
+  lines.push("Batch Recall Eval");
+  lines.push(`- targets: \`${targets.length}\``);
+  lines.push(`- mode: \`${mode}\``);
+  lines.push("");
+  lines.push("Target Summary");
+
+  for (const target of targets) {
+    lines.push(
+      `- \`${target.yamlPath}\`: directly evaluable=${target.summary.directlyEvaluable}; refused for missing carrier=${target.summary.refusedForMissingCarrier}; queue fixes required=${target.summary.queueFixesRequired}; runtime failures=${target.summary.runtimeFailures ?? "none"}; run artifact=${target.summary.runArtifact ?? "none"}`,
+    );
+  }
+
+  lines.push("");
+  lines.push("Target Reports");
+  for (const [index, target] of targets.entries()) {
+    lines.push(`## \`${target.yamlPath}\``);
+    lines.push(target.reportText);
+    if (index < targets.length - 1) {
+      lines.push("");
+    }
+  }
+
   return lines.join("\n");
 }

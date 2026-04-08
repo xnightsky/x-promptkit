@@ -7,10 +7,11 @@ Commands:
 - `npm run lint`
 - `npm run check`
 - `npm run verify`
-- `npm run recall:validate -- <yaml-path>`
-- `npm run recall:resolve -- <yaml-path>`
-- `npm run recall:run -- <yaml-path> --case <id> --answer "<text>"`
-- `npm run recall:run -- <yaml-path> --case <id> --live`
+- `npm run recall:validate -- <yaml-path|target-path>`
+- `npm run recall:resolve -- <yaml-path|target-path>`
+- `npm run recall:run -- <yaml-path|target-path> --case <id> --answer "<text>"`
+- `npm run recall:run -- <yaml-path|target-path> --case <id> --live [--runs-dir <path>]`
+- `npm run recall:run -- <yaml-path|target-path> [<yaml-path|target-path> ...] --live [--runs-dir <path>]`
 - `npm run recall:iitest -- <suite-yaml> [--case <id>] [--keep-workspace]`
 
 Development rules:
@@ -24,9 +25,24 @@ Responsibilities:
 - `validate-schema.mjs`: schema and integrity validation
 - `resolve-target.mjs`: inspect effective `source_ref`
 - `carrier-adapter.mjs`: runtime carrier bridge and failure normalization
-- `run-eval.mjs`: evaluate cases against direct answers in score-only mode, or obtain real answers through `--live`, then print the fixed five-section report
+- `run-eval.mjs`: evaluate a single queue in score-only or live mode, or batch multiple queue targets in live mode, then print either the fixed five-section report or a batch wrapper with per-target embedded reports
 - `iitest-lib.mjs`: initialized-workspace recall harness helpers
 - `run-iitest.mjs`: initialize a temp workspace from a fixture, run a task phase in a child executor, then run the recall phase and score it
+
+Live run persistence:
+
+- `--live` always writes one run artifact to `./.tmp/recall-runs/<run-id>/result.json` by default.
+- `--runs-dir <path>` overrides the base output directory for that live invocation.
+- score-only mode (`--answer` / `--answer-file` / `--answers-file`) does not write run artifacts.
+- `result.json` is the v1 source of truth for replaying a live run. It stores top-level run metadata plus per-case `answer_text`, `score`, `rationale`, `status`, and `runtime_failure`.
+- multiple yaml targets are supported only with `--live`; batch mode does not combine with `--case` or direct answer inputs.
+
+Target-local queue discovery:
+
+- when the CLI input is an explicit `.yaml` / `.yml` path, it is treated as the queue path directly
+- when the CLI input is a target file such as `AGENTS.md`, the runtime discovers `<target-dir>/.recall/queue.yaml`
+- when the CLI input is a target directory such as `skills/recall-eval`, the runtime discovers `<target-dir>/.recall/queue.yaml`
+- if the discovered target-local queue is missing, the CLI exits with a clear error that includes the expected `.recall/queue.yaml` path
 
 Test layers:
 

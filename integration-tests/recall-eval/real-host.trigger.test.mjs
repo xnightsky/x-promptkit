@@ -102,3 +102,48 @@ test("real host recall-eval refuses broken queue definitions", (t) => {
   assert.match(result.result.final_text, /refused|拒绝/);
   assert.match(rawEvents, /broken-missing-medium\.yaml/);
 });
+
+test("real host recall-eval discovers a target-local queue from a target path", (t) => {
+  const prepared = withPreparedEnvironment(t);
+  const result = runExecRequest(buildRealRunRequest(
+    prepared,
+    [
+      "请按 recall-eval 的固定五段格式，评估 `AGENTS.md` 这个 target 对应的 recall queue。",
+      "这次不是 live 模式，下面这段文本就是待评分 answer，请直接拿它打分，不要再等待新的 answer input：",
+      "必须使用简体中文，并在每次回复末尾附带 [by=x-promptkit]。",
+    ].join("\n"),
+  ));
+  const rawEvents = readText(path.join(prepared.artifactsDir, "raw-events.jsonl"));
+
+  assert.equal(result.ok, true);
+  assert.match(result.result.final_text, /1\. Queue/);
+  assert.match(result.result.final_text, /`\.recall\/queue\.yaml`/);
+  assert.match(result.result.final_text, /repo_agents\.cn_and_canary/);
+  assert.match(result.result.final_text, /Case Results/);
+  assert.match(rawEvents, /\.recall\/queue\.yaml/);
+});
+
+test("real host recall-eval supports batch live evaluation across multiple queues", (t) => {
+  const prepared = withPreparedEnvironment(t);
+  const result = runExecRequest(buildRealRunRequest(
+    prepared,
+    [
+      "请直接执行这条批量 live recall-eval 请求，不要列候选路径，也不要反问：",
+      "queue 1: integration-tests/recall-eval/fixtures/real-host/.recall/queue.yaml",
+      "queue 2: .recall/queue.yaml",
+      "要求：",
+      "- 使用这两个相对路径原样执行",
+      "- 按批量 live 模式执行",
+      "- 输出 Batch Recall Eval 包装结果",
+      "- 不要改写成单 queue 报告",
+    ].join("\n"),
+  ));
+  const rawEvents = readText(path.join(prepared.artifactsDir, "raw-events.jsonl"));
+
+  assert.equal(result.ok, true);
+  assert.match(result.result.final_text, /Batch Recall Eval/);
+  assert.match(result.result.final_text, /integration-tests\/recall-eval\/fixtures\/real-host\/.recall\/queue\.yaml/);
+  assert.match(result.result.final_text, /\.recall\/queue\.yaml/);
+  assert.match(result.result.final_text, /run artifact=/);
+  assert.match(rawEvents, /Batch Recall Eval|integration-tests\/recall-eval\/fixtures\/real-host\/.recall\/queue\.yaml/);
+});
