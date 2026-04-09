@@ -14,9 +14,9 @@
 - [`scripts/tooling/`](./scripts/tooling/)
   - 仓库级 lint、check、test 等本地工具脚本。
 - [`tests/`](./tests/)
-  - 快回归与低副作用测试。
+  - 单元测试：纯 fake、低副作用、不消耗真实 AI token 的脚本契约与库函数回归。
 - [`integration-tests/`](./integration-tests/)
-  - 高副作用、宿主相关或需要隔离上下文的集成测试资产。
+  - 集成测试：环境编排、workspace/clean-room 生命周期、真实宿主或真实 AI token 相关资产。
 
 ## 怎么理解 skills
 
@@ -115,6 +115,7 @@
 - `npm run lint`
 - `npm run check`
 - `npm test`
+- `npm run iitest`
 - `npm run verify`
 
 默认开发顺序：
@@ -127,13 +128,20 @@
 
 按场景常用的补充入口：
 
-- 修改 Node 测试或需要统一收集 `.test.mjs` 时，运行 `npm test`
-- 修改 Codex runner 相关实现时，可按需运行 `npm run test:codex-unit`、`npm run test:codex-cli`、`npm run test:codex-harness`、`npm run test:codex-real`
+- 跑全部单元测试时，运行 `npm test`
+- 跑全部非 token 集成测试时，运行 `npm run iitest`
+- 修改 Codex runner 相关实现时，可按需运行 `npm run test:codex-unit`、`npm run test:codex-cli`、`npm run iitest:codex-harness`、`npm run iitest:token:codex`
 
 ## 仓库约定
 
 - 仓库内容中不要写本机绝对路径，一律使用仓库内相对路径或占位符。
 - 不要只改实现不改文档；命令、输出格式、字段语义和开发流程变化都要同步更新说明。
-- Node `.test.mjs` 默认由 `npm test` 从 `tests/` 和 `integration-tests/` 两个目录收集；高副作用集成用例应优先放到 `integration-tests/`。
+- 本仓库只有两类官方测试：单元测试与集成测试。
+- `npm test` 与所有 `test:*` 前缀脚本只属于单元测试。
+- `npm run iitest` 与所有 `iitest:*` 前缀脚本只属于集成测试。
+- `iitest:token:*` 只用于会消耗真实 AI token 的显式集成测试入口。
+- 纯 fake is unit。即使起了子进程，只要不消耗真实 AI token，且不验证整个环境或编排行为，仍按单元测试处理。
+- 任何真实 AI 调用、真实 token 消耗、workspace/clean-room 生命周期、artifact 持久化、carrier/harness 编排或真实宿主路径验证，都属于集成测试。
+- `*.token.test.mjs` 需要通过对应显式 `iitest:token:*` 脚本单独运行。
 - `integration-tests/` 下各种测试方式、入口和维护约束见 [`integration-tests/README.md`](./integration-tests/README.md)。
 - 对非显然逻辑、协议边界、拒绝分支和输出骨架要同步补注释或说明，不要只留下结论句。

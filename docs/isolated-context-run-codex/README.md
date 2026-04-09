@@ -11,7 +11,7 @@
 - `tests/codex-runner.probe.test.mjs`
 - `tests/codex-runner.run-exec.test.mjs`
 - `integration-tests/codex-runner.harness.test.mjs`
-- `integration-tests/codex-runner.real.test.mjs`
+- `integration-tests/codex-runner.token.test.mjs`
 
 当前实现状态补充：
 
@@ -47,7 +47,7 @@
 - [failure-taxonomy.md](failure-taxonomy.md)
   - `failure.kind/reason` 判定表
 - [test-plan.md](test-plan.md)
-  - `unit / cli / harness` 三层测试方案
+  - `unit / cli / harness / token` 分层测试方案
 
 ## 相关文档
 

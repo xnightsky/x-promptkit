@@ -16,7 +16,7 @@ function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
-function buildRealRunRequest(prepared, prompt) {
+function buildTokenRunRequest(prepared, prompt) {
   return {
     backend: "exec-json",
     codex_command: "codex",
@@ -29,7 +29,7 @@ function buildRealRunRequest(prepared, prompt) {
 }
 
 function withPreparedEnvironment(testContext) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "recall-real-host-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "recall-token-host-"));
   testContext.after(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   });
@@ -52,9 +52,9 @@ function withPreparedEnvironment(testContext) {
   return prepared;
 }
 
-test("real host recall-eval triggers on a valid queue request", (t) => {
+test("token-backed real host recall-eval triggers on a valid queue request", (t) => {
   const prepared = withPreparedEnvironment(t);
-  const result = runExecRequest(buildRealRunRequest(
+  const result = runExecRequest(buildTokenRunRequest(
     prepared,
     [
       "请按 recall-eval 的固定五段格式，评估 `integration-tests/recall-eval/fixtures/real-host/.recall/queue.yaml` 里 case `real_host.reject_missing_medium`。",
@@ -72,9 +72,9 @@ test("real host recall-eval triggers on a valid queue request", (t) => {
   assert.match(rawEvents, /integration-tests\/recall-eval\/fixtures\/real-host\/.recall\/queue\.yaml/);
 });
 
-test("real host recall-eval does not trigger on an unrelated prompt", (t) => {
+test("token-backed real host recall-eval does not trigger on an unrelated prompt", (t) => {
   const prepared = withPreparedEnvironment(t);
-  const result = runExecRequest(buildRealRunRequest(
+  const result = runExecRequest(buildTokenRunRequest(
     prepared,
     "Reply with exactly NO-RECALL and nothing else.",
   ));
@@ -86,9 +86,9 @@ test("real host recall-eval does not trigger on an unrelated prompt", (t) => {
   assert.doesNotMatch(rawEvents, /real_host\.reject_missing_medium/);
 });
 
-test("real host recall-eval refuses broken queue definitions", (t) => {
+test("token-backed real host recall-eval refuses broken queue definitions", (t) => {
   const prepared = withPreparedEnvironment(t);
-  const result = runExecRequest(buildRealRunRequest(
+  const result = runExecRequest(buildTokenRunRequest(
     prepared,
     [
       "请检查 `integration-tests/recall-eval/fixtures/real-host/.recall/broken-missing-medium.yaml` 是否可以继续做 recall evaluation。",
@@ -103,9 +103,9 @@ test("real host recall-eval refuses broken queue definitions", (t) => {
   assert.match(rawEvents, /broken-missing-medium\.yaml/);
 });
 
-test("real host recall-eval discovers a target-local queue from a target path", (t) => {
+test("token-backed real host recall-eval discovers a target-local queue from a target path", (t) => {
   const prepared = withPreparedEnvironment(t);
-  const result = runExecRequest(buildRealRunRequest(
+  const result = runExecRequest(buildTokenRunRequest(
     prepared,
     [
       "请按 recall-eval 的固定五段格式，评估 `AGENTS.md` 这个 target 对应的 recall queue。",
@@ -123,9 +123,9 @@ test("real host recall-eval discovers a target-local queue from a target path", 
   assert.match(rawEvents, /\.recall\/queue\.yaml/);
 });
 
-test("real host recall-eval supports batch live evaluation across multiple queues", (t) => {
+test("token-backed real host recall-eval supports batch live evaluation across multiple queues", (t) => {
   const prepared = withPreparedEnvironment(t);
-  const result = runExecRequest(buildRealRunRequest(
+  const result = runExecRequest(buildTokenRunRequest(
     prepared,
     [
       "请直接执行这条批量 live recall-eval 请求，不要列候选路径，也不要反问：",

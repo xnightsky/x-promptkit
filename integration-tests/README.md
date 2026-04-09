@@ -1,6 +1,16 @@
 # integration-tests
 
-`integration-tests/` 用来放置高副作用、宿主相关或需要真实隔离上下文的集成测试资产。它和 `tests/` 下的快回归不同：这里允许出现真实 clean-room、宿主探测、Markdown 提示词用例、YAML orchestration suite 等更贴近运行时边界的检查。
+`integration-tests/` 用来放置集成测试资产。这里的边界不是“是否起子进程”，而是是否验证整个环境、编排链路、workspace/clean-room 生命周期，或是否消耗真实 AI token。
+
+仓库级硬规则：
+
+- `tests/` 只放单元测试
+- `integration-tests/` 只放集成测试
+- `test:*` 前缀只属于单元测试
+- `iitest:*` 前缀只属于集成测试
+- `iitest:token:*` 只用于会消耗真实 AI token 的显式集成测试入口
+- `*.token.test.mjs` 不进入默认 `npm run iitest`
+- 纯 fake is unit；验证整个环境或消耗真实 token 才是集成测试
 
 本目录只描述测试入口、执行协议和维护约束，不替代各子系统自己的 schema、runtime 或专题设计文档。
 
@@ -15,20 +25,25 @@
 
 当前入口：
 
+- `integration-tests/recall-eval/harness.test.mjs`
 - `integration-tests/codex-runner.harness.test.mjs`
-- `integration-tests/codex-runner.real.test.mjs`
+- `integration-tests/codex-runner.token.test.mjs`
+- `integration-tests/recall-eval/real-host.token.test.mjs`
 
 对应命令：
 
-- `npm run test:codex-harness`
-- `npm run test:codex-real`
-- `npm test`
+- `npm run iitest`
+- `npm run iitest:recall-harness`
+- `npm run iitest:codex-harness`
+- `npm run iitest:token:codex`
+- `npm run iitest:token:recall`
 
 说明：
 
-- `npm test` 会从 `tests/` 和 `integration-tests/` 一起收集 `.test.mjs`
-- `test:codex-harness` 偏向可控环境下的 runtime/harness 集成覆盖
-- `test:codex-real` 会触达真实 Codex 宿主路径，适合需要验证真实环境时使用
+- `npm run iitest` 会收集 `integration-tests/` 下的非 token Node 集成测试
+- `iitest:recall-harness` 用 fake child executor 覆盖 initialized-workspace recall 编排；它仍然是集成测试，因为验证的是整条 workspace/task/recall 环境链路
+- `iitest:token:codex` 会触达真实 Codex 宿主路径并消耗真实 token，适合需要验证真实环境时使用
+- `iitest:token:recall` 会触达真实 Codex 宿主路径并消耗真实 token，验证 recall-eval 的真实宿主触发与 artifact 证据
 
 更多背景见：
 
@@ -102,11 +117,11 @@
 ## 怎么选
 
 - 修改 runtime / clean-room / Codex runner：
-  先跑 `npm run test:codex-harness`；需要真实宿主证据时再跑 `npm run test:codex-real`
+  先跑 `npm run iitest:codex-harness`；需要真实宿主与 token 证据时再跑 `npm run iitest:token:codex`
 - 修改 Markdown prompt contract：
   优先查看 `integration-tests/isolated-context-run-subagent/` 与 `integration-tests/isolated-context-run-codex/`，按各自 README 的协议执行 case
 - 修改 recall orchestration / queue / fixture：
-  先跑 `npm run check:fixtures`，再按需要跑 `npm run recall:iitest`
+  先跑 `npm run check:fixtures`，再按需要跑 `npm run recall:iitest`；需要真实宿主与 token 证据时再跑 `npm run iitest:token:recall`
 - 需要完整仓库交付校验：
   按仓库默认顺序补齐 `npm run lint`、`npm run check`，必要时再跑 `npm run verify`
 

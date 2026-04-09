@@ -14,8 +14,8 @@ Recommended local checks for Codex runner work:
 
 - `npm run test:codex-unit`
 - `npm run test:codex-cli`
-- `npm run test:codex-harness`
-- `npm run test:codex-real`
+- `npm run iitest:codex-harness`
+- `npm run iitest:token:codex`
 - `npm run lint`
 - `npm run check`
 

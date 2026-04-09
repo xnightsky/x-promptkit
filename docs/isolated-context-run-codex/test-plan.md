@@ -35,9 +35,9 @@
 2. `cli`
 3. `harness`
 
-除 `unit / cli / harness` 外，再补一层正式真实测试：
+除 `unit / cli / harness` 外，再补一层显式 token 宿主测试：
 
-4. `real`
+4. `token`
 
 ## 3. fake `codex` 基线
 
@@ -64,7 +64,7 @@
 - `tests/codex-runner.probe.test.mjs`
 - `tests/codex-runner.run-exec.test.mjs`
 - `integration-tests/codex-runner.harness.test.mjs`
-- `integration-tests/codex-runner.real.test.mjs`
+- `integration-tests/codex-runner.token.test.mjs`
 
 职责划分：
 
@@ -76,8 +76,8 @@
   - `run-exec.mjs` 黑盒 CLI
 - `harness.test`
   - artifact 落盘与工作目录接线
-- `real.test`
-  - 真实 Codex 宿主 + `tmp HOME` + `workspace-link` + 完整 skills 挂载的正式阻塞验证
+- `token.test`
+  - 真实 Codex 宿主 + `tmp HOME` + `workspace-link` + 完整 skills 挂载的显式 token 阻塞验证
 
 ## 5. 建议的 fixture 布局
 
@@ -211,13 +211,15 @@
 
 - `test:codex-unit`
 - `test:codex-cli`
-- `test:codex-harness`
-- `test:codex-real`
-- `test:recall-real`
+- `iitest:codex-harness`
+- `iitest:token:codex`
+- `iitest:token:recall`
 
-`test:codex-real` 属于正式阻塞测试，不是 smoke。
+仓库级官方分类只有两层：`test:*` 属于单元测试，`iitest:*` 属于集成测试；其中 `cli` 归单元测试，`harness` 归普通集成测试，`token` 归显式消耗真实 AI token 的集成测试。
 
-## 11. 正式真实测试
+`iitest:token:codex` 属于正式阻塞测试，不是 smoke。
+
+## 11. 显式 token 宿主测试
 
 当前阶段要求两条真实测试同时通过：
 
@@ -231,7 +233,7 @@
 
 在 `recall-eval` reopen 阶段，还要额外通过：
 
-3. `test:recall-real` 在真实 Codex 宿主下覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，并同时验证最终回答与 trace / artifact 证据
+3. `iitest:token:recall` 在真实 Codex 宿主下覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，并同时验证最终回答与 trace / artifact 证据
 
 ## 12. v0 明确不做的事
 

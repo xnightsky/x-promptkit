@@ -1,8 +1,8 @@
 # recall-eval integration-tests
 
-Overview: see [../README.md](../README.md). This directory stores real initialized-workspace recall integration tests and their supporting assets.
+Overview: see [../README.md](../README.md). This directory stores initialized-workspace recall integration tests, including token-backed real host validation, and their supporting assets.
 
-These files define repo-root real integration coverage for initialized-workspace recall.
+These files define repo-root integration coverage for initialized-workspace recall.
 
 They are not the schema source of truth. Real recall fixtures live next to the prompt targets under `.recall/`.
 
@@ -66,7 +66,8 @@ The command must return plain text on stdout.
 ## Execution Policy
 
 - treat everything under this directory as real integration-test assets, whether the file is YAML, Markdown, fixture content, or executable test code
-- use these suites when changing carrier/runtime wiring or when you need higher confidence in a real host path
+- initialized-workspace recall orchestration is always an integration test, even when the child executor itself is fake
+- use these suites when changing carrier/runtime wiring or when you need higher confidence in a token-backed real host path
 - keep assertions focused on task success, workspace state, status classification, and recall scoring rather than long answer bodies
 
 ## Current Suites
@@ -75,4 +76,5 @@ The command must return plain text on stdout.
 - `carrier-resolution.test.yaml`: explicit carrier resolution through the harness path
 - `carrier-execution-failure.test.yaml`: task phase succeeds but recall carrier execution fails in runtime
 - `mixed-source-ref.test.yaml`: queue-level and case-level `source_ref` resolution through the harness path
-- `real-host.trigger.test.mjs`: real Codex host validation for should-trigger, should-not-trigger, and broken queue refusal
+- `harness.test.mjs`: fake executor + temp workspace orchestration coverage
+- `real-host.token.test.mjs`: token-backed real Codex host validation for should-trigger, should-not-trigger, and broken queue refusal

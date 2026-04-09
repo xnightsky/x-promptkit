@@ -21,6 +21,17 @@
 - 本仓库的默认本地校验顺序是：先跑相关局部检查，再跑 `npm run lint`，再按需要跑 `npm run check` 或 `npm run verify`。
 - 代理在宣称“已完成”前，不得跳过 `lint`、必要注释或相关文档同步。
 
+## 测试边界
+
+- 本仓库只有两类官方测试：单元测试与集成测试。
+- `tests/` 只放单元测试；`integration-tests/` 只放集成测试资产。
+- `npm test` 与所有 `test:*` 前缀脚本只属于单元测试。
+- `npm run iitest` 与所有 `iitest:*` 前缀脚本只属于集成测试。
+- `iitest:token:*` 只用于会消耗真实 AI token 的显式集成测试入口。
+- `*.token.test.mjs` 不进入默认批量回归，只能通过对应显式 `iitest:token:*` 脚本单独运行。
+- 纯 fake is unit。即使起了子进程，只要不消耗真实 AI token，且不验证整个环境或编排行为，仍按单元测试处理。
+- 任何真实 AI 调用、真实 token 消耗、workspace/clean-room 生命周期、artifact 持久化、carrier/harness 编排或真实宿主路径验证，都属于集成测试。
+
 ## skills 开发约束
 
 - 当任务是在本仓库内编写、修改、拆分、整理 `skills/` 下的 skill 文档、样例、说明或相关辅助文件时，不要自动套用面向常规产品开发的重流程原则。

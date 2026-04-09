@@ -49,7 +49,7 @@ Test layers:
 - `npm run test:recall-unit`: pure function coverage for queue validation, carrier precedence, scoring, and report formatting
 - `npm run test:recall-bridge`: carrier adapter contract coverage without requiring a real host subagent
 - `npm run test:recall-cli`: black-box CLI coverage for `validate-schema`, `resolve-target`, and `run-eval`
-- `npm run test:recall-harness`: initialized-workspace harness coverage with a fake child executor
+- `npm run iitest:recall-harness`: initialized-workspace harness coverage with a fake child executor; despite the fake executor, this is still integration coverage because it validates the full workspace/task/recall orchestration path
 - `integration-tests/recall-eval/`: real integration-test assets for initialized-workspace recall, including YAML suites, fixtures, docs, and host-backed tests
 
 `run-iitest.mjs` expects a suite yaml that points at:
