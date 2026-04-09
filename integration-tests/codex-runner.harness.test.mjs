@@ -260,6 +260,51 @@ test("materializeResolvedSkillView links the winning skill source into the targe
   assert.equal(fs.readFileSync(path.join(linkedPath, "SKILL.md"), "utf8"), "# dev\n");
 });
 
+test("materializeResolvedSkillView falls back to SKILLS.fallback.md and mounts a canonical SKILL.md", serial, (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-fallback-view-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const sourceRoot = path.join(tempRoot, "sources");
+  const targetRoot = path.join(tempRoot, "resolved");
+  const fallbackSkill = path.join(sourceRoot, "demo-skill");
+
+  fs.mkdirSync(path.join(fallbackSkill, "agents"), { recursive: true });
+  fs.writeFileSync(path.join(fallbackSkill, "SKILLS.fallback.md"), "# legacy fallback\n");
+  fs.writeFileSync(path.join(fallbackSkill, "agents", "openai.yaml"), "policy:\n  allow_implicit_invocation: false\n");
+
+  const report = materializeResolvedSkillView({
+    targetRoot,
+    entries: [
+      { sourceClass: "repo", skillName: "demo-skill", sourcePath: fallbackSkill },
+    ],
+  });
+
+  const mountedSkillPath = path.join(targetRoot, "demo-skill");
+  assert.equal(fs.lstatSync(mountedSkillPath).isDirectory(), true);
+  assert.equal(fs.readFileSync(path.join(mountedSkillPath, "SKILL.md"), "utf8"), "# legacy fallback\n");
+  assert.equal(
+    fs.readFileSync(path.join(mountedSkillPath, "SKILLS.fallback.md"), "utf8"),
+    "# legacy fallback\n",
+  );
+  assert.deepEqual(report.resolvedSkillView.skills, [
+    {
+      id: "demo-skill",
+      source_class: "repo",
+      source_ref: fallbackSkill,
+      mount_relpath: ".agents/skills/demo-skill",
+      link_copy: {
+        mode: "directory_copy",
+      },
+      artifacts: {
+        skill_md: true,
+        source_skill_md: "SKILLS.fallback.md",
+        openai_yaml: true,
+      },
+    },
+  ]);
+});
+
 test("prepareCodexRunEnvironment materializes the resolved skills view into tmp HOME for run-exec", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-runtime-"));
   t.after(() => {
@@ -324,6 +369,77 @@ test("prepareCodexRunEnvironment materializes the resolved skills view into tmp 
       },
       artifacts: {
         skill_md: true,
+        source_skill_md: "SKILL.md",
+        openai_yaml: false,
+      },
+    },
+  ]);
+});
+
+test("prepareCodexRunEnvironment mounts fallback-only skills as canonical SKILL.md for run-exec", serial, (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-runtime-fallback-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const skillSource = path.join(tempRoot, "sources", "demo-skill");
+  fs.mkdirSync(skillSource, { recursive: true });
+  fs.writeFileSync(path.join(skillSource, "SKILLS.fallback.md"), "# demo\n");
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    workspace_mode: "minimal-seed",
+    repo_root: repoRoot,
+    workspace_profile: {
+      workspace: { mode: "minimal-seed" },
+      seed: {
+        copy: [{ from: "AGENTS.md", to: "AGENTS.md" }],
+      },
+    },
+    skill_entries: [
+      { sourceClass: "dev-path-mount", skillName: "demo-skill", sourcePath: skillSource },
+    ],
+  });
+
+  const mountedSkillPath = path.join(prepared.agentsSkillsRoot, "demo-skill", "SKILL.md");
+  assert.equal(fs.existsSync(mountedSkillPath), true);
+  assert.equal(fs.readFileSync(mountedSkillPath, "utf8"), "# demo\n");
+
+  const result = runExecRequest(
+    {
+      backend: "exec-json",
+      codex_command: fixtureCodexCommand,
+      task: { prompt: "check skill fallback view" },
+      working_directory: prepared.workingDirectory,
+      artifacts_dir: prepared.artifactsDir,
+      env: prepared.env,
+      extra_args: [],
+    },
+    {
+      env: {
+        ...process.env,
+        PATH: `${fixtureBinDir}${path.delimiter}${process.env.PATH}`,
+        CODEX_FIXTURE_MODE: "run_skill_view_check",
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.result.final_text, "skill view ok");
+
+  const resolvedSkillViewPath = path.join(prepared.metaDir, "resolved-skill-view.json");
+  const resolvedSkillView = JSON.parse(fs.readFileSync(resolvedSkillViewPath, "utf8"));
+  assert.deepEqual(resolvedSkillView.resolved_skill_view.skills, [
+    {
+      id: "demo-skill",
+      source_class: "dev-path-mount",
+      source_ref: skillSource,
+      mount_relpath: ".agents/skills/demo-skill",
+      link_copy: {
+        mode: "directory_copy",
+      },
+      artifacts: {
+        skill_md: true,
+        source_skill_md: "SKILLS.fallback.md",
         openai_yaml: false,
       },
     },

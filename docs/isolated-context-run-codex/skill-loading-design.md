@@ -397,8 +397,8 @@ v0 对 broken link 采用严格处理：
 
 - 目录本身存在，且可解析到真实目录目标
 - 目录名非空，并作为默认 `skill id`
-- 存在 `SKILL.md`
-- `SKILL.md` 是普通可读文件
+- 优先存在 `SKILL.md`；若缺失，可接受 legacy `SKILLS.fallback.md`
+- 选中的 skill markdown 文件必须是普通可读文件
 - 如果存在 `agents/openai.yaml`，它只作为 bundle 内容随目录暴露，不参与 runner 改写
 
 v0 明确不做：
@@ -413,9 +413,9 @@ v0 明确不做：
 - `invalid_skill_source`
   - 目录不存在，或源目标在挂载前已失效
 - `missing_skill_md`
-  - 目录存在，但缺少 `SKILL.md`
+  - 目录存在，但既没有 `SKILL.md`，也没有 `SKILLS.fallback.md`
 - `unreadable_skill_md`
-  - `SKILL.md` 存在，但不可读
+  - `SKILL.md` 或 `SKILLS.fallback.md` 存在，但选中的 skill markdown 不可读
 
 同层重复目录名仍按前文规则处理：
 
@@ -518,6 +518,7 @@ profile schema 只描述两件事：
         },
         "artifacts": {
           "skill_md": true,
+          "source_skill_md": "SKILL.md",
           "openai_yaml": false
         }
       }
@@ -543,6 +544,7 @@ profile schema 只描述两件事：
   - 记录挂入 skills root 后的相对位置
 - `artifacts`
   - 只记录少量可审计事实，不展开完整 bundle 清单
+  - `source_skill_md` 用于区分这次挂载来自主入口 `SKILL.md`，还是 legacy `SKILLS.fallback.md`
 
 未进入最终视图的项单独记录为：
 
