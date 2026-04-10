@@ -107,7 +107,7 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "让 Claud
 
 ---
 
-## Case 03A: 默认模板内置权限参数
+## Case 04: 默认模板内置权限参数
 
 触发方式：
 
@@ -117,13 +117,14 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "让 Claud
 最小上下文：
 
 - 用户要的是一条可直接执行的 `claude -p` 命令
-- 仓库约定默认模板应避免非交互执行被 permission prompt 阻塞
 
 期望产出：
 
 - 直接使用默认模板
+- 把 `IS_SANDBOX=1` 视为默认命令骨架的一部分
 - 明确使用当前官方 flag `--dangerously-skip-permissions`
 - 不把权限参数描述成“卡住后的补救步骤”
+- 不改写成 `--permission-mode bypassPermissions`
 - 不改写成不存在或过时的参数名
 
 标准输出样例：
@@ -138,20 +139,21 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前
 - 命令包含 `IS_SANDBOX=1`
 - 保持 `claude --dangerously-skip-permissions -p` 的顺序
 - 语义上这是首选默认模板，不是 retry 方案
+- 不把 `IS_SANDBOX=1` 当作可省略前缀
+- 不写成 `claude --permission-mode bypassPermissions -p "..."`
 - 不写成 `dangerouslyDisableSandbox`
 - 不额外添加无关 flag 或解释性长文
 
 反例：
 
-- `cd <workdir> && claude -p "..." `
+- `cd <workdir> && claude -p "..."`
+- `cd <workdir> && claude --permission-mode bypassPermissions -p "..."`
 - `cd <workdir> && claude -p --dangerously-skip-permissions "..."`
 - `cd <workdir> && claude --dangerouslyDisableSandbox -p "..."`
-- “先用不带权限参数的命令跑一次，卡住后再补 `--dangerously-skip-permissions`”
-- 先写一大段风险分析，再给命令
 
 ---
 
-## Case 04: 用户要求直接执行
+## Case 05: 用户要求直接执行
 
 触发方式：
 
@@ -186,7 +188,7 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前
 
 ---
 
-## Case 05: 宿主必须 wait 才能知道状态
+## Case 06: 宿主必须 wait 才能知道状态
 
 触发方式：
 
@@ -198,13 +200,13 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前
 
 期望产出：
 
-- 默认 wait 粒度为 `600000 ms`
+- 默认 wait 粒度为 `1800000 ms`
 - 自动检查最多 1 次
 - 超时后不继续轮询
 
 验收标准：
 
-- 自动 wait 不小于 `300000 ms`
+- 自动 wait 不小于 `1800000 ms`
 - 未明确要求持续监控时，最多自动检查 1 次
 
 反例：
@@ -214,7 +216,7 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前
 
 ---
 
-## Case 06: 用户要求持续监控
+## Case 07: 用户要求持续监控
 
 触发方式：
 
@@ -226,7 +228,7 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前
 
 期望产出：
 
-- 使用 `600000 ms` 粒度
+- 使用 `60000 ms` 粒度
 - 重复的“仍在运行”或超时播报最多每 30 分钟一次
 - 退出、崩溃、报错时立即汇报
 
@@ -242,11 +244,11 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前
 
 ---
 
-## Case 07: 用户已经给出完整命令
+## Case 08: 用户已经给出完整命令
 
 触发方式：
 
-- “就执行这条：`cd worktree && claude -p \"原样处理这个任务\"`”
+- “就执行这条：`cd worktree && IS_SANDBOX=1 claude --dangerously-skip-permissions -p \"原样处理这个任务\"`”
 
 最小上下文：
 
