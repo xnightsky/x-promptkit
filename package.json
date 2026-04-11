@@ -1,6 +1,7 @@
 {
   "name": "x-promptkit",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "lint": "npm run lint:code && npm run lint:docs && npm run lint:repo",
