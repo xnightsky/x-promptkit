@@ -16,6 +16,17 @@ The main agent should:
 3. execute it in an isolated agent run
 4. assert the plain-text result against `main-agent-assert.md`
 
+Execution constraints:
+
+- do not send the whole `subagent.md` file as-is
+- do not omit `## Execution Constraints`
+- do not send `main-agent-assert.md` to the executing agent
+- do not place main-agent-only validation rationale, maintainer-side calculation rules, or other assertion-only notes inside `subagent.md`; keep those in `main-agent-assert.md`, usually under `## Assert Notes`
+- when executed through an isolated Codex runner, mount only the minimum skill allowlist for the case
+- direct child-layer Codex cases should mount only `isolated-context-run:codex`
+- parent-route cases should mount only `isolated-context-run` plus `isolated-context-run:codex`
+- do not co-mount unrelated repo skills unless the case explicitly tests visibility boundaries
+
 Cases in this directory should assert:
 
 - public `Selected Runner` stays `isolated-context-run:codex`

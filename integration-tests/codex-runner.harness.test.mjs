@@ -305,6 +305,35 @@ test("materializeResolvedSkillView falls back to SKILLS.fallback.md and mounts a
   ]);
 });
 
+test("materializeResolvedSkillView removes stale undeclared skills from a reused target root", serial, (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-view-allowlist-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+  const sourceRoot = path.join(tempRoot, "sources");
+  const targetRoot = path.join(tempRoot, "resolved");
+  const keptSkill = path.join(sourceRoot, "kept-skill");
+
+  fs.mkdirSync(keptSkill, { recursive: true });
+  fs.mkdirSync(path.join(targetRoot, "stale-skill"), { recursive: true });
+  fs.writeFileSync(path.join(keptSkill, "SKILL.md"), "# kept\n");
+  fs.writeFileSync(path.join(targetRoot, "stale-skill", "SKILL.md"), "# stale\n");
+
+  const report = materializeResolvedSkillView({
+    targetRoot,
+    entries: [
+      { sourceClass: "repo", skillName: "kept-skill", sourcePath: keptSkill },
+    ],
+  });
+
+  assert.deepEqual(fs.readdirSync(targetRoot).sort(), ["kept-skill"]);
+  assert.equal(fs.existsSync(path.join(targetRoot, "stale-skill")), false);
+  assert.deepEqual(
+    report.resolvedSkillView.skills.map((skill) => skill.id),
+    ["kept-skill"],
+  );
+});
+
 test("prepareCodexRunEnvironment materializes the resolved skills view into tmp HOME for run-exec", serial, (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-runtime-"));
   t.after(() => {
@@ -444,6 +473,72 @@ test("prepareCodexRunEnvironment mounts fallback-only skills as canonical SKILL.
       },
     },
   ]);
+});
+
+test("prepareCodexRunEnvironment materializes only the explicit skill-entry allowlist into tmp HOME", serial, (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codex-skill-runtime-allowlist-"));
+  t.after(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  const prepared = prepareCodexRunEnvironment({
+    tempRoot,
+    workspace_mode: "minimal-seed",
+    repo_root: repoRoot,
+    workspace_profile: {
+      workspace: { mode: "minimal-seed" },
+      seed: {
+        copy: [{ from: "AGENTS.md", to: "AGENTS.md" }],
+      },
+    },
+    skill_entries: [
+      {
+        sourceClass: "repo",
+        skillName: "isolated-context-run",
+        sourcePath: path.join(repoRoot, "skills", "isolated-context-run"),
+      },
+      {
+        sourceClass: "repo",
+        skillName: "isolated-context-run-codex",
+        sourcePath: path.join(repoRoot, "skills", "isolated-context-run-codex"),
+      },
+      {
+        sourceClass: "repo",
+        skillName: "claude-p-watch",
+        sourcePath: path.join(repoRoot, "skills", "claude-p-watch"),
+      },
+    ],
+  });
+
+  const result = runExecRequest(
+    {
+      backend: "exec-json",
+      codex_command: fixtureCodexCommand,
+      task: { prompt: "check explicit skill allowlist" },
+      working_directory: prepared.workingDirectory,
+      artifacts_dir: prepared.artifactsDir,
+      env: prepared.env,
+      extra_args: [],
+    },
+    {
+      env: {
+        ...process.env,
+        PATH: `${fixtureBinDir}${path.delimiter}${process.env.PATH}`,
+        CODEX_FIXTURE_MODE: "run_explicit_skill_allowlist_check",
+      },
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.result.final_text, "explicit skill allowlist ok");
+
+  const resolvedSkillView = JSON.parse(
+    fs.readFileSync(path.join(prepared.metaDir, "resolved-skill-view.json"), "utf8"),
+  );
+  assert.deepEqual(
+    resolvedSkillView.resolved_skill_view.skills.map((skill) => skill.id),
+    ["claude-p-watch", "isolated-context-run", "isolated-context-run-codex"],
+  );
 });
 
 test("prepareCodexRunEnvironment seeds tmp CODEX_HOME with minimal inherited auth files only", serial, (t) => {

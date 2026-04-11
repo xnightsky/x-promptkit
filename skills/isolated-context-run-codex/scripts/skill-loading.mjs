@@ -76,6 +76,12 @@ function buildExcludedSkills(entries, resolvedEntries) {
 export function materializeResolvedSkillView({ targetRoot, entries, targetRootRel = ".agents/skills" }) {
   const resolvedEntries = resolveSkillViewEntries(entries);
   fs.mkdirSync(targetRoot, { recursive: true });
+  // The mounted skill root is an exact per-run allowlist. Clear any leftover
+  // sibling entries first so a reused target root cannot leak undeclared skills
+  // into the child-visible skill view.
+  for (const childName of fs.readdirSync(targetRoot)) {
+    fs.rmSync(path.join(targetRoot, childName), { recursive: true, force: true });
+  }
   const resolvedSkills = [];
 
   for (const entry of resolvedEntries) {

@@ -42,6 +42,11 @@ Do not omit `## Execution Constraints`.
 Do not send `main-agent-assert.md` to the subagent.
 Do not merge the assert file into the execution request.
 Do not accept prefaces, test summaries, or next-step summaries when a case requires the final section structure.
+Do not place main-agent-only validation rationale, maintainer-side calculation rules, or other assertion-only notes inside `subagent.md`; keep those in `main-agent-assert.md`, usually under `## Assert Notes`.
+When a case is executed through an isolated Codex runner, mount only the minimum skill allowlist for that case.
+Direct child-layer cases should mount only `isolated-context-run:subagent`.
+Parent-route cases should mount only `isolated-context-run` plus the selected child layer.
+Do not co-mount unrelated repo skills unless the case explicitly tests visibility boundaries.
 
 ## Assert Matching Rules
 

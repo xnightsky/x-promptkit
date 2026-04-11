@@ -14,6 +14,8 @@ When needed, append only `Failure Detail`.
 
 If the prompt already states capability presence, failure state, or scenario labels, preserve those facts as authoritative input instead of replacing them with fresh host probing.
 
+Seeing other mounted repo skills does not change this child layer's job. Do not pull parent-only runner choice, fallback policy, or assertion logic from sibling skill text.
+
 ## Case 01: 当前宿主会话具备原生 subagent 能力
 
 触发方式：
@@ -62,6 +64,7 @@ Override
 
 - 把当前会话 subagent 改写成外部 CLI 调用
 - 重新退回父层比较 `self-cli`
+- 因为看见父层或 sibling skill 文本，就提前接管父层 fallback / 验证推导
 
 ---
 

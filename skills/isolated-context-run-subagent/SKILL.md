@@ -39,6 +39,7 @@ Do not:
 - launch `codex app-server`
 - reopen parent fallback logic
 - silently downgrade to `self-cli`
+- infer parent-only runner choice, fallback, or maintainer-side validation rules from other visible repo skills
 
 If native subagent capability is absent, report `unavailable` and stop. Let the parent layer decide any fallback.
 
@@ -104,5 +105,6 @@ If the caller provides capability facts, failure state, or scenario labels, trea
 
 - Do not convert native subagent work into external CLI execution.
 - Do not compare `self-cli` again inside this child layer.
+- Even if sibling or parent repo skills are visible in the mounted skill view, only use this skill contract plus caller-provided facts.
 - Do not include startup-trace wording unless the caller explicitly asks for it.
 - Use [EXAMPLES.md](./EXAMPLES.md) for canonical cases and wording.

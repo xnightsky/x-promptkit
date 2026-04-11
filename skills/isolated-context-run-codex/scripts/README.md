@@ -32,3 +32,6 @@ Lifecycle notes:
 - Default behavior is auto-cleanup for the exact runner-managed environment returned by `prepareCodexRunEnvironment(...)`.
 - `keepWorkspace` or `keepRunRoot` are explicit debug-only escape hatches for preserving evidence.
 - Historical `run-xxxxx` git worktrees are not auto-scanned or bulk-deleted; they require precise manual cleanup by path.
+- Repo/global/passed-in/dev-path skills are materialized into tmp `HOME/.agents/skills` from the explicit `skill_entries` allowlist only.
+- The runner does not auto-scan the repository `skills/` tree; undeclared sibling skills must stay invisible to the child-visible skill view.
+- Mount only the minimum skills needed for the current run, such as `claude-p-watch`, instead of treating repo skills as one implicit bundle.

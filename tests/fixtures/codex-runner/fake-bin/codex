@@ -65,6 +65,37 @@ if (args[0] === "exec" && args[1] === "--json") {
     process.exit(0);
   }
 
+  if (mode === "run_explicit_skill_allowlist_check") {
+    const homeSkillsRoot = path.join(process.env.HOME ?? "", ".agents", "skills");
+    const requiredSkills = ["isolated-context-run", "isolated-context-run-codex", "claude-p-watch"];
+
+    for (const skillName of requiredSkills) {
+      const skillPath = path.join(homeSkillsRoot, skillName, "SKILL.md");
+      if (!fs.existsSync(skillPath)) {
+        process.stderr.write(`missing skill view: ${skillPath}\n`);
+        process.exit(1);
+      }
+    }
+
+    const mountedSkills = fs.readdirSync(homeSkillsRoot).sort();
+    if (JSON.stringify(mountedSkills) !== JSON.stringify([...requiredSkills].sort())) {
+      process.stderr.write(`unexpected mounted skills: ${mountedSkills.join(",")}\n`);
+      process.exit(1);
+    }
+
+    const watchSkillText = fs.readFileSync(
+      path.join(homeSkillsRoot, "claude-p-watch", "SKILL.md"),
+      "utf8",
+    );
+    if (!watchSkillText.includes("Watch is enabled by default for this skill.")) {
+      process.stderr.write("unexpected claude-p-watch contents\n");
+      process.exit(1);
+    }
+
+    writeTurnCompleted("explicit skill allowlist ok");
+    process.exit(0);
+  }
+
   if (mode === "run_auth_failed") {
     writeFileFixture("run-auth-failed.jsonl");
     process.stderr.write("401 unauthorized\n");

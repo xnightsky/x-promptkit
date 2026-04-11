@@ -291,6 +291,9 @@ export function prepareCodexRunEnvironment({
     workspace_link: workspaceLink,
     warnings: workspaceWarnings,
   });
+  // `skill_entries` is the exact per-run allowlist for child-visible skills.
+  // We do not auto-discover the repo `skills/` tree here because that would
+  // leak undeclared sibling skills and their parent-only guidance.
   const resolvedSkillViewReport = materializeResolvedSkillView({
     targetRoot: prepared.agentsDir,
     entries: skill_entries,

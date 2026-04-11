@@ -12,6 +12,8 @@ The Codex child layer always preserves the shared 5-section skeleton:
 
 Use `Execution Template`, `Failure Detail`, or `Install Guidance` only when the scenario needs them.
 
+Seeing other mounted repo skills does not widen the Codex child layer's scope. Do not reuse sibling or parent skill text to reopen runner comparison, fallback policy, or assertion logic.
+
 ## Case 01: 父层默认路由到 Codex 子层
 
 标准输出样例：
@@ -132,3 +134,8 @@ Failure Detail
 - evidence: `codex exec --json "<task prompt>" -> 401 unauthorized`
 - next action: refresh Codex auth and rerun the same request
 ```
+
+反例：
+
+- 因为挂载视图里还能看见父层 skill，就改写成重新比较 `subagent -> self-cli`
+- 因为还能看见其他 repo skills，就把 maintainer-side assert 逻辑写进子层回答

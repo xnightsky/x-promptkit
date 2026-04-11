@@ -6,7 +6,8 @@
 
 - [`skills/`](./skills/)
   - 能力入口与配套说明所在目录。
-  - `SKILL.md` 通常用于快速确认能力边界、输入约束和输出骨架，不保证单独构成完整教程。
+  - `SKILL.md` 是默认主入口，通常用于快速确认能力边界、输入约束和输出骨架，不保证单独构成完整教程。
+  - 如果某个目录额外保留 `SKILLS.fallback.md`，它只作为旧版契约保底文件；runtime 仅在 `SKILL.md` 缺失时才会回退到它，并对宿主 materialize 出规范化的 `SKILL.md`。
   - 具体怎么使用某个能力，通常还要结合同目录样例、补充 README 或 runtime 说明一起看。
 - [`docs/`](./docs/)
   - 专题设计、研究记录和指南文档入口。
@@ -107,6 +108,8 @@
 - 集成测试入口：[`integration-tests/README.md`](./integration-tests/README.md)
 - Codex runtime 入口：[`skills/isolated-context-run-codex/scripts/README.md`](./skills/isolated-context-run-codex/scripts/README.md)
 - Codex 专题设计入口：[`docs/isolated-context-run-codex/README.md`](./docs/isolated-context-run-codex/README.md)
+- 需要让隔离 Codex run 继续使用仓库 skill（例如 `claude-p-watch`）时，把对应 skill 作为精确 `skill_entries` allowlist 挂入 clean-room 的 `.agents/skills`
+- 不要把整个 repo `skills/` 默认暴露给子载体；只挂这次 run 明确需要的 skill
 
 ## 开发与校验
 

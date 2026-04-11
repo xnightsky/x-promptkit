@@ -1,5 +1,53 @@
 # TODO
 
+## 新 Session 提示
+
+### repo skills 向子载体剧透风险排查
+
+#### 背景
+
+- 仓库里的 repo `skills/` 可能会被挂载到子载体视图里，例如 `isolated-context-run:subagent`、`isolated-context-run:codex`。
+- 这意味着子载体不只是执行一个局部任务，还可能“看到”其他 repo skills。
+- 风险点不在于“能不能看到”，而在于：
+  - 本该由 main / 父层决定的 runner 选择、fallback 决策、验证推导、上下文解释，是否被子载体提前感知并接管。
+  - 测试夹具或 skill 文档是否把 main-only 信息提前泄露给 subagent / sub-cli。
+
+#### 已有收口
+
+- `integration-tests/README.md` 已经规定：`subagent.md` 只放发给执行 agent 的输入与执行约束。
+- `integration-tests/isolated-context-run-subagent/README.md`、`integration-tests/isolated-context-run-codex/README.md`、`integration-tests/claude-p-watch/README.md` 已同步这条规则。
+- 主代理专用的验证理由、watch 次数换算、维护者侧推导、验收计算规则，应放在 `main-agent-assert.md`，通常写在 `## Assert Notes`。
+
+#### 给新 session 的提示词
+
+```text
+请检查这个仓库里 repo `skills/` 被挂载到子载体（例如 `isolated-context-run:subagent`、`isolated-context-run:codex`）后的“主代理决策被子载体提前接管 / 剧透”的风险。
+
+目标：
+1. 找出当前有哪些路径会把 repo skills 暴露给子载体。
+2. 判断是否存在本该由 main skill / main agent 决定的事情，被 subagent 或 sub-cli 提前感知并处理的风险。
+3. 如果有风险，直接在仓库里修复。
+4. 同步更新相关协议文档和测试说明。
+5. 结束前跑对应校验，至少 `npm run lint`。
+
+要求：
+- 先做代码和文档层面的事实排查，再改。
+- 重点看：
+  - `skills/isolated-context-run-subagent/`
+  - `skills/isolated-context-run-codex/`
+  - `skills/isolated-context-run-codex/scripts/skill-loading.mjs`
+  - `integration-tests/`
+- 特别关注：
+  - `skill_entries` / repo skill bundle 挂载
+  - `subagent.md` 是否泄露 main-agent-only 信息
+  - 子层 skill 是否重新做了本该由父层处理的 runner 选择、fallback 决策、验证推导
+- 不要只给分析，能改就直接改。
+- 改完后说明：
+  - 风险点有哪些
+  - 你做了什么收敛
+  - 跑了哪些校验，结果是什么
+```
+
 ## 背景与资料参考
 
 ### 当前路线判断

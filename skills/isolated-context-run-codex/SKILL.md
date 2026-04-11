@@ -46,6 +46,7 @@ Do not:
 - rename the selected runner to `mode=codex-exec -> codex exec`
 - reopen `subagent -> self-cli` comparison inside this child layer
 - treat backend names such as `exec-json` as the public runner identity
+- infer parent-only runner comparison, fallback policy, or maintainer-side validation notes from other visible repo skills
 
 `codex exec --json` is an internal backend detail, not the external runner name.
 
@@ -114,5 +115,6 @@ Direct invocation:
 
 - Do not expose backend details as the public selected runner.
 - Do not silently downgrade to `self-cli`.
+- Even if sibling or parent repo skills are visible in the mounted skill view, only use this skill contract plus caller-provided Codex facts.
 - Do not claim clean-room, trace, or skill-loading behavior that the script layer did not actually provide.
 - Use [EXAMPLES.md](./EXAMPLES.md) for canonical wording.

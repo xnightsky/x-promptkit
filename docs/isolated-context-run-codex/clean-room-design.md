@@ -183,7 +183,7 @@
 
 - 不需要回收单独的 Git worktree 数据
 - 更接近“当前工作区直接运行”的真实形态
-- 可与完整 skills 挂载视图一起验证 linked workspace 行为
+- 可与显式 skill allowlist 挂载视图一起验证 linked workspace 行为
 
 局限：
 

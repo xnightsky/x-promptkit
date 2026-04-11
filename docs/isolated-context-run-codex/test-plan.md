@@ -77,7 +77,7 @@
 - `harness.test`
   - artifact 落盘与工作目录接线
 - `token.test`
-  - 真实 Codex 宿主 + `tmp HOME` + `workspace-link` + 完整 skills 挂载的显式 token 阻塞验证
+  - 真实 Codex 宿主 + `tmp HOME` + `workspace-link` + 显式 skill allowlist 挂载的显式 token 阻塞验证
 
 ## 5. 建议的 fixture 布局
 
@@ -224,12 +224,12 @@
 当前阶段要求两条真实测试同时通过：
 
 1. 真实 Codex CLI 在 `tmp HOME + workspace-link` 下完成一次可归一化运行
-2. 真实 Codex CLI 在挂载完整 `isolated-context-run` / `isolated-context-run:codex` skills 视图后，仍能在 linked workspace 中稳定完成运行
+2. 真实 Codex CLI 在挂载显式 `isolated-context-run` / `isolated-context-run:codex` skill allowlist 后，仍能在 linked workspace 中稳定完成运行
 
 这两条测试共同证明：
 
 - 默认 `workspace-link` 没有破坏真实 Codex 宿主执行
-- 完整 skill 资产与 linked workspace 共存时不会破坏 runner 行为
+- 显式 skill allowlist 与 linked workspace 共存时不会破坏 runner 行为
 
 在 `recall-eval` reopen 阶段，还要额外通过：
 
