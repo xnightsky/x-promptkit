@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude -p Watch"
+  short_description: "生成、执行并默认 watch 单条 Claude -p 命令"
+  default_prompt: "Use $claude-p-watch to compose and run a precise watched claude -p command for the current task."
+
+policy:
+  allow_implicit_invocation: false

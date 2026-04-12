@@ -87,7 +87,13 @@
 - [`skills/claude-p/SKILL.md`](./skills/claude-p/SKILL.md)
   - 用在你明确要一条 `claude -p` 命令时
   - 默认命令骨架是 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"`
-  - 默认带该参数是为了避免非交互执行被权限审批阻塞，但不应被描述成“所有守卫都被绕过”
+  - `IS_SANDBOX=1` 和 `--dangerously-skip-permissions` 都属于默认命令骨架，不应被改写成其他权限参数组合
+- [`skills/claude-p-watch/SKILL.md`](./skills/claude-p-watch/SKILL.md)
+  - 用在你明确要一条 `claude -p` 命令并且要默认持续 watch 时
+  - 默认 watched 命令骨架是 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"`
+  - watch 先旁路发现一次外层运行中的 `claude -p` PID，再用内部 helper 按 PID 取最近 2-3 行摘要
+  - 宿主进程判活归 runtime / helper，不靠 prompt marker 充当存活证明
+  - Linux 下只会在 `/proc/<pid>/fd/1` 或 `/proc/<pid>/fd/2` 指向 regular file 时回传摘要，否则安全降级为空
 - [`skills/opencode-run/SKILL.md`](./skills/opencode-run/SKILL.md)
   - 用在你明确要一条 `opencode run` 命令时
   - 默认命令骨架是 `cd <workdir> && opencode run "<task>"`
@@ -134,6 +140,8 @@
 - 跑全部单元测试时，运行 `npm test`
 - 跑全部非 token 集成测试时，运行 `npm run iitest`
 - 修改 Codex runner 相关实现时，可按需运行 `npm run test:codex-unit`、`npm run test:codex-cli`、`npm run iitest:codex-harness`、`npm run iitest:token:codex`
+- 修改 `claude-p-watch` 监控 runtime 时，可按需运行 `npm run test:claude-p-watch-unit`、`npm run iitest:claude-p-watch-harness`、`npm run iitest:claude-p-watch`
+- 修改 `claude-p-watch` 的 watch 输出契约或状态文案时，优先查看 `integration-tests/claude-p-watch/`
 
 ## 仓库约定
 

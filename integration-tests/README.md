@@ -26,6 +26,8 @@
 当前入口：
 
 - `integration-tests/recall-eval/harness.test.mjs`
+- `integration-tests/claude-p-watch-pid-tail.test.mjs`
+- `integration-tests/claude-p-watch-discover-pid.test.mjs`
 - `integration-tests/codex-runner.harness.test.mjs`
 - `integration-tests/codex-runner.token.test.mjs`
 - `integration-tests/recall-eval/real-host.token.test.mjs`
@@ -34,6 +36,8 @@
 
 - `npm run iitest`
 - `npm run iitest:recall-harness`
+- `npm run iitest:claude-p-watch-harness`
+- `npm run iitest:claude-p-watch`
 - `npm run iitest:codex-harness`
 - `npm run iitest:token:codex`
 - `npm run iitest:token:recall`
@@ -42,6 +46,8 @@
 
 - `npm run iitest` 会收集 `integration-tests/` 下的非 token Node 集成测试
 - `iitest:recall-harness` 用 fake child executor 覆盖 initialized-workspace recall 编排；它仍然是集成测试，因为验证的是整条 workspace/task/recall 环境链路
+- `iitest:claude-p-watch-harness` 用可控子进程验证 `tail-by-pid` 的 stdout/stderr regular-file capture 与 fallback
+- `iitest:claude-p-watch` 用 `discover-pid.mjs` 验证按命令特征 + 最近启动定位运行中 PID
 - `iitest:codex-harness` 偏向可控环境下的 runtime/harness 集成覆盖，也覆盖 legacy `SKILLS.fallback.md` 被规范化挂载为 `SKILL.md` 的 skill-loading 兼容路径
 - `iitest:token:codex` 会触达真实 Codex 宿主路径并消耗真实 token，适合需要验证真实环境时使用
 - `iitest:token:recall` 会触达真实 Codex 宿主路径并消耗真实 token，验证 recall-eval 的真实宿主触发与 artifact 证据
@@ -63,6 +69,7 @@
 
 - `integration-tests/isolated-context-run-subagent/`
 - `integration-tests/isolated-context-run-codex/`
+- `integration-tests/claude-p-watch/`
 
 执行协议：
 
@@ -82,11 +89,13 @@
 - 如果 minimal pass 加一次 targeted tightening pass 之后仍不满足断言，应标记为 `prompt unresolved`
 - `subagent.md` 只放会发给执行 agent 的输入与执行约束；主代理专用的验证理由、watch 次数换算、维护者侧推导或验收计算规则，一律放到 `main-agent-assert.md`，通常写在 `## Assert Notes`
 - 如果 case 运行依赖 `skill_entries`，默认只挂当前 case 所需的最小 allowlist；不要把无关 repo skills 一起暴露给执行层
+- `integration-tests/claude-p-watch/` 这组 Markdown case 默认直接用 subagent carrier 执行即可；不要额外套 `isolated-context-run:codex`，除非某个 case 明确测试该层 wiring
 
 详细协议见：
 
 - [isolated-context-run-subagent/README.md](./isolated-context-run-subagent/README.md)
 - [isolated-context-run-codex/README.md](./isolated-context-run-codex/README.md)
+- [claude-p-watch/README.md](./claude-p-watch/README.md)
 
 ### 3. YAML orchestration / fixture 集成测试
 
@@ -121,8 +130,10 @@
 
 - 修改 runtime / clean-room / Codex runner：
   先跑 `npm run iitest:codex-harness`；需要真实宿主与 token 证据时再跑 `npm run iitest:token:codex`
+- 修改 `claude-p-watch` 持续监控或日志观察 runtime：
+  先跑 `npm run test:claude-p-watch-unit`、`npm run iitest:claude-p-watch-harness` 和 `npm run iitest:claude-p-watch`
 - 修改 Markdown prompt contract：
-  优先查看对应专题目录；`isolated-context-run*` 用 `integration-tests/isolated-context-run-subagent/` 与 `integration-tests/isolated-context-run-codex/`
+  优先查看对应专题目录；`isolated-context-run*` 用 `integration-tests/isolated-context-run-subagent/` 与 `integration-tests/isolated-context-run-codex/`，`claude-p-watch` 的 watch 输出契约和状态说明用 `integration-tests/claude-p-watch/`
 - 修改 recall orchestration / queue / fixture：
   先跑 `npm run check:fixtures`，再按需要跑 `npm run recall:iitest`；需要真实宿主与 token 证据时再跑 `npm run iitest:token:recall`
 - 需要完整仓库交付校验：
