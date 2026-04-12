@@ -3,11 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 START_SCRIPT="${SCRIPT_DIR}/minimax-provider-start.sh"
-BRIDGE_DIR="${HOME}/codex-bridge"
+TMP_HOME="$(mktemp -d)"
+BRIDGE_DIR="${TMP_HOME}/codex-bridge"
 PID_FILE="${BRIDGE_DIR}/bridge.pid"
-HEALTH_URL="http://127.0.0.1:18765/openapi.json"
+export CODEX_BRIDGE_PORT="28765"
+HEALTH_URL="http://127.0.0.1:${CODEX_BRIDGE_PORT}/openapi.json"
 
 cleanup() {
+  export HOME="$TMP_HOME"
   if [ -f "$PID_FILE" ]; then
     pid="$(cat "$PID_FILE" 2>/dev/null || true)"
     if [ -n "${pid}" ] && kill -0 "$pid" 2>/dev/null; then
@@ -16,14 +19,73 @@ cleanup() {
     fi
     rm -f "$PID_FILE"
   fi
+  rm -rf "$TMP_HOME"
 }
 
 trap cleanup EXIT
 
+export HOME="$TMP_HOME"
 cleanup
+
+mkdir -p "$BRIDGE_DIR"
+cat >"$BRIDGE_DIR/.env" <<'EOF'
+ANTHROPIC_AUTH_TOKEN=test-token
+ANTHROPIC_MODEL=MiniMax-M2.7
+ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
+EOF
+
+cat >"$BRIDGE_DIR/package.json" <<'EOF'
+{
+  "name": "codex-bridge-test",
+  "private": true,
+  "type": "module"
+}
+EOF
+
+cat >"$BRIDGE_DIR/main.mjs" <<'EOF'
+#!/usr/bin/env node
+import { createServer } from "node:http";
+
+function parseArgs(argv) {
+  const options = { host: "127.0.0.1", port: 18765 };
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] === "--host") {
+      options.host = argv[index + 1] ?? options.host;
+      index += 1;
+      continue;
+    }
+    if (argv[index] === "--port") {
+      options.port = Number(argv[index + 1] ?? options.port);
+      index += 1;
+    }
+  }
+  return options;
+}
+
+const options = parseArgs(process.argv.slice(2));
+const server = createServer((req, res) => {
+  if (req.url === "/openapi.json") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ paths: { "/responses": {} } }));
+    return;
+  }
+
+  res.writeHead(404, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: "not found" }));
+});
+
+server.listen(options.port, options.host);
+
+const shutdown = () => server.close(() => process.exit(0));
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+EOF
+chmod +x "$BRIDGE_DIR/main.mjs"
 
 http_proxy="http://127.0.0.1:7890" \
 https_proxy="http://127.0.0.1:7890" \
+# Run the target directly so the test follows the checked-in shebang instead of
+# pinning a separate shell entrypoint here.
 "$START_SCRIPT" >/tmp/minimax-provider-start-test.out 2>&1
 
 curl --noproxy '*' -fsS --max-time 2 "$HEALTH_URL" >/dev/null

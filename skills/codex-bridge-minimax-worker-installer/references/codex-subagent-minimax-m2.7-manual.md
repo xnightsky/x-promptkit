@@ -72,7 +72,7 @@ ANTHROPIC_BASE_URL='https://api.minimaxi.com/anthropic' \
 
 1. 停掉旧的本地 bridge 进程（如果有）
 2. 将 vendored `codex-bridge` 同步到 `~/codex-bridge`
-3. 运行 installer 自带的 `mjs` 运行时同步脚本，为 `~/codex-bridge/.venv` 安装 vendored bridge 依赖
+3. installer 直接把 `~/codex-bridge` 物化为 Node 项目并执行 `npm install`
 4. 写入或更新 `~/codex-bridge/.env`
 5. 在 `~/.codex/config.toml` 里维护 `minimax_bridge` provider 和 `minimax_worker` agent block
 6. 写入 `~/.codex/agents/minimax-worker.toml`
@@ -91,13 +91,13 @@ loader 会检查：
 
 - `~/codex-bridge` 是否存在
 - `~/codex-bridge/.env` 是否存在且包含必需变量
-- `~/codex-bridge/.venv/bin/python` 是否存在
+- `~/codex-bridge/package.json` 是否存在
 - 本地 `http://127.0.0.1:18765/openapi.json` 是否健康
 
 如果还没启动，它会在后台拉起：
 
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 18765
+node main.mjs --host 127.0.0.1 --port 18765
 ```
 
 如果本次会话启动了 bridge，它会提醒用户该进程会持续运行，直到手动停止：
@@ -153,7 +153,7 @@ model_reasoning_effort = "medium"
 
 确认这些文件存在：
 
-- `~/codex-bridge/main.py`
+- `~/codex-bridge/main.mjs`
 - `~/codex-bridge/.env`
 - `~/.codex/agents/minimax-worker.toml`
 
@@ -187,8 +187,8 @@ Codex -> responses -> codex-bridge -> Anthropic messages -> MiniMax -> tool_use/
 优先检查：
 
 - `~/codex-bridge/.env` 是否缺少必需变量
-- `~/codex-bridge/.venv/bin/python` 是否存在
-- `~/codex-bridge/main.py` 是否存在
+- `~/codex-bridge/package.json` 是否存在
+- `~/codex-bridge/main.mjs` 是否存在
 
 ### 2. bridge 健康检查失败
 

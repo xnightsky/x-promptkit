@@ -16,15 +16,12 @@ A lightweight proxy that translates **OpenAI Responses API** requests into **Ant
 
 ### Prerequisites
 
-- Python >= 3.10
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- Node.js >= 20
 
 ### Install
 
 ```bash
-git clone https://github.com/nicholasyangyang/codex-bridge.git
-cd codex-bridge
-uv sync
+npm install
 ```
 
 ### Configure
@@ -50,7 +47,7 @@ ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
 ### Run
 
 ```bash
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+node main.mjs --host 0.0.0.0 --port 8000
 ```
 
 ### Use with Codex CLI
@@ -73,7 +70,7 @@ codex --profile m27
 
 ```
 Codex CLI                codex-bridge              Anthropic-compatible API
-(Responses API) ──POST──> (FastAPI proxy) ──POST──> (Messages API)
+(Responses API) ──POST──> (Node.js proxy) ──POST──> (Messages API)
      <──── SSE stream ────    <──── SSE stream ────
 ```
 

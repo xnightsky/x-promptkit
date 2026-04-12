@@ -16,15 +16,12 @@
 
 ### 前置条件
 
-- Python >= 3.10
-- [uv](https://github.com/astral-sh/uv) (推荐) 或 pip
+- Node.js >= 20
 
 ### 安装
 
 ```bash
-git clone https://github.com/nicholasyangyang/codex-bridge.git
-cd codex-bridge
-uv sync
+npm install
 ```
 
 ### 配置
@@ -50,7 +47,7 @@ ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
 ### 运行
 
 ```bash
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+node main.mjs --host 0.0.0.0 --port 8000
 ```
 
 ### 配合 Codex CLI 使用
@@ -73,7 +70,7 @@ codex --profile m27
 
 ```
 Codex CLI                codex-bridge              Anthropic 兼容 API
-(Responses API) ──POST──> (FastAPI 代理) ──POST──> (Messages API)
+(Responses API) ──POST──> (Node.js 代理) ──POST──> (Messages API)
      <──── SSE 流 ────       <──── SSE 流 ────
 ```
 

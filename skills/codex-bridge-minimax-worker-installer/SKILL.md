@@ -31,7 +31,7 @@ Do not change the user's default top-level `model_provider` or `model`.
    - `ANTHROPIC_BASE_URL` (default `https://api.minimaxi.com/anthropic`)
 3. If `request_user_input` is available, use it. Otherwise ask the user directly in plain text.
 4. Export the collected values in the shell for the command invocation, then run [scripts/install-or-update.sh](./scripts/install-or-update.sh).
-5. The installer must use the vendored `codex-bridge` source bundled inside this skill and provision `~/codex-bridge/.venv` via the bundled `mjs` helper. Do not `git clone` at install time.
+5. The installer must use the vendored `codex-bridge` source bundled inside this skill and provision `~/codex-bridge` as a Node project during install. Do not `git clone` at install time.
 6. Report what was installed and point the user to `$codex-bridge-minimax-worker-loader` for runtime startup.
 
 Example invocation:

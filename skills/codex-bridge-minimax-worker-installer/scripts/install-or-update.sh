@@ -131,7 +131,7 @@ bridge_pid_is_managed() {
   pid_cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
 
   [ "$pid_cwd" = "$BRIDGE_DIR" ] || return 1
-  echo "$pid_cmd" | grep -F "main:app" >/dev/null 2>&1 || return 1
+  echo "$pid_cmd" | grep -F "main.mjs" >/dev/null 2>&1 || return 1
   echo "$pid_cmd" | grep -F -- "--port ${PORT}" >/dev/null 2>&1
 }
 
@@ -203,7 +203,7 @@ import sys
 
 source_dir = pathlib.Path(sys.argv[1]).expanduser()
 target_dir = pathlib.Path(sys.argv[2]).expanduser()
-preserve = {".env", ".venv", "bridge.log", "bridge.pid"}
+preserve = {".env", "bridge.log", "bridge.pid"}
 
 target_dir.mkdir(parents=True, exist_ok=True)
 for child in list(target_dir.iterdir()):
@@ -223,6 +223,28 @@ for child in source_dir.iterdir():
 PY
 }
 
+install_bridge_runtime() {
+  local package_json="${BRIDGE_DIR}/package.json"
+  local entrypoint="${BRIDGE_DIR}/main.mjs"
+
+  if [ ! -f "$package_json" ]; then
+    echo "Missing bridge package manifest at $package_json" >&2
+    exit 1
+  fi
+  if [ ! -f "$entrypoint" ]; then
+    echo "Missing bridge entrypoint at $entrypoint" >&2
+    exit 1
+  fi
+
+  # Materialize the vendored bridge as a self-contained Node project. Even
+  # without external runtime dependencies today, `npm install` validates the
+  # manifest and preserves a stable install path for future additions.
+  (
+    cd "$BRIDGE_DIR"
+    npm install --omit=dev --ignore-scripts --no-audit --no-fund
+  )
+}
+
 mkdir -p "$CODEX_DIR" "$AGENTS_DIR"
 
 existing_token="$(read_env_value ANTHROPIC_AUTH_TOKEN "$ENV_FILE")"
@@ -240,11 +262,7 @@ fi
 
 stop_bridge
 sync_vendored_bridge
-
-(
-  cd "$BRIDGE_DIR"
-  node "${SCRIPT_DIR}/sync-bridge-runtime.mjs" "$BRIDGE_DIR"
-)
+install_bridge_runtime
 
 config_block=$(cat <<'EOF'
 # BEGIN codex-bridge-minimax-worker

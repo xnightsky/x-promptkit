@@ -12,7 +12,7 @@ cleanup() {
 trap cleanup EXIT
 
 export HOME="$TMP_HOME"
-export PATH="/usr/local/bin:/usr/bin:/bin"
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 mkdir -p "$HOME/.codex/agents" "$HOME/codex-bridge"
 
@@ -40,6 +40,8 @@ cat >"$HOME/codex-bridge/bridge.pid" <<'EOF'
 999999
 EOF
 
+# Run the target directly so the test follows the checked-in shebang instead of
+# pinning a separate shell entrypoint here.
 "$UNINSTALL_SCRIPT"
 
 if rg -q "codex-bridge-minimax-worker" "$HOME/.codex/config.toml"; then
@@ -56,4 +58,3 @@ if [ -d "$HOME/codex-bridge" ]; then
   echo "Bridge directory still present after uninstall" >&2
   exit 1
 fi
-

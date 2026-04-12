@@ -1,0 +1,14 @@
+{
+  "name": "codex-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "OpenAI Responses API to Anthropic Messages API proxy for Codex-compatible clients.",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "node main.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

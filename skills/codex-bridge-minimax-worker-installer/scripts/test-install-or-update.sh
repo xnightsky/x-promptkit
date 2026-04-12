@@ -14,25 +14,19 @@ cleanup() {
 trap cleanup EXIT
 
 export HOME="$TMP_HOME"
-export PATH="$TMP_BIN:/usr/local/bin:/usr/bin:/bin"
+export PATH="$TMP_BIN:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export ANTHROPIC_AUTH_TOKEN="test-token"
 export ANTHROPIC_MODEL="MiniMax-M2.7"
 export ANTHROPIC_BASE_URL="https://api.minimaxi.com/anthropic"
-export TEST_NODE_LOG="$TMP_LOG/node.log"
+export TEST_NPM_LOG="$TMP_LOG/npm.log"
 export TEST_GIT_LOG="$TMP_LOG/git.log"
 
-cat >"$TMP_BIN/node" <<'EOF'
+cat >"$TMP_BIN/npm" <<'EOF'
 #!/bin/sh
 set -eu
-printf '%s\n' "$PWD:$*" >>"$TEST_NODE_LOG"
-mkdir -p .venv/bin
-cat >.venv/bin/python <<'PYEOF'
-#!/bin/sh
-exec /usr/bin/env python3 "$@"
-PYEOF
-chmod +x .venv/bin/python
+printf '%s\n' "$PWD:$*" >>"$TEST_NPM_LOG"
 EOF
-chmod +x "$TMP_BIN/node"
+chmod +x "$TMP_BIN/npm"
 
 cat >"$TMP_BIN/git" <<'EOF'
 #!/bin/sh
@@ -43,6 +37,8 @@ exit 99
 EOF
 chmod +x "$TMP_BIN/git"
 
+# Run the target directly so the test follows the checked-in shebang instead of
+# pinning a separate shell entrypoint here.
 "$INSTALL_SCRIPT"
 
 if [ -f "$TEST_GIT_LOG" ]; then
@@ -50,19 +46,19 @@ if [ -f "$TEST_GIT_LOG" ]; then
   exit 1
 fi
 
-if [ ! -s "$TEST_NODE_LOG" ]; then
-  echo "Install did not run the bundled mjs runtime sync" >&2
+if [ ! -s "$TEST_NPM_LOG" ]; then
+  echo "Install did not provision the vendored bridge runtime" >&2
   exit 1
 fi
 
-if ! grep -Eq 'sync-bridge-runtime\.mjs' "$TEST_NODE_LOG"; then
-  echo "Install did not invoke the expected mjs sync script" >&2
+if ! grep -Eq 'install --omit=dev --ignore-scripts' "$TEST_NPM_LOG"; then
+  echo "Install did not invoke the expected npm install command" >&2
   exit 1
 fi
 
 for required_file in \
-  "$HOME/codex-bridge/main.py" \
-  "$HOME/codex-bridge/pyproject.toml" \
+  "$HOME/codex-bridge/main.mjs" \
+  "$HOME/codex-bridge/package.json" \
   "$HOME/codex-bridge/README.md" \
   "$HOME/codex-bridge/README_zh.md" \
   "$HOME/codex-bridge/.env.example"; do

@@ -5,10 +5,12 @@ BRIDGE_DIR="${HOME}/codex-bridge"
 ENV_FILE="${BRIDGE_DIR}/.env"
 LOG_FILE="${BRIDGE_DIR}/bridge.log"
 PID_FILE="${BRIDGE_DIR}/bridge.pid"
-PYTHON_BIN="${BRIDGE_DIR}/.venv/bin/python"
-HOST="127.0.0.1"
-PORT="18765"
-HEALTH_URL="http://${HOST}:${PORT}/openapi.json"
+ENTRYPOINT="${BRIDGE_DIR}/main.mjs"
+# Keep the production default on 18765, but allow tests or constrained local
+# setups to override the binding explicitly without patching the script.
+HOST="${CODEX_BRIDGE_HOST:-127.0.0.1}"
+PORT="${CODEX_BRIDGE_PORT:-18765}"
+HEALTH_URL="${CODEX_BRIDGE_HEALTH_URL:-http://${HOST}:${PORT}/openapi.json}"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -52,7 +54,7 @@ bridge_pid_is_managed() {
   pid_cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
 
   [ "$pid_cwd" = "$BRIDGE_DIR" ] || return 1
-  echo "$pid_cmd" | grep -F "main:app" >/dev/null 2>&1 || return 1
+  echo "$pid_cmd" | grep -F "main.mjs" >/dev/null 2>&1 || return 1
   echo "$pid_cmd" | grep -F -- "--port ${PORT}" >/dev/null 2>&1
 }
 
@@ -73,6 +75,14 @@ $(lsof -ti tcp:$PORT -sTCP:LISTEN 2>/dev/null || true)
 EOF
 }
 
+find_listener_pid() {
+  if ! command -v lsof >/dev/null 2>&1; then
+    return 0
+  fi
+
+  lsof -ti tcp:$PORT -sTCP:LISTEN 2>/dev/null | head -n 1 || true
+}
+
 stop_bridge_pid() {
   local pid="${1:-}"
   if ! pid_is_running "$pid"; then
@@ -91,42 +101,15 @@ stop_bridge_pid() {
 }
 
 start_bridge() {
-  python3 <<PY
-import os
-import subprocess
-
-bridge_dir = os.path.expanduser(${(qqq)BRIDGE_DIR})
-log_file = os.path.expanduser(${(qqq)LOG_FILE})
-pid_file = os.path.expanduser(${(qqq)PID_FILE})
-python_bin = os.path.expanduser(${(qqq)PYTHON_BIN})
-cmd = [
-    python_bin,
-    "-m",
-    "uvicorn",
-    "main:app",
-    "--host",
-    ${(qqq)HOST},
-    "--port",
-    ${(qqq)PORT},
-]
-
-with open(log_file, "ab", buffering=0) as log:
-    proc = subprocess.Popen(
-        cmd,
-        cwd=bridge_dir,
-        stdin=subprocess.DEVNULL,
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
-
-with open(pid_file, "w", encoding="utf-8") as fh:
-    fh.write(str(proc.pid))
-PY
+  (
+    cd "$BRIDGE_DIR"
+    nohup node "$ENTRYPOINT" --host "$HOST" --port "$PORT" >>"$LOG_FILE" 2>&1 < /dev/null &
+    echo "$!" >"$PID_FILE"
+  )
 }
 
 require_cmd curl
-require_cmd python3
+require_cmd node
 
 if [ ! -d "$BRIDGE_DIR" ]; then
   echo "codex-bridge is not installed at $BRIDGE_DIR. Re-run the vendored installer skill first." >&2
@@ -138,8 +121,8 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-if [ ! -f "${BRIDGE_DIR}/main.py" ]; then
-  echo "Missing bridge entrypoint at ${BRIDGE_DIR}/main.py. Re-run the vendored installer skill." >&2
+if [ ! -f "$ENTRYPOINT" ]; then
+  echo "Missing bridge entrypoint at $ENTRYPOINT. Re-run the vendored installer skill." >&2
   exit 1
 fi
 
@@ -150,8 +133,8 @@ for key in ANTHROPIC_AUTH_TOKEN ANTHROPIC_MODEL ANTHROPIC_BASE_URL; do
   fi
 done
 
-if [ ! -x "$PYTHON_BIN" ]; then
-  echo "Missing bridge Python runtime: $PYTHON_BIN" >&2
+if [ ! -f "${BRIDGE_DIR}/package.json" ]; then
+  echo "Missing bridge package manifest at ${BRIDGE_DIR}/package.json" >&2
   exit 1
 fi
 
@@ -162,6 +145,13 @@ if health_check; then
   pid="$(cat "$PID_FILE" 2>/dev/null || true)"
   if ! pid_is_running "$pid"; then
     pid="$(find_managed_bridge_listener_pid)"
+    # A healthy bridge with a missing pid file is still better reused than
+    # replaced. Fall back to the active listener when we cannot fully prove the
+    # command line, otherwise we risk spawning a duplicate process onto a busy
+    # port and losing the already-working instance.
+    if [ -z "$pid" ]; then
+      pid="$(find_listener_pid)"
+    fi
     if [ -n "$pid" ]; then
       printf '%s\n' "$pid" >"$PID_FILE"
     fi
