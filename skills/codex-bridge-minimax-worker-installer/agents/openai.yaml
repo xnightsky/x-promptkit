@@ -1,0 +1,7 @@
+interface:
+  display_name: "MiniMax Worker Installer"
+  short_description: "Install or uninstall the codex-bridge MiniMax worker integration"
+  default_prompt: "Use $codex-bridge-minimax-worker-installer to install, repair, or uninstall the minimax_worker Codex integration."
+
+policy:
+  allow_implicit_invocation: false

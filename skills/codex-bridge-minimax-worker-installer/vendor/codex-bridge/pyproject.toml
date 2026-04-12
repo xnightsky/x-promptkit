@@ -1,0 +1,14 @@
+[project]
+name = "codex-bridge"
+version = "0.1.0"
+description = "OpenAI Responses API -> Anthropic Messages API proxy for Codex CLI"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "anthropic",
+    "python-dotenv",
+]
+
+[project.scripts]
+codex-bridge = "main:app"

@@ -1,0 +1,7 @@
+interface:
+  display_name: "MiniMax Worker Loader"
+  short_description: "Start or verify codex-bridge before using minimax_worker"
+  default_prompt: "Use $codex-bridge-minimax-worker-loader before delegating work to the minimax_worker role."
+
+policy:
+  allow_implicit_invocation: false
