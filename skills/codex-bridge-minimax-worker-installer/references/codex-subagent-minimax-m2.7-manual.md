@@ -93,12 +93,15 @@ loader 会检查：
 - `~/codex-bridge/.env` 是否存在且包含必需变量
 - `~/codex-bridge/package.json` 是否存在
 - 本地 `http://127.0.0.1:54187/openapi.json` 是否健康
+- 当前监听 `127.0.0.1:54187` 的是否是受管 `~/codex-bridge/main.mjs` 进程
 
 如果还没启动，它会在后台拉起：
 
 ```bash
 node main.mjs --host 127.0.0.1 --port 54187
 ```
+
+如果端口已经被无关进程占用，loader 会直接失败，而不是把那个监听者误判为 bridge 已启动。
 
 如果本次会话启动了 bridge，它会提醒用户该进程会持续运行，直到手动停止：
 
@@ -195,6 +198,7 @@ Codex -> responses -> codex-bridge -> Anthropic messages -> MiniMax -> tool_use/
 优先检查：
 
 - 端口是否是 `127.0.0.1:54187`
+- 监听这个端口的是否真的是 `~/codex-bridge/main.mjs`
 - 旧 bridge 进程是否残留
 - installer 自带的 `mjs` 运行时同步是否已完成
 
