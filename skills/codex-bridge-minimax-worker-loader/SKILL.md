@@ -22,7 +22,9 @@ Do not skip this step. Do not assume the bridge is already healthy.
   - `model = "MiniMax-M2.7"` by default
 - The runtime bridge directory is still `~/codex-bridge`, but it is installed from the vendored source bundled in `$codex-bridge-minimax-worker-installer`, not from a fresh `git clone`.
 - The startup script defaults to `127.0.0.1:54187`; for controlled tests or debugging, it also honors `CODEX_BRIDGE_HOST` and `CODEX_BRIDGE_PORT`.
+- The startup script launches `codex-bridge` in a detached session so the bridge is less likely to be reaped with the current shell or agent process tree.
 - The startup script only treats the bridge as ready after the managed `codex-bridge` process owns `127.0.0.1:54187` and `/openapi.json` passes the health check.
+- If a managed `codex-bridge` process already owns `127.0.0.1:54187` but fails the health check, the startup script kills it and starts a fresh bridge before continuing.
 - If another process already owns `127.0.0.1:54187`, the startup script fails instead of reusing that listener.
 - Do not start duplicate bridge instances.
 - Do not assume the bridge is auto-cleaned.

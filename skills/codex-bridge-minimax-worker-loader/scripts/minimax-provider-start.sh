@@ -149,13 +149,16 @@ stop_bridge_pid() {
 start_bridge() {
   (
     cd "$BRIDGE_DIR"
-    nohup node "$ENTRYPOINT" --host "$HOST" --port "$PORT" >>"$LOG_FILE" 2>&1 < /dev/null &
+    # Launch bridge in its own session so host cleanup tied to the current
+    # shell or agent process tree is less likely to reap it immediately.
+    nohup setsid node "$ENTRYPOINT" --host "$HOST" --port "$PORT" >>"$LOG_FILE" 2>&1 < /dev/null &
     echo "$!"
   )
 }
 
 require_cmd curl
 require_cmd node
+require_cmd setsid
 require_port_inspector
 
 if [ ! -d "$BRIDGE_DIR" ]; then
