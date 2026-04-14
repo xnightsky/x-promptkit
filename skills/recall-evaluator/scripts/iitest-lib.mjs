@@ -11,7 +11,13 @@ import {
   scoreAnswer,
   validateRecallData,
 } from "./lib.mjs";
-import { SUBAGENT_CARRIER } from "./carrier-adapter.mjs";
+import {
+  DEFAULT_CLEAN_CONTEXT_POLICY,
+  SUBAGENT_CARRIER,
+  buildRuntimeFailure,
+  formatRuntimeFailureReason,
+  runWithRuntimeRetries,
+} from "./carrier-adapter.mjs";
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -212,6 +218,8 @@ export function buildIitestSubagentRequest({
     carrier,
     case_id: caseId,
     medium,
+    // Task phase stays unconstrained; recall phase must keep the fixed clean-context policy.
+    context_policy: phase === "recall" ? { ...DEFAULT_CLEAN_CONTEXT_POLICY } : null,
   });
 }
 
@@ -260,96 +268,96 @@ export function executeIitestSubagentPhase(
   options = {},
 ) {
   if (!isNonEmptyString(carrier)) {
-    return {
-      ok: false,
+    return buildRuntimeFailure({
       kind: "missing_carrier",
       reason: "carrier required before recall",
-    };
+    });
   }
 
   if (carrier !== SUBAGENT_CARRIER) {
-    return {
-      ok: false,
+    return buildRuntimeFailure({
       kind: "unsupported_carrier",
       reason: `unsupported carrier: \`${carrier}\``,
-    };
+    });
   }
 
   const env = options.env ?? process.env;
-  if (isTruthyEnv(readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_UNAVAILABLE", caseId, phase))) {
+  return runWithRuntimeRetries(() => {
+    if (isTruthyEnv(readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_UNAVAILABLE", caseId, phase))) {
+      return {
+        ok: false,
+        kind: "unavailable",
+        reason: "carrier unavailable in current environment",
+      };
+    }
+
+    if (isTruthyEnv(readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_FAIL", caseId, phase))) {
+      const failureDetail =
+        readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_ERROR", caseId, phase) ?? "environment failure";
+      return {
+        ok: false,
+        kind: "environment_failure",
+        reason: `carrier execution failed: ${failureDetail}`,
+      };
+    }
+
+    const request = buildIitestSubagentRequest({
+      phase,
+      prompt,
+      workspaceRoot,
+      sourceRef,
+      carrier,
+      caseId,
+      medium,
+    });
+
+    if (typeof options.subagentExecutor === "function") {
+      try {
+        const answerText = String(options.subagentExecutor(JSON.parse(request)) ?? "").trim();
+        if (!isNonEmptyString(answerText)) {
+          return {
+            ok: false,
+            kind: "environment_failure",
+            reason: "carrier execution failed: empty response",
+          };
+        }
+        return {
+          ok: true,
+          answerText,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          kind: "environment_failure",
+          reason: `carrier execution failed: ${error.message}`,
+        };
+      }
+    }
+
+    const executorCommand = readPhaseScopedEnv(
+      env,
+      "RECALL_EVAL_SUBAGENT_EXECUTOR_COMMAND",
+      caseId,
+      phase,
+    );
+    if (isNonEmptyString(executorCommand)) {
+      return runCommandBridge(executorCommand, request, env);
+    }
+
+    const responseText = readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_RESPONSE", caseId, phase);
+    if (isNonEmptyString(responseText)) {
+      return {
+        ok: true,
+        answerText: responseText.trim(),
+      };
+    }
+
     return {
       ok: false,
       kind: "unavailable",
       reason: "carrier unavailable in current environment",
     };
-  }
-
-  if (isTruthyEnv(readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_FAIL", caseId, phase))) {
-    const failureDetail =
-      readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_ERROR", caseId, phase) ?? "environment failure";
-    return {
-      ok: false,
-      kind: "environment_failure",
-      reason: `carrier execution failed: ${failureDetail}`,
-    };
-  }
-
-  const request = buildIitestSubagentRequest({
-    phase,
-    prompt,
-    workspaceRoot,
-    sourceRef,
-    carrier,
-    caseId,
-    medium,
   });
-
-  if (typeof options.subagentExecutor === "function") {
-    try {
-      const answerText = String(options.subagentExecutor(JSON.parse(request)) ?? "").trim();
-      if (!isNonEmptyString(answerText)) {
-        return {
-          ok: false,
-          kind: "environment_failure",
-          reason: "carrier execution failed: empty response",
-        };
-      }
-      return {
-        ok: true,
-        answerText,
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        kind: "environment_failure",
-        reason: `carrier execution failed: ${error.message}`,
-      };
-    }
-  }
-
-  const executorCommand = readPhaseScopedEnv(
-    env,
-    "RECALL_EVAL_SUBAGENT_EXECUTOR_COMMAND",
-    caseId,
-    phase,
-  );
-  if (isNonEmptyString(executorCommand)) {
-    return runCommandBridge(executorCommand, request, env);
-  }
-
-  const responseText = readPhaseScopedEnv(env, "RECALL_EVAL_SUBAGENT_RESPONSE", caseId, phase);
-  if (isNonEmptyString(responseText)) {
-    return {
-      ok: true,
-      answerText: responseText.trim(),
-    };
-  }
-
-  return {
-    ok: false,
-    kind: "unavailable",
-    reason: "carrier unavailable in current environment",
-  };
 }
 
 function formatIitestOutput({
@@ -485,14 +493,16 @@ export function runIitestSuite(suitePath, options = {}) {
     const runtimeFailures = [];
 
     if (!taskResult.ok) {
-      taskLines.push(`task: fail | ${taskResult.reason}`);
+      taskLines.push(`task: fail | ${formatRuntimeFailureReason(taskResult)}`);
       taskLines.push("workspace assert: not run");
       for (const caseReport of caseReports) {
         caseItems.push({
           id: caseReport.id,
-          result: `not evaluated | task phase failed: ${taskResult.reason}`,
+          result: `not evaluated | task phase failed: ${formatRuntimeFailureReason(taskResult)}`,
         });
-        runtimeFailures.push(`\`${caseReport.id}\` task phase failed: ${taskResult.reason}`);
+        runtimeFailures.push(
+          `\`${caseReport.id}\` task phase failed: ${formatRuntimeFailureReason(taskResult)}`,
+        );
       }
     } else {
       taskLines.push(`task: pass | ${taskResult.answerText}`);
@@ -536,9 +546,11 @@ export function runIitestSuite(suitePath, options = {}) {
           if (!recallResult.ok) {
             caseItems.push({
               id: caseReport.id,
-              result: `not evaluated | ${recallResult.reason}`,
+              result: `not evaluated | ${formatRuntimeFailureReason(recallResult)}`,
             });
-            runtimeFailures.push(`\`${caseReport.id}\` ${recallResult.reason}`);
+            runtimeFailures.push(
+              `\`${caseReport.id}\` ${formatRuntimeFailureReason(recallResult)}`,
+            );
             continue;
           }
 

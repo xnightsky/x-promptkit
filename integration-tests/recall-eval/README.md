@@ -57,11 +57,24 @@ The command receives one JSON request on stdin:
   "source_ref": "AGENTS.md#anchor",
   "carrier": "isolated-context-run:subagent",
   "case_id": "case-id",
-  "medium": "skill-mechanism"
+  "medium": "skill-mechanism",
+  "context_policy": {
+    "id": "clean-context-v1",
+    "answer_basis": "memory-only",
+    "tools": "forbidden",
+    "web_search": "forbidden",
+    "repo_read": "forbidden"
+  }
 }
 ```
 
 The command must return plain text on stdout.
+
+Notes:
+
+- task phase sets `context_policy` to `null`; recall phase must carry `clean-context-v1`
+- live recall comparability depends on preserving that clean-context policy
+- bridge/runtime failures should be reported separately from answer-content scoring
 
 ## Execution Policy
 
@@ -69,6 +82,7 @@ The command must return plain text on stdout.
 - initialized-workspace recall orchestration is always an integration test, even when the child executor itself is fake
 - use these suites when changing carrier/runtime wiring or when you need higher confidence in a token-backed real host path
 - keep assertions focused on task success, workspace state, status classification, and recall scoring rather than long answer bodies
+- classify runtime environment failures separately from content failures; bridge EOF / stream closed should not become a recall score
 
 ## Current Suites
 

@@ -2,6 +2,14 @@
 
 This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks the queue contract, carrier resolution, refusal behavior, and output shape.
 
+如果是 live recall，默认沿用固定 clean-context policy：
+
+- `clean-context-v1`
+- no tools
+- no web search
+- no repo reads
+- memory-only answer
+
 ## Case 01: 默认 queue 选择
 
 触发方式：
@@ -74,7 +82,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ```md
 1. Queue
-- `/abs/path/to/recall-selftest.yaml`
+- `skills/recall-eval/SAMPLE-QUEUE.yaml`
 
 2. Carrier
 - `isolated-context-run:subagent`
@@ -235,6 +243,102 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 ---
 
+## Case 03A: 用官方最小 runner 跑 live recall
+
+触发方式：
+
+- “直接跑这个 recall queue”
+- “不要再临时拼脚本，用官方入口执行”
+
+最小上下文：
+
+- 一个兼容的 queue 路径或 target 路径
+- live 模式
+
+期望产出：
+
+- 直接落到 `npm run recall:run` 或 `npm run recall:iitest`
+- live 模式会落盘答案与结果 artifact
+- 输出里区分 queue 完整性、case 结果、runtime failures
+
+标准输出样例：
+
+```md
+1. Queue
+- `skills/recall-eval/.recall/queue.yaml`
+
+2. Carrier
+- `isolated-context-run:subagent`
+
+3. Integrity Check
+- `recall_eval.reject_missing_medium`: pass | required fields present
+
+4. Case Results
+- `recall_eval.reject_missing_medium`: score=2 | 明确答出缺 medium 时必须拒绝执行，并要求先完善 queue | must_include matched
+
+5. Summary
+- directly evaluable: `recall_eval.reject_missing_medium`
+- refused for missing carrier: none
+- queue fixes required: none
+- runtime failures: none
+- run artifact: `.tmp/recall-runs/<run-id>/result.json`
+```
+
+反例：
+
+- 让调用方自己补答案落盘逻辑
+- live 跑完没有结果 artifact
+
+---
+
+## Case 03B: live recall 必须固定 clean-context policy
+
+触发方式：
+
+- “做 live recall 验证”
+- “这轮只凭记忆回答，不要看 repo”
+
+最小上下文：
+
+- live 模式
+- `isolated-context-run:subagent` 或兼容 carrier
+
+期望产出：
+
+- 明确写出 `clean-context-v1`
+- 约束包含 no tools / no web search / no repo reads
+- 不把 clean-context 约束留给 main agent 临时拼接
+
+标准输出样例：
+
+```md
+1. Queue
+- `skills/recall-eval/.recall/queue.yaml`
+
+2. Carrier
+- `isolated-context-run:subagent`
+
+3. Integrity Check
+- `recall_eval.reject_missing_medium`: pass | required fields present
+
+4. Case Results
+- `recall_eval.reject_missing_medium`: not evaluated | carrier execution failed: clean-context-v1 bridge unavailable
+
+5. Summary
+- directly evaluable: none
+- refused for missing carrier: none
+- queue fixes required: none
+- runtime failures: `recall_eval.reject_missing_medium` carrier execution failed: clean-context-v1 bridge unavailable
+- run artifact: `.tmp/recall-runs/<run-id>/result.json`
+```
+
+反例：
+
+- live recall 默认允许搜索或读 repo
+- 同一类 recall，调用方每次自己发明新的 clean-context 文案
+
+---
+
 ## Case 04: 调用方覆盖默认 carrier
 
 触发方式：
@@ -277,6 +381,55 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 - 明明调用方指定了 carrier，还继续按 queue 默认值跑
 - 把 override 说成自动推断结果
+
+---
+
+## Case 04A: 环境失败不计入 recall 内容失败
+
+触发方式：
+
+- “carrier 能解析，但 bridge 断流了，这轮算 recall 差吗”
+- “429 之后这题该记多少分”
+
+最小上下文：
+
+- queue 完整
+- carrier 已解析
+- runtime 在执行后失败
+
+期望产出：
+
+- case 状态写成 `not evaluated`
+- `runtime failures` 单独汇总
+- 不把环境失败记成 `score=0`
+
+标准输出样例：
+
+```md
+1. Queue
+- `skills/recall-eval/.recall/queue.yaml`
+
+2. Carrier
+- `isolated-context-run:subagent`
+
+3. Integrity Check
+- `recall_eval.reject_missing_medium`: pass | required fields present
+
+4. Case Results
+- `recall_eval.reject_missing_medium`: not evaluated | carrier execution failed: bridge stream closed
+
+5. Summary
+- directly evaluable: none
+- refused for missing carrier: none
+- queue fixes required: none
+- runtime failures: `recall_eval.reject_missing_medium` carrier execution failed: bridge stream closed
+- run artifact: `.tmp/recall-runs/<run-id>/result.json`
+```
+
+反例：
+
+- bridge 断流直接打 `score=0`
+- 429 失败被当成回答错误
 
 ---
 

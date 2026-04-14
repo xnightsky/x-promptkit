@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildRecallRequest,
   executeRecallViaCarrier,
+  formatRuntimeFailureReason,
   SUBAGENT_CARRIER,
 } from "../skills/recall-evaluator/scripts/carrier-adapter.mjs";
 
@@ -34,6 +35,10 @@ test("buildRecallRequest includes the core request contract fields", () => {
   assert.equal(request.case_id, "recall_eval.reject_missing_medium");
   assert.equal(request.question, "recall queue 缺少 medium 时，能否继续执行？");
   assert.equal(request.prompt, "recall queue 缺少 medium 时，能否继续执行？");
+  assert.equal(request.context_policy.id, "clean-context-v1");
+  assert.equal(request.context_policy.tools, "forbidden");
+  assert.equal(request.context_policy.web_search, "forbidden");
+  assert.equal(request.context_policy.repo_read, "forbidden");
 });
 
 test("executeRecallViaCarrier rejects missing carriers", () => {
@@ -73,7 +78,60 @@ test("executeRecallViaCarrier normalizes thrown executor failures", () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.kind, "environment_failure");
+  assert.equal(result.failureClass, "environment_failure");
   assert.match(result.reason, /carrier execution failed: boom/);
+});
+
+test("executeRecallViaCarrier classifies rate limits and retries twice", () => {
+  let attempts = 0;
+  const result = executeRecallViaCarrier(makeCaseReport(), SUBAGENT_CARRIER, {
+    subagentExecutor: () => {
+      attempts += 1;
+      throw new Error("429 too many requests");
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.failureClass, "rate_limited");
+  assert.equal(result.maxRetries, 2);
+  assert.equal(result.retriesUsed, 2);
+  assert.equal(result.attempts, 3);
+  assert.equal(attempts, 3);
+  assert.match(formatRuntimeFailureReason(result), /class=rate_limited, retries=2\/2/);
+});
+
+test("executeRecallViaCarrier classifies bridge closures and retries once", () => {
+  let attempts = 0;
+  const result = executeRecallViaCarrier(makeCaseReport(), SUBAGENT_CARRIER, {
+    subagentExecutor: () => {
+      attempts += 1;
+      throw new Error("bridge down");
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.failureClass, "bridge_stream_closed");
+  assert.equal(result.maxRetries, 1);
+  assert.equal(result.retriesUsed, 1);
+  assert.equal(result.attempts, 2);
+  assert.equal(attempts, 2);
+});
+
+test("executeRecallViaCarrier classifies thread limits without automatic retry", () => {
+  let attempts = 0;
+  const result = executeRecallViaCarrier(makeCaseReport(), SUBAGENT_CARRIER, {
+    subagentExecutor: () => {
+      attempts += 1;
+      throw new Error("thread limit reached");
+    },
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.failureClass, "thread_limit");
+  assert.equal(result.maxRetries, 0);
+  assert.equal(result.retriesUsed, 0);
+  assert.equal(result.attempts, 1);
+  assert.equal(attempts, 1);
 });
 
 test("executeRecallViaCarrier prefers case-scoped response env over the global response env", () => {

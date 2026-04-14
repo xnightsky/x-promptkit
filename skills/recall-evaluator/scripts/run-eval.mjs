@@ -12,7 +12,12 @@ import {
   scoreAnswer,
   validateRecallData,
 } from "./lib.mjs";
-import { executeRecallViaCarrier, isSupportedRecallCarrier } from "./carrier-adapter.mjs";
+import {
+  DEFAULT_CLEAN_CONTEXT_POLICY,
+  executeRecallViaCarrier,
+  formatRuntimeFailureReason,
+  isSupportedRecallCarrier,
+} from "./carrier-adapter.mjs";
 
 const VALUE_FLAGS = new Set([
   "--case",
@@ -225,17 +230,19 @@ function evaluateQueueTarget(yamlPath) {
         const resultText =
           runtimeResult.kind === "unsupported_carrier"
             ? `refused | ${runtimeResult.reason}`
-            : `not evaluated | ${runtimeResult.reason}`;
+            : `not evaluated | ${formatRuntimeFailureReason(runtimeResult)}`;
         caseItems.push({
           id: caseReport.id,
           result: resultText,
         });
-        runtimeFailures.push(`\`${caseReport.id}\` ${runtimeResult.reason}`);
+        runtimeFailures.push(`\`${caseReport.id}\` ${formatRuntimeFailureReason(runtimeResult)}`);
         pushPersistedCase(caseReport, effectiveCarrier, {
           status: runtimeResult.kind === "unsupported_carrier" ? "refused" : "not_evaluated",
-          rationale: runtimeResult.reason,
-          runtimeFailure:
-            runtimeResult.kind === "unsupported_carrier" ? null : runtimeResult.reason,
+          rationale:
+            runtimeResult.kind === "unsupported_carrier"
+              ? runtimeResult.reason
+              : formatRuntimeFailureReason(runtimeResult),
+          runtimeFailure: runtimeResult.kind === "unsupported_carrier" ? null : runtimeResult,
         });
         continue;
       }
@@ -280,6 +287,7 @@ function evaluateQueueTarget(yamlPath) {
       queuePath: inputPath,
       selectedCaseId,
       carrierOverride: cliCarrier,
+      contextPolicy: DEFAULT_CLEAN_CONTEXT_POLICY,
       cases: persistedCases,
     });
     runArtifact = persistLiveRunArtifact({

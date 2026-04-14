@@ -96,6 +96,9 @@ test("run-iitest initializes a temp workspace, executes the task phase, and scor
     "    process.stdout.write('task ok');",
     "    return;",
     "  }",
+    "  if (!request.context_policy || request.context_policy.id !== 'clean-context-v1') {",
+    "    throw new Error('missing clean-context policy');",
+    "  }",
     "  const notePath = path.join(request.workspace_root, 'notes', 'task-log.md');",
     "  const content = fs.readFileSync(notePath, 'utf8').trim();",
     "  process.stdout.write('alpha 被写到了 notes/task-log.md，内容是 ' + content);",
@@ -144,11 +147,11 @@ test("run-iitest reports recall-phase carrier failures separately from workspace
       assert.match(error.stdout, /workspace assert: pass/);
       assert.match(
         error.stdout,
-        /`task_memory\.recall_written_file`: not evaluated \| carrier execution failed: bridge down/,
+        /`task_memory\.recall_written_file`: not evaluated \| carrier execution failed: bridge down \(class=bridge_stream_closed, retries=1\/1\)/,
       );
       assert.match(
         error.stdout,
-        /runtime failures: `task_memory\.recall_written_file` carrier execution failed: bridge down/,
+        /runtime failures: `task_memory\.recall_written_file` carrier execution failed: bridge down \(class=bridge_stream_closed, retries=1\/1\)/,
       );
       return true;
     },

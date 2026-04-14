@@ -208,6 +208,7 @@ test("buildLiveRunArtifactRecord keeps the persisted run schema stable", () => {
     "queue_path",
     "selected_case_id",
     "carrier_override",
+    "context_policy",
     "cases",
   ]);
   assert.deepEqual(Object.keys(record.cases[0]), [
@@ -222,7 +223,52 @@ test("buildLiveRunArtifactRecord keeps the persisted run schema stable", () => {
     "timestamp",
     "runtime_failure",
   ]);
+  assert.equal(record.context_policy.id, "clean-context-v1");
   assert.equal(record.cases[0].runtime_failure, null);
+});
+
+test("buildLiveRunArtifactRecord persists structured runtime failure metadata", () => {
+  const record = buildLiveRunArtifactRecord({
+    runId: "run-456",
+    mode: "live",
+    startedAt: "2026-04-07T10:00:00.000Z",
+    completedAt: "2026-04-07T10:00:03.000Z",
+    queuePath: "skills/recall-eval/.recall/queue.yaml",
+    selectedCaseId: "case-02",
+    carrierOverride: null,
+    cases: [
+      {
+        caseId: "case-02",
+        sourceRef: "skills/recall-eval/SKILL.md",
+        carrier: "isolated-context-run:subagent",
+        question: "bridge 断流时怎么记账？",
+        answerText: null,
+        score: null,
+        rationale: "carrier execution failed",
+        status: "not_evaluated",
+        timestamp: "2026-04-07T10:00:02.000Z",
+        runtimeFailure: {
+          kind: "environment_failure",
+          failureClass: "bridge_stream_closed",
+          reason: "carrier execution failed: bridge down",
+          retryable: true,
+          attempts: 2,
+          retriesUsed: 1,
+          maxRetries: 1,
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(record.cases[0].runtime_failure, {
+    kind: "environment_failure",
+    class: "bridge_stream_closed",
+    reason: "carrier execution failed: bridge down",
+    retryable: true,
+    attempts: 2,
+    retries_used: 1,
+    max_retries: 1,
+  });
 });
 
 test("formatBatchRunEvalOutput distinguishes target summaries and embedded reports", () => {

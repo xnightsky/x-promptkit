@@ -299,7 +299,10 @@ test("run-eval reports unavailable subagent carrier when no bridge is injected i
     runsDir,
   ]);
 
-  assert.match(output, /not evaluated \| carrier unavailable in current environment/);
+  assert.match(
+    output,
+    /not evaluated \| carrier unavailable in current environment \(class=unavailable, retries=0\/0\)/,
+  );
   assert.match(output, /run artifact:/);
 });
 
@@ -326,13 +329,25 @@ test("run-eval reports subagent execution failures separately from queue errors 
   const resultPath = path.join(runsDir, runDirectories[0], "result.json");
   const persisted = JSON.parse(fs.readFileSync(resultPath, "utf8"));
 
-  assert.match(output, /not evaluated \| carrier execution failed: environment failure/);
-  assert.match(output, /runtime failures: `recall_eval\.reject_missing_medium` carrier execution failed: environment failure/);
-  assert.equal(persisted.cases[0].status, "not_evaluated");
-  assert.equal(
-    persisted.cases[0].runtime_failure,
-    "carrier execution failed: environment failure",
+  assert.match(
+    output,
+    /not evaluated \| carrier execution failed: environment failure \(class=environment_failure, retries=0\/0\)/,
   );
+  assert.match(
+    output,
+    /runtime failures: `recall_eval\.reject_missing_medium` carrier execution failed: environment failure \(class=environment_failure, retries=0\/0\)/,
+  );
+  assert.equal(persisted.cases[0].status, "not_evaluated");
+  assert.equal(persisted.context_policy.id, "clean-context-v1");
+  assert.deepEqual(persisted.cases[0].runtime_failure, {
+    kind: "environment_failure",
+    class: "environment_failure",
+    reason: "carrier execution failed: environment failure",
+    retryable: false,
+    attempts: 1,
+    retries_used: 0,
+    max_retries: 0,
+  });
 });
 
 test("run-eval does not call the carrier without --live when no direct answer is provided", () => {

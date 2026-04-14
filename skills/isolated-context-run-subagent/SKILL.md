@@ -43,6 +43,39 @@ Do not:
 
 If native subagent capability is absent, report `unavailable` and stop. Let the parent layer decide any fallback.
 
+## Invocation Decision
+
+Use this fixed decision order before writing `Override`:
+
+1. If the caller explicitly says the parent frontdoor already selected this child layer, treat it as parent-routed invocation.
+2. If the caller directly names `isolated-context-run:subagent` or asks whether the current host session can run native subagent work, treat it as direct invocation.
+3. If both appear in the same prompt, prefer the explicit parent-routing fact.
+
+Canonical mapping:
+
+- direct invocation -> `Override: direct sublayer invocation`
+- parent-routed invocation -> `Override: selected by parent frontdoor`
+
+Never emit `Override: none` from this child skill.
+
+## Probe Rubric
+
+Use one compact native-session probe rubric everywhere:
+
+- `native subagent capability probe -> present`
+- `native subagent capability probe -> absent`
+- `native subagent delegation probe -> started`
+- `native subagent delegation probe -> failed after startup`
+
+Accept authoritative caller facts in place of a fresh probe, but normalize them back into the same probe wording.
+
+Probe only these questions:
+
+- does the current host session expose native subagent capability
+- did native delegation fail before startup or after startup
+
+Do not mix parent-only evidence such as `codex --help`, `claude -p`, or `opencode run` into this child-layer probe block.
+
 ## Availability And Failure
 
 Mark this carrier `available` only from concrete evidence that the current host session exposes native subagent capability.
@@ -62,6 +95,22 @@ Failure taxonomy:
 
 Do not rewrite environment failures as install problems, `unavailable`, or `self-cli` issues.
 
+Subclasses for maintainer accounting:
+
+- `rate_limited`: upstream returns `429` or equivalent quota / rate-limit wording
+- `bridge_stream_closed`: bridge EOF, broken pipe, stream closed, or transport cut after delegation starts
+- `thread_limit`: host reports subagent / thread concurrency limit reached
+- `environment_failure`: other post-startup environment failures
+
+Default retry budget at the main-agent layer:
+
+- `rate_limited`: retry the same native subagent path up to 2 more times
+- `bridge_stream_closed`: retry the same native subagent path once
+- `thread_limit`: do not silently fallback; stop, record the saturation, and retry only after capacity is freed
+- `environment_failure`: no automatic retry unless the caller gives a host-specific reason
+
+If a retry budget is exhausted, keep the final status as `environment failure` and preserve the subclass in `Failure Detail`.
+
 ## Output Contract
 
 Use the same 5 sections as the parent skill:
@@ -76,11 +125,19 @@ Canonical literals:
 
 - `Default Priority`: `subagent -> self-cli`
 - `Selected Runner`: `subagent` or `No runnable selection from this probe.`
-- `Override`: `none` | `selected by parent frontdoor` | `direct sublayer invocation`
+- `Override`: `selected by parent frontdoor` | `direct sublayer invocation`
 
 Optional extension block:
 
 - `Failure Detail`
+
+When `Failure Detail` is present, use this fixed field order:
+
+- `class`
+- `subclass`
+- `evidence`
+- `retry`
+- `next action`
 
 Do not emit `Execution Template` or `Install Guidance` from this child skill.
 
@@ -100,6 +157,12 @@ Parent-routed invocation:
 - set `Override` to `selected by parent frontdoor`
 
 If the caller provides capability facts, failure state, or scenario labels, treat them as authoritative input for normalization.
+
+Live recall or memory-eval style requests:
+
+- if the caller already supplies a clean-context execution policy, preserve it verbatim
+- otherwise state that native delegation must stay memory-only: no tools, no web search, no repo reads
+- keep that constraint in `Why` or `Failure Detail`; do not reopen parent runner routing to enforce it
 
 ## Restrictions
 

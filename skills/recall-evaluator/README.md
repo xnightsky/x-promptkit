@@ -1,6 +1,6 @@
 # recall-evaluator runtime (`skills/recall-evaluator/scripts`)
 
-These scripts are the current evaluator/runtime entrypoints for the `recall-eval` contract. They do not turn the skill itself into the live runtime.
+These scripts are the official minimal runtime entrypoints for the `recall-eval` contract. Use them as the default runner path before building custom orchestration.
 
 Commands:
 
@@ -24,17 +24,31 @@ Responsibilities:
 
 - `validate-schema.mjs`: schema and integrity validation
 - `resolve-target.mjs`: inspect effective `source_ref`
-- `carrier-adapter.mjs`: runtime carrier bridge and failure normalization
+- `carrier-adapter.mjs`: runtime carrier bridge, clean-context policy injection, failure normalization, and retry budgeting
 - `run-eval.mjs`: evaluate a single queue in score-only or live mode, or batch multiple queue targets in live mode, then print either the fixed five-section report or a batch wrapper with per-target embedded reports
 - `iitest-lib.mjs`: initialized-workspace recall harness helpers
 - `run-iitest.mjs`: initialize a temp workspace from a fixture, run a task phase in a child executor, then run the recall phase and score it
+
+Live recall defaults:
+
+- every recall-phase bridge request carries `context_policy.id = clean-context-v1`
+- `clean-context-v1` means memory-only answer, no tools, no web search, and no repo reads
+- compare live recall runs only when they used the same clean-context policy
+
+Runtime failure accounting:
+
+- queue-definition failure, carrier-resolution failure, runtime environment failure, and content-score failure stay separated
+- runtime environment failure does not produce a recall score; the case stays `not_evaluated`
+- the runner classifies runtime failures into `rate_limited`, `bridge_stream_closed`, `thread_limit`, or generic `environment_failure`
+- default retry budget is `2` for `rate_limited`, `1` for `bridge_stream_closed`, and `0` for `thread_limit` or generic `environment_failure`
 
 Live run persistence:
 
 - `--live` always writes one run artifact to `./.tmp/recall-runs/<run-id>/result.json` by default.
 - `--runs-dir <path>` overrides the base output directory for that live invocation.
 - score-only mode (`--answer` / `--answer-file` / `--answers-file`) does not write run artifacts.
-- `result.json` is the v1 source of truth for replaying a live run. It stores top-level run metadata plus per-case `answer_text`, `score`, `rationale`, `status`, and `runtime_failure`.
+- `result.json` is the v1 source of truth for replaying a live run. It stores top-level run metadata, `context_policy`, and per-case `answer_text`, `score`, `rationale`, `status`, and structured `runtime_failure`.
+- `runtime_failure` records `kind`, `class`, `reason`, `retryable`, `attempts`, `retries_used`, and `max_retries` when a live carrier path fails.
 - multiple yaml targets are supported only with `--live`; batch mode does not combine with `--case` or direct answer inputs.
 
 Target-local queue discovery:

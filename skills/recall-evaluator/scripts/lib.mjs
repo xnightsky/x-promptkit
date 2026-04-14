@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import YAML from "yaml";
+import { DEFAULT_CLEAN_CONTEXT_POLICY } from "./carrier-adapter.mjs";
 
 const REQUIRED_TOP_LEVEL_FIELDS = ["version", "fallback_answer", "scoring", "cases"];
 const REQUIRED_SCORE_KEYS = ["0", "1", "2"];
@@ -391,6 +392,7 @@ export function buildLiveRunArtifactRecord({
   queuePath,
   selectedCaseId,
   carrierOverride,
+  contextPolicy = DEFAULT_CLEAN_CONTEXT_POLICY,
   cases,
 }) {
   return {
@@ -402,6 +404,7 @@ export function buildLiveRunArtifactRecord({
     queue_path: queuePath,
     selected_case_id: selectedCaseId ?? null,
     carrier_override: carrierOverride ?? null,
+    context_policy: contextPolicy ? { ...contextPolicy } : null,
     cases: cases.map((item) => ({
       case_id: item.caseId,
       source_ref: item.sourceRef ?? null,
@@ -412,7 +415,18 @@ export function buildLiveRunArtifactRecord({
       rationale: item.rationale ?? null,
       status: item.status,
       timestamp: item.timestamp,
-      runtime_failure: item.runtimeFailure ?? null,
+      // Persist structured failure metadata so environment failure never looks like a bad recall score.
+      runtime_failure: item.runtimeFailure
+        ? {
+            kind: item.runtimeFailure.kind,
+            class: item.runtimeFailure.failureClass,
+            reason: item.runtimeFailure.reason,
+            retryable: item.runtimeFailure.retryable,
+            attempts: item.runtimeFailure.attempts,
+            retries_used: item.runtimeFailure.retriesUsed,
+            max_retries: item.runtimeFailure.maxRetries,
+          }
+        : null,
     })),
   };
 }
