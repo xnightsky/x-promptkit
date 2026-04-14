@@ -8,7 +8,7 @@ AGENT_FILE="${AGENTS_DIR}/minimax-worker.toml"
 HOOKS_DIR="${CODEX_DIR}/hooks"
 BRIDGE_DIR="${HOME}/codex-bridge"
 PID_FILE="${BRIDGE_DIR}/bridge.pid"
-PORT="18765"
+PORT="54187"
 BEGIN_MARKER="# BEGIN codex-bridge-minimax-worker"
 END_MARKER="# END codex-bridge-minimax-worker"
 

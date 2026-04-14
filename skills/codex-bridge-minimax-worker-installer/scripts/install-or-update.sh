@@ -11,7 +11,7 @@ AGENT_FILE="${AGENTS_DIR}/minimax-worker.toml"
 BRIDGE_DIR="${HOME}/codex-bridge"
 ENV_FILE="${BRIDGE_DIR}/.env"
 PID_FILE="${BRIDGE_DIR}/bridge.pid"
-PORT="18765"
+PORT="54187"
 BEGIN_MARKER="# BEGIN codex-bridge-minimax-worker"
 END_MARKER="# END codex-bridge-minimax-worker"
 
@@ -268,7 +268,7 @@ config_block=$(cat <<'EOF'
 # BEGIN codex-bridge-minimax-worker
 [model_providers.minimax_bridge]
 name = "MiniMax via codex-bridge"
-base_url = "http://127.0.0.1:18765"
+base_url = "http://127.0.0.1:54187"
 wire_api = "responses"
 requires_openai_auth = false
 request_max_retries = 4

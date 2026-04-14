@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-START_SCRIPT="${SCRIPT_DIR}/minimax-provider-start.sh"
+START_SCRIPT="${SCRIPT_DIR}/../minimax-provider-start.sh"
 TMP_HOME="$(mktemp -d)"
 BRIDGE_DIR="${TMP_HOME}/codex-bridge"
 PID_FILE="${BRIDGE_DIR}/bridge.pid"
@@ -47,7 +47,7 @@ cat >"$BRIDGE_DIR/main.mjs" <<'EOF'
 import { createServer } from "node:http";
 
 function parseArgs(argv) {
-  const options = { host: "127.0.0.1", port: 18765 };
+  const options = { host: "127.0.0.1", port: 54187 };
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === "--host") {
       options.host = argv[index + 1] ?? options.host;

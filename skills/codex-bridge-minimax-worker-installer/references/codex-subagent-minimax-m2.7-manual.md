@@ -13,7 +13,7 @@
 ```text
 Codex
   └─ provider: minimax_bridge
-       └─ http://127.0.0.1:18765
+       └─ http://127.0.0.1:54187
             └─ codex-bridge
                  └─ https://api.minimaxi.com/anthropic
                       └─ MiniMax-M2.7
@@ -92,12 +92,12 @@ loader 会检查：
 - `~/codex-bridge` 是否存在
 - `~/codex-bridge/.env` 是否存在且包含必需变量
 - `~/codex-bridge/package.json` 是否存在
-- 本地 `http://127.0.0.1:18765/openapi.json` 是否健康
+- 本地 `http://127.0.0.1:54187/openapi.json` 是否健康
 
 如果还没启动，它会在后台拉起：
 
 ```bash
-node main.mjs --host 127.0.0.1 --port 18765
+node main.mjs --host 127.0.0.1 --port 54187
 ```
 
 如果本次会话启动了 bridge，它会提醒用户该进程会持续运行，直到手动停止：
@@ -113,7 +113,7 @@ installer 会在 `~/.codex/config.toml` 中维护：
 ```toml
 [model_providers.minimax_bridge]
 name = "MiniMax via codex-bridge"
-base_url = "http://127.0.0.1:18765"
+base_url = "http://127.0.0.1:54187"
 wire_api = "responses"
 requires_openai_auth = false
 request_max_retries = 4
@@ -161,7 +161,7 @@ model_reasoning_effort = "medium"
 
 ```bash
 ./scripts/minimax-provider-start.sh
-curl --noproxy '*' -fsS http://127.0.0.1:18765/openapi.json >/dev/null && echo "bridge up"
+curl --noproxy '*' -fsS http://127.0.0.1:54187/openapi.json >/dev/null && echo "bridge up"
 ```
 
 ### 3. 验证 Codex 默认主代理未被改动
@@ -194,7 +194,7 @@ Codex -> responses -> codex-bridge -> Anthropic messages -> MiniMax -> tool_use/
 
 优先检查：
 
-- 端口是否是 `127.0.0.1:18765`
+- 端口是否是 `127.0.0.1:54187`
 - 旧 bridge 进程是否残留
 - installer 自带的 `mjs` 运行时同步是否已完成
 
@@ -219,7 +219,7 @@ Codex -> responses -> codex-bridge -> Anthropic messages -> MiniMax -> tool_use/
 相较于工作区原始文档，这份参考手册已更新为当前实现：
 
 - 删除了运行时 `git clone` 步骤
-- 端口从 `8000` 更新为 `18765`
+- 端口从 `8000` 更新为 `54187`
 - 安装职责归 installer skill
 - 启动职责归 loader skill
 - 明确了 vendored source 和运行目录的关系

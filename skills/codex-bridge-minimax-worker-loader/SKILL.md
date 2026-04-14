@@ -21,7 +21,7 @@ Do not skip this step. Do not assume the bridge is already healthy.
   - `model_provider = "minimax_bridge"`
   - `model = "MiniMax-M2.7"` by default
 - The runtime bridge directory is still `~/codex-bridge`, but it is installed from the vendored source bundled in `$codex-bridge-minimax-worker-installer`, not from a fresh `git clone`.
-- The startup script defaults to `127.0.0.1:18765`; for controlled tests or debugging, it also honors `CODEX_BRIDGE_HOST` and `CODEX_BRIDGE_PORT`.
+- The startup script defaults to `127.0.0.1:54187`; for controlled tests or debugging, it also honors `CODEX_BRIDGE_HOST` and `CODEX_BRIDGE_PORT`.
 - Do not start duplicate bridge instances.
 - Do not assume the bridge is auto-cleaned.
 - If this session started the bridge, tell the user it remains running until manually stopped.

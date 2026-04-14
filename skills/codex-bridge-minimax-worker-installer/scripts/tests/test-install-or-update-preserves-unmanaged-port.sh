@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-INSTALL_SCRIPT="${SCRIPT_DIR}/install-or-update.sh"
+INSTALL_SCRIPT="${SCRIPT_DIR}/../install-or-update.sh"
 TMP_HOME="$(mktemp -d)"
 TMP_BIN="$(mktemp -d)"
 TMP_LOG="$(mktemp -d)"
@@ -34,22 +34,22 @@ EOF
 chmod +x "$TMP_BIN/npm"
 
 if command -v lsof >/dev/null 2>&1; then
-  TRACKED_PID="$(lsof -ti tcp:18765 -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
+  TRACKED_PID="$(lsof -ti tcp:54187 -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
 fi
 
 if [ -z "$TRACKED_PID" ]; then
-  python3 -m http.server 18765 --bind 127.0.0.1 >"$TMP_LOG/http-server.log" 2>&1 &
+  python3 -m http.server 54187 --bind 127.0.0.1 >"$TMP_LOG/http-server.log" 2>&1 &
   SERVER_PID="$!"
 
   for _ in {1..10}; do
-    if curl --noproxy '*' -fsS --max-time 2 "http://127.0.0.1:18765/" >/dev/null 2>&1; then
+    if curl --noproxy '*' -fsS --max-time 2 "http://127.0.0.1:54187/" >/dev/null 2>&1; then
       break
     fi
     sleep 1
   done
 
-  if ! curl --noproxy '*' -fsS --max-time 2 "http://127.0.0.1:18765/" >/dev/null 2>&1; then
-    echo "Test setup failed to establish the unmanaged listener on port 18765" >&2
+  if ! curl --noproxy '*' -fsS --max-time 2 "http://127.0.0.1:54187/" >/dev/null 2>&1; then
+    echo "Test setup failed to establish the unmanaged listener on port 54187" >&2
     exit 1
   fi
 
@@ -61,6 +61,6 @@ fi
 "$INSTALL_SCRIPT"
 
 if ! kill -0 "$TRACKED_PID" 2>/dev/null; then
-  echo "Install should not kill an unmanaged listener on port 18765" >&2
+  echo "Install should not kill an unmanaged listener on port 54187" >&2
   exit 1
 fi

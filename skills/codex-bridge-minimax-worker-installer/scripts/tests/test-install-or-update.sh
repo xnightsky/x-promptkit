@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-INSTALL_SCRIPT="${SCRIPT_DIR}/install-or-update.sh"
+INSTALL_SCRIPT="${SCRIPT_DIR}/../install-or-update.sh"
 TMP_HOME="$(mktemp -d)"
 TMP_BIN="$(mktemp -d)"
 TMP_LOG="$(mktemp -d)"

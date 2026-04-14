@@ -6,10 +6,10 @@ ENV_FILE="${BRIDGE_DIR}/.env"
 LOG_FILE="${BRIDGE_DIR}/bridge.log"
 PID_FILE="${BRIDGE_DIR}/bridge.pid"
 ENTRYPOINT="${BRIDGE_DIR}/main.mjs"
-# Keep the production default on 18765, but allow tests or constrained local
+# Keep the production default on 54187, but allow tests or constrained local
 # setups to override the binding explicitly without patching the script.
 HOST="${CODEX_BRIDGE_HOST:-127.0.0.1}"
-PORT="${CODEX_BRIDGE_PORT:-18765}"
+PORT="${CODEX_BRIDGE_PORT:-54187}"
 HEALTH_URL="${CODEX_BRIDGE_HEALTH_URL:-http://${HOST}:${PORT}/openapi.json}"
 
 require_cmd() {

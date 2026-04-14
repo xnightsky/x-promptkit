@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-UNINSTALL_SCRIPT="${SCRIPT_DIR}/uninstall.sh"
+UNINSTALL_SCRIPT="${SCRIPT_DIR}/../uninstall.sh"
 TMP_HOME="$(mktemp -d)"
 
 cleanup() {
