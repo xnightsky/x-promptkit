@@ -11,11 +11,9 @@ Unlike `codex-bridge-minimax-worker-installer`, this skill does **not** install 
 
 ## Invocation
 
-This skill is **manual-only**. Do not act on it when the user only mentions Kimi or Codex in passing.
+This skill targets **Codex only** and is **manual-only**.
 
-- **Codex** — invoke via `$codex-kimi-worker-installer`. The accompanying [`agents/openai.yaml`](./agents/openai.yaml) sets `policy.allow_implicit_invocation: false`, so Codex will not trigger this skill without an explicit reference. This is the only runtime-enforced manual-only signal in this skill.
-- **Claude Code** — invoke via slash command `/codex-kimi-worker-installer`, or by asking Claude to "run the codex-kimi-worker-installer skill". Claude Code has **no** machine-enforced manual-only flag; the `description` in the frontmatter above is what keeps it from being auto-invoked, so do not weaken that wording.
-- **OpenCode** — invoke via `@codex-kimi-worker-installer` or ask the agent to load the `codex-kimi-worker-installer` skill through its native `skill` tool. OpenCode also has **no** machine-enforced manual-only flag; same reasoning as Claude Code applies.
+Invoke via `$codex-kimi-worker-installer`. The accompanying [`agents/openai.yaml`](./agents/openai.yaml) sets `policy.allow_implicit_invocation: false`, so Codex will not trigger this skill without an explicit reference. Do not act on it when the user only mentions Kimi or Codex in passing.
 
 ## Allowed Changes
 
