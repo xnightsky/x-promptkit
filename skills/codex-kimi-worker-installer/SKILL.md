@@ -136,13 +136,34 @@ KIMI_WORKER_INSTRUCTIONS_FILE=./path/to/planner.md \
 ./scripts/install-or-update.sh
 ```
 
-Invoke the generated agents with:
+## Invoking the generated agents
+
+Codex CLI does **not** provide a `--agent` / `--agents` flag (see
+[openai/codex#10067](https://github.com/openai/codex/issues/10067) — still an
+open feature request). Instead, subagents are spawned by the main Codex
+session when you refer to them **by name** in a prompt. See the official
+[Codex subagents docs](https://developers.openai.com/codex/subagents) for the
+full model.
 
 ```bash
-codex --agent kimi_worker                 # Dimension B coding
-codex --agent kimi_worker_general         # Dimension B general
-codex --agent <your-custom-name>          # Dimension C
+# Interactive TUI: start Codex, then mention the agent by name in the prompt
+codex
+# then at the TUI prompt, for example:
+#   > Have kimi_worker implement <task>.
+#     Use kimi_worker_general to draft the spec first.
+
+# Non-interactive / one-shot via codex exec
+codex exec "Spawn kimi_worker to refactor src/foo.ts and summarize the diff."
 ```
+
+Inside an interactive session, use the `/agent` slash command to switch
+between live agent threads or inspect the current one.
+
+Names to use in prompts:
+
+- **Dimension B**: `kimi_worker` (coding) / `kimi_worker_general` (general).
+- **Dimension C**: whatever `name` you set in the custom TOML file
+  (e.g. `kimi_worker_review`, `kimi_worker_planner`).
 
 ## Uninstall
 
