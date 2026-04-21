@@ -17,6 +17,11 @@ set -euo pipefail
 #   custom-worker        => C (requires A already installed)
 #   uninstall            => forward to uninstall.sh
 #
+# Invocation model (important):
+#   Codex CLI has NO --agent / --agents flag. Custom subagents are invoked by
+#   referring to them BY NAME in a Codex prompt. See SKILL.md and
+#   https://developers.openai.com/codex/subagents for the full model.
+#
 # See SKILL.md and references/codex-kimi-subagent-manual.md for the full
 # interaction contract and key-wiring architecture.
 
@@ -359,6 +364,9 @@ check_direnv_and_hint() {
 }
 
 # ------------------------------------------------------------------ try-it
+#
+# Codex CLI has no --agent flag. Custom subagents are invoked by referring to
+# them BY NAME in a prompt. See SKILL.md § 'Invoking the generated agents'.
 
 print_try_it() {
   local upstream="${KIMI_UPSTREAM:-coding}"
@@ -378,33 +386,46 @@ print_try_it() {
 
   if [ "$KIMI_ACTION" = "custom-worker" ]; then
     echo "Custom worker installed: ${KIMI_CUSTOM_INSTALLED_NAME} -> ${KIMI_CUSTOM_INSTALLED_PROVIDER} (${KIMI_CUSTOM_INSTALLED_MODEL})"
-    echo "Try it:"
-    echo "  codex --agent ${KIMI_CUSTOM_INSTALLED_NAME} \"...\""
+    echo "Try it (refer to the agent BY NAME inside a Codex prompt):"
+    echo "  codex exec \"Spawn ${KIMI_CUSTOM_INSTALLED_NAME} to <task>...\""
+    echo "  # or in interactive TUI:"
+    echo "  codex"
+    echo "  # then at the TUI prompt:"
+    echo "  #   > Have ${KIMI_CUSTOM_INSTALLED_NAME} do <task>."
+    echo "  #   Use /agent to switch between active agent threads."
+    _print_invocation_note
     return
   fi
 
-  echo "Try it:"
+  echo "Try it (refer to the agent BY NAME inside a Codex prompt):"
   case "$upstream" in
     coding)
-      echo "  Upstream mode: coding (single worker)"
-      echo "  codex --agent kimi_worker \"...\""
+      echo "  Upstream mode: coding (single worker: kimi_worker)"
+      echo "  codex exec \"Have kimi_worker do <task>...\""
       ;;
     general)
-      echo "  Upstream mode: general (single worker)"
-      echo "  codex --agent kimi_worker_general \"...\""
+      echo "  Upstream mode: general (single worker: kimi_worker_general)"
+      echo "  codex exec \"Have kimi_worker_general do <task>...\""
       ;;
     both)
-      echo "  Upstream mode: both (two workers)"
-      echo "  codex --agent kimi_worker         \"...\"   # coding line"
-      echo "  codex --agent kimi_worker_general \"...\"   # general line"
+      echo "  Upstream mode: both (workers: kimi_worker, kimi_worker_general)"
+      echo "  codex exec \"Have kimi_worker implement <task> and ask kimi_worker_general to review it.\""
       echo ""
       echo "Maintaining multiple workers (KIMI_UPSTREAM=both):"
-      echo "  - Per-call selection:       codex --agent kimi_worker | kimi_worker_general"
-      echo "  - Project-scoped default:   add model_provider=kimi_coding|kimi_general in .codex/config.toml"
-      echo "  - Shell aliases:            alias kimic='codex --agent kimi_worker' / alias kimig='codex --agent kimi_worker_general'"
-      echo "  - Fold back to single:      re-run with KIMI_UPSTREAM=coding (or general)"
+      echo "  - Prompt-level selection: mention kimi_worker or kimi_worker_general by name"
+      echo "  - Project-scoped provider: add model_provider=kimi_coding|kimi_general in .codex/config.toml"
+      echo "  - Inside TUI: use /agent to switch between running agent threads"
+      echo "  - Fold back to single: re-run with KIMI_UPSTREAM=coding (or general)"
       ;;
   esac
+  _print_invocation_note
+}
+
+_print_invocation_note() {
+  echo ""
+  echo "Note: Codex CLI has no --agent / --agents flag (see openai/codex#10067)."
+  echo "      If an outer host reports 'agent type is currently not available'"
+  echo "      even after install, see SKILL.md § Troubleshooting."
 }
 
 # ------------------------------------------------------------------ dispatch

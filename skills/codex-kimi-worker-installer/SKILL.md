@@ -136,13 +136,34 @@ KIMI_WORKER_INSTRUCTIONS_FILE=./path/to/planner.md \
 ./scripts/install-or-update.sh
 ```
 
-Invoke the generated agents with:
+## Invoking the generated agents
+
+Codex CLI does **not** provide a `--agent` / `--agents` flag (see
+[openai/codex#10067](https://github.com/openai/codex/issues/10067) — still an
+open feature request). Instead, subagents are spawned by the main Codex
+session when you refer to them **by name** in a prompt. See the official
+[Codex subagents docs](https://developers.openai.com/codex/subagents) for the
+full model.
 
 ```bash
-codex --agent kimi_worker                 # Dimension B coding
-codex --agent kimi_worker_general         # Dimension B general
-codex --agent <your-custom-name>          # Dimension C
+# Interactive TUI: start Codex, then mention the agent by name in the prompt
+codex
+# then at the TUI prompt, for example:
+#   > Have kimi_worker implement <task>.
+#     Use kimi_worker_general to draft the spec first.
+
+# Non-interactive / one-shot via codex exec
+codex exec "Spawn kimi_worker to refactor src/foo.ts and summarize the diff."
 ```
+
+Inside an interactive session, use the `/agent` slash command to switch
+between live agent threads or inspect the current one.
+
+Names to use in prompts:
+
+- **Dimension B**: `kimi_worker` (coding) / `kimi_worker_general` (general).
+- **Dimension C**: whatever `name` you set in the custom TOML file
+  (e.g. `kimi_worker_review`, `kimi_worker_planner`).
 
 ## Uninstall
 
@@ -160,6 +181,61 @@ Scopes, controlled by `KIMI_UNINSTALL_SCOPE`:
   - keeps Dimension A + B intact
 
 Neither scope clears `KIMI_API_KEY`, touches any `.envrc` / shell rc file, or modifies blocks owned by other installers.
+
+## Troubleshooting
+
+### `agent type is currently not available` when an outer agent calls `spawn_agent`
+
+If an outer agent / host (for example, another Codex session acting as an
+orchestrator, or a platform that wraps Codex as a tool) calls
+`spawn_agent(agent_type="kimi_worker", ...)` and reports
+`agent type is currently not available`, the failure is at the **host layer**,
+not the installer:
+
+- This installer writes a valid custom agent file to
+  `~/.codex/agents/kimi-worker.toml` with the required `name`, `description`,
+  and `developer_instructions` fields (matching the schema documented at
+  [Codex Subagents · Custom agents](https://developers.openai.com/codex/subagents)).
+- Codex CLI, when **started directly by the user**, reads that file and
+  recognises `kimi_worker` by name.
+- Some outer hosts expose `spawn_agent` with a **fixed enum of agent types**
+  (e.g. `default`, `worker`, `explorer`) and will not accept arbitrary
+  custom-registered names, even when Codex itself has them loaded. There is
+  nothing this installer can do about that — it is a host-side restriction.
+
+**Local diagnostics** (run in a plain terminal, not inside the outer host):
+
+```bash
+codex --version
+ls -la ~/.codex/agents/
+cat ~/.codex/agents/kimi-worker.toml
+codex features list | grep -i -E 'subagent|agent'
+
+# Interactive probe:
+codex
+# then at the TUI prompt:
+#   /agent        -> lists active agent threads / loaded custom agents
+```
+
+| Observation | Likely cause |
+|---|---|
+| TOML missing or `name` ≠ `kimi_worker` | Installer did not run successfully in this `$CODEX_DIR`; re-run with correct `KIMI_ACTION`. |
+| TOML OK, `/agent` does not list `kimi_worker` | Codex process did not scan `~/.codex/agents/` at startup. Restart Codex; verify `CODEX_DIR`; upgrade Codex if very old. |
+| TOML OK, `/agent` lists it, but outer host `spawn_agent` still errors | Outer host uses a fixed `agent_type` enum. Use the resolutions below. |
+| `codex features` has no subagent entry | Feature not available in this Codex build; upgrade, or use `--profile` path below. |
+
+**Resolutions**:
+
+1. **Refer to the agent by name in a prompt** (recommended; see
+   [Invoking the generated agents](#invoking-the-generated-agents) above).
+   This works whenever Codex itself has loaded the TOML, regardless of what
+   the outer host exposes via `spawn_agent`.
+2. **Bypass the subagent path with `--profile`**. Configure a profile that
+   pins `model_provider = "kimi_coding"` (or `kimi_general`) and run
+   `codex --profile <name> "<task>"`. This drives the entire Codex session
+   with Kimi and sidesteps the subagent enum.
+3. **Restart the outer host** after installing, in case it cached its
+   `agent_type` enum at startup and does not hot-reload.
 
 ## Notes
 
