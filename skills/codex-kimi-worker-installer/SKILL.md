@@ -1,7 +1,9 @@
 ---
 name: codex-kimi-worker-installer
-description: Use when installing, updating, repairing, or uninstalling the Kimi (Moonshot) OpenAI-compatible provider and Kimi worker subagents for Codex. Three-dimension action model: providers (A), default agents (B), custom workers (C). No local bridge process is involved.
+description: Use when installing, updating, repairing, or uninstalling the Kimi (Moonshot) OpenAI-compatible provider and Kimi worker subagents for Codex. Three-dimension action model - providers (A), default agents (B), custom workers (C). No local bridge process is involved.
 ---
+
+
 
 # Codex Kimi Worker Installer
 
