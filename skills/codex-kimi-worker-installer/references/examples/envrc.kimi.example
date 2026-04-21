@@ -1,0 +1,25 @@
+# .envrc — managed by you, not by codex-kimi-worker-installer.
+#
+# Copy this file to the root of a project where you want KIMI_API_KEY to be
+# auto-exported, edit, then run:  direnv allow
+#
+# Recommended: keep secrets out of this file and read from a secret store.
+
+# Option A · plaintext (simplest, do NOT commit)
+export KIMI_API_KEY="sk-..."
+
+# Option B · 1Password CLI
+# export KIMI_API_KEY="$(op read op://Private/Kimi/credential)"
+
+# Option C · pass / secret-tool (Linux)
+# export KIMI_API_KEY="$(secret-tool lookup service kimi)"
+
+# Option D · macOS Keychain
+# export KIMI_API_KEY="$(security find-generic-password -s kimi-api-key -w)"
+
+# Optional: pin upstream / model per-project; they will be picked up the next
+# time you re-run install-or-update.sh from this directory.
+# export KIMI_UPSTREAM=coding
+# export KIMI_MODEL_CODING=kimi-k2.6
+
+# After editing: run `direnv allow` once in this directory.
