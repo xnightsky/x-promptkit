@@ -13,10 +13,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import {
   loadFlavorInfo,
   loadPressurePrompts,
   buildBehaviorProtocol,
+  findSkillDirs,
   type FlavorInfo,
 } from "./references_loader.js";
 
@@ -40,14 +42,16 @@ const DEFAULT_STATE: PuaState = {
   lastInjectedLevel: 0,
 };
 
+/** 当前用户 Home 目录（跨平台兼容） */
+const HOME = homedir();
 /** PUA 全局配置目录（~/.pua） */
-const PUA_DIR = join(process.env.HOME ?? "/tmp", ".pua");
+const PUA_DIR = join(HOME, ".pua");
 /** PUA 主配置文件路径 */
 const PUA_CONFIG = join(PUA_DIR, "config.json");
 /** 官方失败计数文件（与 tanweai/pua skill 共享） */
 const OFFICIAL_FAILURE_COUNT = join(PUA_DIR, ".failure_count");
 /** pi agent 扩展状态目录 */
-const PI_AGENT_DIR = join(process.env.HOME ?? "/tmp", ".pi", "agent");
+const PI_AGENT_DIR = join(HOME, ".pi", "agent");
 /** pi 扩展私有状态文件（记录最后失败时间、注入等级） */
 const PI_EXTENSION_STATE = join(PI_AGENT_DIR, "pua-state.json");
 
@@ -171,12 +175,13 @@ function isFailure(event: any): boolean {
 }
 
 /**
- * 检查当前会话的 system prompt options 中是否已加载 pua skill。
- * @param options - systemPromptOptions
- * @returns 是否包含 pua skill
+ * 检查本地磁盘上是否已安装 pua skill。
+ * 直接嗅探 skill 安装目录（与 references_loader.ts 逻辑对齐），
+ * 避免依赖 pi 的 systemPromptOptions 传递机制（跨平台/跨版本可能不一致）。
+ * @returns 是否找到 pua skill
  */
-function hasPuaSkill(options: any): boolean {
-  return options?.skills?.some((s: any) => s.name === "pua") ?? false;
+function hasPuaSkill(): boolean {
+  return findSkillDirs().length > 0;
 }
 
 /**
@@ -352,7 +357,7 @@ export default function (pi: ExtensionAPI) {
     if (!state.enabled) return undefined;
 
     // skill 卸载检测：未安装则自动禁用，避免向用户注入无效协议
-    if (!warnedNoSkill && !hasPuaSkill(event.systemPromptOptions)) {
+    if (!warnedNoSkill && !hasPuaSkill()) {
       warnedNoSkill = true;
       state.enabled = false;
       writePuaConfig({ always_on: false });

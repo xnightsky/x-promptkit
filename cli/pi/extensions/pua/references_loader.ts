@@ -15,6 +15,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 
 // ═══════════════════════════════════════════════════════════════
 // Types
@@ -57,10 +58,11 @@ const SKILL_NAME = "pua";
  * 仅返回包含 `SKILL.md` 的候选路径。
  */
 export function findSkillDirs(): string[] {
+  const home = homedir();
   const candidates = [
-    join(process.env.HOME ?? "", ".codex", "skills", SKILL_NAME),
-    join(process.env.HOME ?? "", ".pi", "agent", "skills", SKILL_NAME),
-    join(process.env.HOME ?? "", ".agents", "skills", SKILL_NAME),
+    join(home, ".codex", "skills", SKILL_NAME),
+    join(home, ".pi", "agent", "skills", SKILL_NAME),
+    join(home, ".agents", "skills", SKILL_NAME),
     join(process.cwd(), ".pi", "skills", SKILL_NAME),
     join(process.cwd(), ".agents", "skills", SKILL_NAME),
   ];

@@ -4,9 +4,17 @@
 
 1. 安装 tanweai/pua skill（推荐放到 `~/.codex/skills/pua/`）。
 2. 将本目录完整复制到 pi 扩展目录：
+
+   **Linux / macOS (bash)**
    ```bash
    cp -r pua/ ~/.pi/agent/extensions/pua/
    ```
+
+   **Windows (PowerShell)**
+   ```powershell
+   Copy-Item -Path .\pua\ -Destination $env:USERPROFILE\.pi\agent\extensions\pua\ -Recurse -Force
+   ```
+
 3. 重启 pi，扩展自动加载。
 
 ## 命令
@@ -25,6 +33,8 @@
 ~/.pua/.failure_count       # 官方失败计数文件（与 tanweai/pua 共享）
 ~/.pi/agent/pua-state.json  # pi 扩展私有状态（最后失败时间、注入等级）
 ```
+
+> Windows 用户请将 `~` 替换为 `%USERPROFILE%`。
 
 示例 `~/.pua/config.json`：
 
@@ -51,16 +61,32 @@
 
 运行同步脚本，自动拉取 tanweai/pua 最新的 methodology、flavors 等文件：
 
+**Linux / macOS (bash)**
 ```bash
 bash ~/.pi/agent/extensions/pua/bin/sync-pua-references.sh
+```
+
+**Windows (PowerShell)**
+```powershell
+. $env:USERPROFILE\.pi\agent\extensions\pua\bin\sync-pua-references.ps1
 ```
 
 > `pressure-prompts.md` 等本地扩展文件不参与同步，需手动维护。
 
 ## 集成测试
 
+**Linux / macOS (bash)**
 ```bash
 bash ~/.pi/agent/extensions/pua/pua.ittest.sh
+```
+
+**Windows (PowerShell)**
+```powershell
+# 方式1：直接在当前会话执行（推荐，可看到彩色输出）
+. $env:USERPROFILE\.pi\agent\extensions\pua\pua.ittest.ps1
+
+# 方式2：通过文件路径执行（若执行策略受限，需加 -ExecutionPolicy Bypass）
+powershell -ExecutionPolicy Bypass -File $env:USERPROFILE\.pi\agent\extensions\pua\pua.ittest.ps1
 ```
 
 > 该脚本消耗真实 AI token，属于集成测试，不进入默认批量回归。
