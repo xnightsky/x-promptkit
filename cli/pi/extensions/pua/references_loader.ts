@@ -6,7 +6,7 @@
  *   methodology-{key}.md    — 各味道行为约束（alibaba / huawei / tesla 等）
  *   methodology-router.md   — 任务类型→味道 自动路由 + 失败切换链
  *   display-protocol.md     — Unicode 方框表格格式规范
- *   pressure-prompts.md     — L1-L4（本 extension 特有，原始 repo 放在 SKILL.md 里）
+ *   pressure-prompts.md     — L1–L4（本 extension 特有，原始 repo 放在 SKILL.md 里）
  *   agent-team.md, p7/p9/p10-protocol.md, platform.md 等 — 扩展协议
  *
  * 本 loader 优先从 skill references/ 读取，文件缺失时走内置 fallback。
@@ -30,6 +30,7 @@ export interface FlavorInfo {
 }
 
 export interface TemplateVars {
+  [key: string]: string;
   flavor_icon: string;
   flavor_name: string;
   flavor_instruction: string;
@@ -38,6 +39,7 @@ export interface TemplateVars {
 }
 
 export interface PressurePrompts {
+  [n: number]: string;
   1: string;
   2: string;
   3: string;
@@ -50,6 +52,10 @@ export interface PressurePrompts {
 
 const SKILL_NAME = "pua";
 
+/**
+ * 按优先级嗅探可能的 skill 安装目录。
+ * 仅返回包含 `SKILL.md` 的候选路径。
+ */
 export function findSkillDirs(): string[] {
   const candidates = [
     join(process.env.HOME ?? "", ".codex", "skills", SKILL_NAME),
@@ -61,6 +67,10 @@ export function findSkillDirs(): string[] {
   return candidates.filter((d) => existsSync(join(d, "SKILL.md")));
 }
 
+/**
+ * 获取第一个有效 skill 的 `references/` 子目录路径。
+ * 若未找到则返回 `null`。
+ */
 export function getReferencesDir(): string | null {
   for (const dir of findSkillDirs()) {
     const refDir = join(dir, "references");
@@ -83,6 +93,12 @@ function readRef(filename: string): string | null {
 // 模板渲染：{{var_name}} → value
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * 简单模板渲染：将 `{{var_name}}` 占位符替换为对应值。
+ * @param template - 含 `{{key}}` 占位符的模板字符串
+ * @param vars - 键值对映射表
+ * @returns 渲染后的字符串
+ */
 export function renderTemplate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => vars[key] ?? _match);
 }
@@ -120,6 +136,11 @@ const FLAVOR_MAP: Record<string, Partial<Omit<FlavorInfo, "key">>> = {
 };
 
 /** 原始 repo 中 tesla → musk 的 key 映射 */
+/**
+ * 标准化味道 key，兼容原始 repo 中 `musk` → `tesla` 的别名映射。
+ * @param key - 原始味道标识
+ * @returns 规范化后的小写 key
+ */
 export function normalizeFlavorKey(key: string): string {
   const k = key.toLowerCase();
   if (k === "musk") return "tesla";
@@ -130,6 +151,11 @@ export function normalizeFlavorKey(key: string): string {
 // Methodology 加载（原始 repo 的 methodology-{key}.md）
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * 从 references/ 加载指定味道的行为约束文件 `methodology-{key}.md`。
+ * @param key - 味道 key（如 `alibaba`、`huawei`）
+ * @returns 包含完整方法论与 200 字摘要的对象；文件缺失时返回 `null`
+ */
 export function loadMethodology(key: string): Pick<FlavorInfo, "methodology" | "instruction"> | null {
   const nkey = normalizeFlavorKey(key);
   const content = readRef(`methodology-${nkey}.md`);
@@ -145,6 +171,11 @@ export function loadMethodology(key: string): Pick<FlavorInfo, "methodology" | "
 // Flavor 加载（基础 + methodology 覆盖）
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * 加载指定味道的完整信息：基础映射 + methodology 文件覆盖。
+ * @param flavorKey - 味道 key
+ * @returns 组装后的 `FlavorInfo`，key 未知时回退到默认阿里味
+ */
 export function loadFlavorInfo(flavorKey: string): FlavorInfo {
   const key = normalizeFlavorKey(flavorKey);
   const mapped = FLAVOR_MAP[key];
@@ -166,6 +197,10 @@ export function loadFlavorInfo(flavorKey: string): FlavorInfo {
   return merged;
 }
 
+/**
+ * 列出所有内置支持的味道 key。
+ * @returns 味道 key 数组
+ */
 export function listFlavorKeys(): string[] {
   return Object.keys(FLAVOR_MAP);
 }
@@ -235,6 +270,11 @@ const FALLBACK_PRESSURE_PROMPTS: PressurePrompts = {
 这不是"我不行"，这是"问题的边界在这里"。`,
 };
 
+/**
+ * 加载 L1–L4 压力 prompt。
+ * 优先读取 `references/pressure-prompts.md`，失败时使用内置 fallback。
+ * @returns 压力等级到 prompt 文本的映射
+ */
 export function loadPressurePrompts(): PressurePrompts {
   const content = readRef("pressure-prompts.md");
   if (content) {
@@ -249,6 +289,11 @@ export function loadPressurePrompts(): PressurePrompts {
 // 本 extension 用内置模板 + {{var}} 渲染，支持用户自定义 behavior-protocol.md）
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * 加载行为协议模板（含 `{{var}}` 占位符）。
+ * 优先读取 `references/behavior-protocol.md`；缺失时使用内置 fallback。
+ * @returns 协议模板字符串
+ */
 export function loadBehaviorProtocolTemplate(): string {
   const custom = readRef("behavior-protocol.md");
   if (custom && custom.trim().length > 100) return custom;
@@ -427,6 +472,11 @@ Banner 完成后，用当前味道的语气输出 1-2 句旁白（blockquote \`>
 </EXTREMELY_IMPORTANT>`;
 }
 
+/**
+ * 用指定味道数据渲染完整行为协议文本。
+ * @param flavor - 味道信息对象
+ * @returns 渲染后的行为协议（可直接拼入 system prompt）
+ */
 export function buildBehaviorProtocol(flavor: FlavorInfo): string {
   const template = loadBehaviorProtocolTemplate();
   const vars: TemplateVars = {
@@ -443,6 +493,11 @@ export function buildBehaviorProtocol(flavor: FlavorInfo): string {
 // 扩展协议加载（可选读取原始 repo 的其他 references）
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * 通用接口：从 references/ 读取任意参考文件。
+ * @param filename - 目标文件名
+ * @returns 文件内容；缺失时返回 `null`
+ */
 export function loadReference(filename: string): string | null {
   return readRef(filename);
 }
@@ -457,6 +512,11 @@ export interface PuaReferences {
   flavor: FlavorInfo;
 }
 
+/**
+ * 统一加载入口：一次性读取行为协议、压力 prompt 与味道信息。
+ * @param flavorKey - 可选味道 key，默认 `alibaba`
+ * @returns 完整的 `PuaReferences` 对象
+ */
 export function loadAll(flavorKey?: string): PuaReferences {
   const key = flavorKey ?? DEFAULT_FLAVOR_KEY;
   const flavor = loadFlavorInfo(key);
@@ -468,14 +528,26 @@ export function loadAll(flavorKey?: string): PuaReferences {
 }
 
 // 兼容 pua.ts 旧函数签名
+/**
+ * 兼容旧函数签名的 `loadFlavorInfo` 包装。
+ * @deprecated 直接使用 `loadFlavorInfo`
+ */
 export function loadFlavorInfoCompat(flavorKey: string): FlavorInfo {
   return loadFlavorInfo(flavorKey);
 }
 
+/**
+ * 兼容旧函数签名的 `loadPressurePrompts` 包装。
+ * @deprecated 直接使用 `loadPressurePrompts`
+ */
 export function loadPressurePromptsCompat(): Record<number, string> {
   return loadPressurePrompts();
 }
 
+/**
+ * 兼容旧函数签名的 `buildBehaviorProtocol` 包装。
+ * @deprecated 直接使用 `buildBehaviorProtocol`
+ */
 export function buildBehaviorProtocolCompat(flavor: FlavorInfo): string {
   return buildBehaviorProtocol(flavor);
 }

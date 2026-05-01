@@ -4,30 +4,10 @@
  * 核心机制（与 tanweai/pua 对齐）：
  * 1. SessionStart 时若 always_on=true，通过 before_agent_start 注入完整行为协议
  *    （三条红线、旁白协议、[PUA生效]标记、方法论路由、味道系统）
- * 2. tool_result 检测 Bash 失败，累加 .failure_count，叠加 L1-L4 强制动作
+ * 2. tool_result 检测 Bash 失败，累加 .failure_count，叠加 L1–L4 强制动作
  * 3. 成功执行后自动清零 .failure_count
  *
- * 安装：
- * 1. 安装 tanweai/pua skill（推荐放 ~/.codex/skills/pua/）
- * 2. 将本文件放到 ~/.pi/agent/extensions/pua.ts
- * 3. pi 启动时自动加载
- *
- * 命令：
- *   /pua-on     写入 always_on=true，当前会话立即生效
- *   /pua-off    写入 always_on=false，当前会话立即生效
- *   /pua-status 查看当前失败计数/压力等级/味道
- *   /pua-reset  清零失败计数
- *
- * 模板文件（从 tanweai/pua 原始 repo 同步）：
- *   ~/.codex/skills/pua/references/
- *     flavors.md              — 味道文化 DNA、黑话词库
- *     methodology-{key}.md    — 各味道行为约束（13 种）
- *     methodology-router.md   — 任务类型→味道 自动路由
- *     display-protocol.md     — Unicode 方框表格格式
- *     pressure-prompts.md     — L1-L4 压力 prompt（本 extension 特有）
- *
- * 同步脚本：
- *   bash ~/.pi/agent/extensions/pua/bin/sync-pua-references.sh
+ * 安装与使用见 INSTALL.md；跨平台调研与设计见 pua.md。
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -38,7 +18,7 @@ import {
   loadPressurePrompts,
   buildBehaviorProtocol,
   type FlavorInfo,
-} from "./references_loader";
+} from "./references_loader.js";
 
 /** PUA 扩展的运行时状态 */
 interface PuaState {

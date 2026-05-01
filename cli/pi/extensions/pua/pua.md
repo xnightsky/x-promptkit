@@ -1,7 +1,7 @@
 # PUA 跨平台调研与 pi 扩展设计文档
 
 > 调研时间：2026-04-30
-> 调研范围：Claude Code (3.1.0/3.2.3) / Codex / pi (pua.ts)
+> 调研范围：Claude Code (3.1.0/3.2.3) / Codex / pi（pua/）
 > 核心问题：为什么 `always_on=true` 已触发，但 AI 仍可能不遵守规则？
 
 ---
@@ -14,8 +14,8 @@
 |------|------|------|----------|----------------|
 | **Claude Code** | `~/.claude/plugins/cache/pua-skills/pua/3.1.0/` | 3.1.0 | `hooks.json` + shell 脚本 | ✅ `SessionStart` → `session-restore.sh` 检测 `always_on` → `additionalContext` 注入 |
 | **Claude Code (marketplace)** | `~/.claude/plugins/marketplaces/pua-skills/` | 3.0.0 | Claude Code plugin marketplace 源，含 `plugin.json` + `hooks/` + `skills/` + 多平台适配（codex/cursor/kiro/codebuddy/vscode） | ✅ `hooks/session-restore.sh` 注入 |
-| **Codex** | `~/.codex/skills/pua -> /root/.codex/pua/codex/pua` | 3.2.3 | 纯 `SKILL.md` 文本协议 | ❌ 无 always_on，需 `$pua` 手动触发或描述匹配自动触发 |
-| **pi** | `~/.pi/agent/extensions/pua.ts` | 自定义 | TypeScript Extension | ✅ `before_agent_start` 检测 `always_on` → `systemPrompt` 拼接 |
+| **Codex** | `~/.codex/skills/pua -> ~/.codex/pua/codex/pua` | 3.2.3 | 纯 `SKILL.md` 文本协议 | ❌ 无 always_on，需 `$pua` 手动触发或描述匹配自动触发 |
+| **pi** | `~/.pi/agent/extensions/pua/` | 自定义 | TypeScript Extension | ✅ `before_agent_start` 检测 `always_on` → `systemPrompt` 拼接 |
 
 ### 1.2 共用配置
 
@@ -36,7 +36,7 @@
 ### 1.3 Skill 源文件
 
 ```
-/root/.codex/pua/           # tanweai/pua git 仓库（版本 3.2.3）
+~/.codex/pua/                # tanweai/pua git 仓库（版本 3.2.3）
 ├── codex/pua/SKILL.md      # Codex / pi 共用 skill 源
 ├── hooks/                  # Claude Code 专用钩子
 │   ├── hooks.json          # SessionStart / PostToolUse / PreCompact / Stop / SubagentStop
@@ -45,7 +45,7 @@
 │   └── pua-loop-hook.sh    # Stop 钩子（循环拦截）
 ├── skills/                 # 其他变体（p7/p9/p10/pro/pua-loop...）
 │
-/root/.claude/plugins/marketplaces/pua-skills/   # Claude Code marketplace 安装源（版本 3.0.0）
+~/.claude/plugins/marketplaces/pua-skills/   # Claude Code marketplace 安装源（版本 3.0.0）
 ├── plugin.json             # Claude Code plugin 元数据
 ├── hooks/                  # Claude Code hooks（session-restore / failure-detector 等）
 ├── skills/                 # 多平台 skill 变体（p7/p9/p10/pro/pua-loop/agent-enforcer）
@@ -178,7 +178,7 @@ pi.on("pre_response", async (event, ctx) => {
 
 **发现路径：**
 ```bash
-~/.codex/skills/pua -> /root/.codex/pua/codex/pua
+~/.codex/skills/pua -> ~/.codex/pua/codex/pua
 ```
 
 **核心机制：**
@@ -193,11 +193,11 @@ git clone https://github.com/tanweai/pua.git ~/.codex/pua
 ln -s ~/.codex/pua/codex/pua ~/.codex/skills/pua
 ```
 
-### 3.3 pi（pua.ts）
+### 3.3 pi（pua/）
 
 **发现路径：**
 ```
-~/.pi/agent/extensions/pua.ts
+~/.pi/agent/extensions/pua/
 ```
 
 **核心机制：**
@@ -212,7 +212,7 @@ pi.on("session_start", async () => {
 pi.on("before_agent_start", async (event, ctx) => {
   if (!state.enabled) return undefined;
   let extraPrompt = behaviorProtocol;
-  // 叠加压力等级（L1-L4）
+  // 叠加压力等级（L1–L4）
   const level = getLevel(state.failureCount);
   if (level > 0) extraPrompt += "\n\n" + pressurePrompts[level];
   return { systemPrompt: event.systemPrompt + "\n\n" + extraPrompt };
@@ -237,9 +237,9 @@ pi.on("tool_result", async (event, ctx) => {
 
 ## 4. 验证脚本
 
-### 4.1 现有测试：`pua.test.sh`
+### 4.1 现有测试：`pua.ittest.sh`
 
-路径：`~/.pi/agent/extensions/pua.test.sh`
+路径：`~/.pi/agent/extensions/pua/pua.ittest.sh`
 
 覆盖场景：
 1. 基本加载
@@ -253,7 +253,7 @@ pi.on("tool_result", async (event, ctx) => {
 
 执行方式：
 ```bash
-bash ~/.pi/agent/extensions/pua/pua.test.sh
+bash ~/.pi/agent/extensions/pua/pua.ittest.sh
 ```
 
 ### 4.2 新增建议：手动验证"生效"而非"触发"
@@ -268,7 +268,7 @@ echo '{"always_on": true, "flavor": "huawei"}' > ~/.pua/config.json
 rm -f ~/.pua/.failure_count ~/.pi/agent/pua-state.json
 
 # 发送一个明显需要计划的复杂任务
-pi -p -e ~/.pi/agent/extensions/pua/pua.ts "请审查以下跨前后端代码评审，涉及 XSD 扩展和表单序列化协议修正。"
+pi -p -e ~/.pi/agent/extensions/pua/ "请审查以下跨前后端代码评审，涉及 XSD 扩展和表单序列化协议修正。"
 
 # 人工检查输出：
 # 1. 是否包含 "[方法论路由 🧭]"？
@@ -339,8 +339,8 @@ pi.on("before_response", async (event, ctx) => {
 
 | 文件 | 路径 | 说明 |
 |------|------|------|
-| pi 扩展 | `~/.pi/agent/extensions/pua/pua.ts` | TypeScript，当前版本完整 |
-| 测试脚本 | `~/.pi/agent/extensions/pua/pua.test.sh` | 8 场景验证 |
+| pi 扩展 | `~/.pi/agent/extensions/pua/index.ts` | TypeScript，当前版本完整 |
+| 测试脚本 | `~/.pi/agent/extensions/pua/pua.ittest.sh` | 8 场景验证 |
 | 调研文档 | `~/.pi/agent/extensions/pua/pua.md` | 本文档 |
 | CC 插件缓存 | `~/.claude/plugins/cache/pua-skills/pua/3.1.0/` | Claude Code 版 |
 | CC hooks | `~/.claude/plugins/cache/pua-skills/pua/3.1.0/hooks/hooks.json` | 钩子配置 |

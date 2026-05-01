@@ -15,7 +15,7 @@ for dir in "${HOME}/.codex/skills/pua" "${HOME}/.claude/skills/pua" "${HOME}/.ag
 done
 REF_DIR="${SKILL_DIR}/references"
 
-# 代理支持（检测常见代理端口）
+# ── 代理嗅探：检测常见本地代理端口 ──
 CURL_PROXY=""
 for port in 7890 1080 1087 8889; do
   if curl -s --max-time 2 "http://127.0.0.1:${port}" >/dev/null 2>&1; then
@@ -25,10 +25,10 @@ for port in 7890 1080 1087 8889; do
   fi
 done
 
-# 确保目录存在
+# ── 确保 references/ 目录存在 ──
 mkdir -p "${REF_DIR}"
 
-# 原始 repo 维护的文件列表（自动同步）
+# ── 原始 repo 维护的文件列表（自动同步） ──
 UPSTREAM_FILES=(
   flavors.md
   methodology-router.md
@@ -56,7 +56,7 @@ UPSTREAM_FILES=(
   teardown-protocol.md
 )
 
-# 本地扩展文件（不同步，自己维护）
+# ── 本地扩展文件（不同步，由本扩展自行维护） ──
 LOCAL_FILES=(
   pressure-prompts.md
 )
@@ -72,10 +72,10 @@ for f in "${UPSTREAM_FILES[@]}"; do
   url="${REPO_RAW}/${f}"
   dest="${REF_DIR}/${f}"
 
-  # 下载到临时文件
+  # 先下载到临时文件，避免直接覆盖失败导致本地文件损坏
   tmp="$(mktemp)"
   if curl -s --max-time 20 ${CURL_PROXY} -o "${tmp}" "${url}"; then
-    # 验证不是 404 页面
+    # 简单校验：排除 404 页面或错误响应
     if head -1 "${tmp}" | grep -qi "not found\|404"; then
       echo "  ✗ ${f} — 404 (跳过)"
       rm -f "${tmp}"

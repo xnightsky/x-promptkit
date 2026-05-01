@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# PUA Extension 验证脚本
-# Usage: bash ~/.pi/agent/extensions/pua/pua.test.sh
+# PUA Extension 集成测试脚本（消耗真实 AI token）
+# Usage: bash ~/.pi/agent/extensions/pua/pua.ittest.sh
 
 set -uo pipefail
 
-EXT="$HOME/.pi/agent/extensions/pua/pua.ts"
+EXT="$HOME/.pi/agent/extensions/pua/index.ts"
 PUA_DIR="$HOME/.pua"
 PI_STATE="$HOME/.pi/agent/pua-state.json"
 FAILED=0
