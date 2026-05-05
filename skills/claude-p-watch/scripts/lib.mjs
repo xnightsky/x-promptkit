@@ -4,18 +4,38 @@ import { execFileSync } from "node:child_process";
 
 export const DEFAULT_MAX_TAIL_LINES = 3;
 
+/**
+ * 断言请求载荷是普通对象。
+ *
+ * @param {unknown} value - CLI 或测试传入的值。
+ * @param {string} label - 用于错误消息的人类可读载荷名称。
+ * @throws {Error} 当值不是非数组对象时抛出。
+ */
 function assertObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
   }
 }
 
+/**
+ * 断言数字选项是正整数。
+ *
+ * @param {unknown} value - CLI 或测试传入的值。
+ * @param {string} label - 用于错误消息的选项名。
+ * @throws {Error} 当值不是大于零的整数时抛出。
+ */
 function assertPositiveInteger(value, label) {
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`\`${label}\` must be a positive integer`);
   }
 }
 
+/**
+ * 对 `/proc/<pid>/fd/<n>` 返回的 Linux 文件描述符目标分类。
+ *
+ * @param {string} targetPath - 原始符号链接目标路径。
+ * @returns {"pipe" | "socket" | "tty" | "file"} 尾部输出安全检查使用的目标类型。
+ */
 function detectFdTargetKind(targetPath) {
   if (targetPath.startsWith("pipe:[")) {
     return "pipe";
@@ -29,12 +49,24 @@ function detectFdTargetKind(targetPath) {
   return "file";
 }
 
+/**
+ * 在 stat/read 前移除 Linux fd 符号链接目标中的已删除文件后缀。
+ *
+ * @param {string} targetPath - 原始符号链接目标路径。
+ * @returns {string} 去掉末尾删除标记后的路径。
+ */
 function stripDeletedSuffix(targetPath) {
   return targetPath.endsWith(" (deleted)")
     ? targetPath.slice(0, -(" (deleted)".length))
     : targetPath;
 }
 
+/**
+ * 将进程表文本解析为标准化进程行。
+ *
+ * @param {string} psText - POSIX `ps` 或 Windows PowerShell 兼容层输出的文本。
+ * @returns {{ pid: number, ppid: number, etimes: number, comm: string, args: string, command: string }[]} 解析后的进程行。
+ */
 function parseProcessRows(psText) {
   return String(psText ?? "")
     .split(/\r?\n/)
@@ -53,20 +85,51 @@ function parseProcessRows(psText) {
         etimes: Number(etimesText),
         comm,
         args,
-        // Match against both command name and args because different hosts
-        // expose process rows differently.
+        // 不同宿主暴露进程行的方式不同，因此同时匹配命令名和参数。
         command: `${comm} ${args}`,
       };
     })
     .filter(Boolean);
 }
 
+/**
+ * 读取 parseProcessRows 期望的五列标准化进程表。
+ *
+ * @returns {string} 包含 pid、ppid、运行秒数、命令名和参数的进程表文本。
+ */
 function readProcessTable() {
+  if (process.platform === "win32") {
+    // 输出与 POSIX `ps` 相同的列顺序，保证解析逻辑可复用。
+    return execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-Command",
+        `Get-CimInstance Win32_Process | ForEach-Object {
+          $elapsed = [math]::Round(((Get-Date) - $_.CreationDate).TotalSeconds)
+          $comm = if ($_.Name) { $_.Name } else { "unknown" }
+          $cmd = if ($_.CommandLine) { $_.CommandLine } else { $comm }
+          "$($_.ProcessId) $($_.ParentProcessId) $elapsed $comm $cmd"
+        }`,
+      ],
+      {
+        encoding: "utf8",
+        maxBuffer: 10 * 1024 * 1024,
+      }
+    );
+  }
   return execFileSync("ps", ["-eo", "pid=,ppid=,etimes=,comm=,args="], {
     encoding: "utf8",
   });
 }
 
+/**
+ * 查找命令行包含全部指定 token 的最新进程。
+ *
+ * @param {{ command_contains: string[], exclude_pid?: number | null }} request - 进程搜索请求。
+ * @param {{ psText?: string }} [options] - 测试用进程表文本覆盖项。
+ * @returns {{ ok: boolean, pid: number | null, ppid: number | null, etimes: number | null, command: string | null, reason: string | null }} 查找结果。
+ */
 export function discoverPidByCommand(request, options = {}) {
   assertObject(request, "discover pid request");
   if (!Array.isArray(request.command_contains) || request.command_contains.length === 0) {
@@ -95,8 +158,7 @@ export function discoverPidByCommand(request, options = {}) {
       const haystack = row.command.toLowerCase();
       return commandContains.every((token) => haystack.includes(token));
     })
-    // Prefer the most recently started matching process. `etimes` is elapsed
-    // seconds, so smaller means newer.
+    // 优先选择最近启动的匹配进程；`etimes` 是已运行秒数，越小越新。
     .sort((left, right) => left.etimes - right.etimes || right.pid - left.pid);
 
   if (matches.length === 0) {
@@ -121,6 +183,14 @@ export function discoverPidByCommand(request, options = {}) {
   };
 }
 
+/**
+ * 检查单个进程文件描述符，并在安全时截取少量尾部输出。
+ *
+ * @param {number} pid - 目标进程 id。
+ * @param {number} fd - 要检查的文件描述符编号。
+ * @param {{ platform?: NodeJS.Platform, maxTailLines?: number, procRoot?: string, readlink?: (targetPath: string) => string }} [options] - 运行时与测试覆盖项。
+ * @returns {{ pid: number, fd: number, canCapture: boolean, tailExcerpt: string, reason: string | null, targetKind: string, targetPath: string | null, explanation: string }} 检查结果。
+ */
 export function inspectPidFd(pid, fd, options = {}) {
   assertPositiveInteger(pid, "pid");
   assertPositiveInteger(fd, "fd");
@@ -218,6 +288,13 @@ export function inspectPidFd(pid, fd, options = {}) {
   }
 }
 
+/**
+ * 返回进程 stdout 或 stderr 中第一个可用的尾部片段。
+ *
+ * @param {number} pid - 目标进程 id。
+ * @param {{ inspectPidFdImpl?: typeof inspectPidFd, maxTailLines?: number }} [options] - 运行时与测试覆盖项。
+ * @returns {{ ok: boolean, pid: number, stream: "stdout" | "stderr" | "none", tailExcerpt: string, reason: string | null, stdout: ReturnType<typeof inspectPidFd>, stderr: ReturnType<typeof inspectPidFd> }} 尾部输出查找结果。
+ */
 export function tailByPid(pid, options = {}) {
   assertPositiveInteger(pid, "pid");
 
