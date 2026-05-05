@@ -1,21 +1,171 @@
 # PUA Extension for pi — 安装与使用指南
 
-## 安装
+能力开关、插件矩阵、可见性边界和正向增强规则见 [docs/CAPABILITIES.md](./docs/CAPABILITIES.md)；内部设计和后续落地契约见 [docs/DESIGN.md](./docs/DESIGN.md)。
+
+## 当前 PUA PI 插件生命周期
+
+本节操作主体是当前 PUA PI extension 本体，即 `cli/pi/extensions/pua/` 这套插件目录。以下命令默认在仓库的 `cli/pi/extensions/` 目录下执行，源码目录为 `./pua`，安装目标为 PI 扩展目录 `~/.pi/agent/extensions/pua/`。
+
+这些命令只管理 PUA PI 插件目录，不安装或卸载 tanweai/pua skill，也不安装或卸载外部 PI package。
+
+### 检测是否已安装
+
+**Windows (PowerShell)**
+```powershell
+$target = Join-Path $env:USERPROFILE ".pi\agent\extensions\pua\index.ts"
+if (Test-Path -LiteralPath $target) {
+    Write-Host "[OK] PUA PI extension installed"
+} else {
+    Write-Warning "PUA PI extension not found. Install from cli/pi/extensions with: Copy-Item -Path .\pua\* -Destination `$env:USERPROFILE\.pi\agent\extensions\pua\ -Recurse -Force"
+}
+```
+
+**Linux / macOS (bash)**
+```bash
+target="$HOME/.pi/agent/extensions/pua/index.ts"
+if [ -f "$target" ]; then
+  printf '[OK] PUA PI extension installed\n'
+else
+  printf '[WARN] PUA PI extension not found. Install from cli/pi/extensions with: mkdir -p "$HOME/.pi/agent/extensions/pua" && cp -R ./pua/. "$HOME/.pi/agent/extensions/pua/"\n'
+fi
+```
+
+### 安装
 
 1. 安装 tanweai/pua skill（推荐放到 `~/.codex/skills/pua/`）。
 2. 将本目录完整复制到 pi 扩展目录：
 
    **Linux / macOS (bash)**
    ```bash
-   cp -r pua/ ~/.pi/agent/extensions/pua/
+   mkdir -p ~/.pi/agent/extensions/pua
+   cp -R ./pua/. ~/.pi/agent/extensions/pua/
    ```
 
    **Windows (PowerShell)**
    ```powershell
-   Copy-Item -Path .\pua\ -Destination $env:USERPROFILE\.pi\agent\extensions\pua\ -Recurse -Force
+   $target = Join-Path $env:USERPROFILE ".pi\agent\extensions\pua"
+   New-Item -ItemType Directory -Path $target -Force | Out-Null
+   Copy-Item -Path .\pua\* -Destination $target -Recurse -Force
    ```
 
 3. 重启 pi，扩展自动加载。
+
+### 更新
+
+更新等同于覆盖安装当前源码目录。该操作不会删除 `~/.pua/config.json`、`~/.pua/.failure_count` 或 `~/.pi/agent/pua-state.json`。
+
+**Windows (PowerShell)**
+```powershell
+$target = Join-Path $env:USERPROFILE ".pi\agent\extensions\pua"
+New-Item -ItemType Directory -Path $target -Force | Out-Null
+Copy-Item -Path .\pua\* -Destination $target -Recurse -Force
+```
+
+**Linux / macOS (bash)**
+```bash
+mkdir -p ~/.pi/agent/extensions/pua
+cp -R ./pua/. ~/.pi/agent/extensions/pua/
+```
+
+### 卸载
+
+卸载只删除当前 PUA PI 插件目录，不删除 PUA 配置、失败计数、PI 私有状态、tanweai/pua skill 或外部 PI package。
+
+**Windows (PowerShell)**
+```powershell
+$target = Join-Path $env:USERPROFILE ".pi\agent\extensions\pua"
+if (Test-Path -LiteralPath $target) {
+    Remove-Item -LiteralPath $target -Recurse -Force
+}
+```
+
+**Linux / macOS (bash)**
+```bash
+rm -rf ~/.pi/agent/extensions/pua
+```
+
+### 重装
+
+重装用于修复目标目录残留旧文件、复制不完整或更新后行为异常。它会先删除 PUA PI 插件目录，再复制当前源码目录；默认仍保留用户配置和状态文件。
+
+**Windows (PowerShell)**
+```powershell
+$target = Join-Path $env:USERPROFILE ".pi\agent\extensions\pua"
+if (Test-Path -LiteralPath $target) {
+    Remove-Item -LiteralPath $target -Recurse -Force
+}
+New-Item -ItemType Directory -Path $target -Force | Out-Null
+Copy-Item -Path .\pua\* -Destination $target -Recurse -Force
+```
+
+**Linux / macOS (bash)**
+```bash
+rm -rf ~/.pi/agent/extensions/pua
+mkdir -p ~/.pi/agent/extensions/pua
+cp -R ./pua/. ~/.pi/agent/extensions/pua/
+```
+
+## PUA 开发基线插件
+
+PUA 本体不自带搜索、MCP、PowerShell、子任务或询问能力，也不依赖外部记忆插件。进行 PUA 后续开发和集成测试前，建议先安装下面的外部 PI package；集成测试脚本会把这些跨平台基线插件缺失视为失败，而不是跳过。
+
+| 能力 | package | 安装命令 |
+|------|---------|----------|
+| 网络搜索与内容抓取 | `pi-web-access` | `pi install npm:pi-web-access` |
+| MCP 扩展入口 | `pi-mcp-adapter` | `pi install npm:pi-mcp-adapter` |
+| 子任务拆分 | `pi-subagents` | `pi install npm:pi-subagents` |
+| 计划模式 | `@ifi/pi-plan` | `pi install npm:@ifi/pi-plan` |
+| 结构化询问 | `pi-ask-user` | `pi install npm:pi-ask-user` |
+
+安装检测只检查 `pi list` 是否包含对应 package；不会自动安装，缺失时只打印告警和安装命令。
+
+**Windows (PowerShell)**
+```powershell
+$packages = @(
+    @{ Name = "pi-web-access"; Install = "pi install npm:pi-web-access" },
+    @{ Name = "pi-mcp-adapter"; Install = "pi install npm:pi-mcp-adapter" },
+    @{ Name = "pi-subagents"; Install = "pi install npm:pi-subagents" },
+    @{ Name = "@ifi/pi-plan"; Install = "pi install npm:@ifi/pi-plan" },
+    @{ Name = "pi-ask-user"; Install = "pi install npm:pi-ask-user" }
+)
+
+$installed = pi list 2>&1 | Out-String
+foreach ($package in $packages) {
+    $needle = "npm:$($package.Name)"
+    if ($installed -notmatch [regex]::Escape($needle)) {
+        Write-Warning "Missing PI package: $($package.Name). Install: $($package.Install)"
+    }
+}
+```
+
+**Linux / macOS (bash)**
+```bash
+pi_list="$(pi list 2>&1)"
+
+check_pi_package() {
+  package="$1"
+  install_cmd="$2"
+  if ! printf '%s\n' "$pi_list" | grep -Fq "npm:$package"; then
+    printf '[WARN] Missing PI package: %s. Install: %s\n' "$package" "$install_cmd"
+  fi
+}
+
+check_pi_package "pi-web-access" "pi install npm:pi-web-access"
+check_pi_package "pi-mcp-adapter" "pi install npm:pi-mcp-adapter"
+check_pi_package "pi-subagents" "pi install npm:pi-subagents"
+check_pi_package "@ifi/pi-plan" "pi install npm:@ifi/pi-plan"
+check_pi_package "pi-ask-user" "pi install npm:pi-ask-user"
+```
+
+可选插件不进入默认集成测试前置检查：
+
+| 能力 | package | 适用场景 |
+|------|---------|----------|
+| spec workflow | `@ifi/pi-spec` | 需求较重或跨文件方案 |
+| Windows 原生命令 | `@marcfargas/pi-powershell` | 只在明确需要 Windows 原生 PowerShell、job 或 session 时安装；不是 PUA 基线依赖 |
+| 后台任务观察 | `@ifi/pi-background-tasks` | 长命令、服务启动、日志跟踪 |
+| 时延诊断 | `@ifi/pi-diagnostics` | 判断卡住、慢响应、turn 耗时异常 |
+| 外部安全层 | `pi-permission-system` | 明确要做工具调用确认或权限 gate 时 |
 
 ## 命令
 
@@ -74,6 +224,8 @@ bash ~/.pi/agent/extensions/pua/bin/sync-pua-references.sh
 > `pressure-prompts.md` 等本地扩展文件不参与同步，需手动维护。
 
 ## 集成测试
+
+集成测试会先检查 PUA 开发基线插件。缺失任一必需插件都视为测试失败。外部记忆插件当前未被 PI 版 PUA 使用，也没有进入本阶段适配范围。PowerShell 专用脚本在未安装 `@marcfargas/pi-powershell` 时会跳过 Windows PowerShell tool_result 场景，不把该插件作为 PUA 本体成败条件。
 
 **Linux / macOS (bash)**
 ```bash

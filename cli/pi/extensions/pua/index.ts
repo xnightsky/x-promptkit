@@ -1,13 +1,13 @@
 /**
- * PUA Adapter for pi — tanweai/pua 的 pi 适配器
+ * PUA pi 适配器（对齐 tanweai/pua）
  *
  * 核心机制（与 tanweai/pua 对齐）：
  * 1. SessionStart 时若 always_on=true，通过 before_agent_start 注入完整行为协议
  *    （三条红线、旁白协议、[PUA生效]标记、方法论路由、味道系统）
- * 2. tool_result 检测 Bash 失败，累加 .failure_count，叠加 L1–L4 强制动作
+ * 2. tool_result 检测命令失败，累加 .failure_count，叠加 L1–L4 强制动作
  * 3. 成功执行后自动清零 .failure_count
  *
- * 安装与使用见 INSTALL.md；跨平台调研与设计见 pua.md。
+ * 安装与使用见 INSTALL.md；内部设计见 docs/DESIGN.md。
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -19,8 +19,16 @@ import {
   loadPressurePrompts,
   buildBehaviorProtocol,
   findSkillDirs,
+  getReferencesDir,
   type FlavorInfo,
 } from "./references_loader.js";
+import {
+  buildCapabilityEnhancementPrompt,
+  buildCapabilitySnapshot,
+  decorateSubagentInput,
+  formatCapabilityStatus,
+  isSubagentToolName,
+} from "./capabilities.js";
 
 /** PUA 扩展的运行时状态 */
 interface PuaState {
@@ -187,7 +195,7 @@ function hasPuaSkill(): boolean {
 /**
  * pi 扩展入口函数。
  *
- * 注册会话生命周期钩子、四条用户命令，以及 tool_result / before_agent_start 事件监听，
+ * 注册会话生命周期钩子、四条用户命令，以及 tool_result / tool_call / before_agent_start 事件监听，
  * 实现 PUA 行为协议的动态注入与失败压力升级机制。
  *
  * @param pi - pi 提供的 ExtensionAPI 实例
@@ -197,6 +205,8 @@ export default function (pi: ExtensionAPI) {
   let warnedNoSkill = false;
   let behaviorProtocol = "";
   let pressurePrompts: Record<number, string> = {};
+  /** 当前扩展实例内缓存的能力快照；/reload 后由模块重载自然刷新。 */
+  let lastCapabilitySnapshot: any = null;
 
   /**
    * 从文件系统恢复完整运行时状态（配置、失败计数、扩展私有状态）。
@@ -223,7 +233,7 @@ export default function (pi: ExtensionAPI) {
 
   /**
    * 重建行为协议与压力提示表。
-   * 依据当前配置文件中的 flavor 加载对应味道文化，并读取 L1–L4 压力 prompt。
+   * 依据当前配置文件中的味道加载对应文化，并读取 L1–L4 压力提示。
    */
   function rebuildProtocol() {
     const config = readPuaConfig();
@@ -233,6 +243,47 @@ export default function (pi: ExtensionAPI) {
     pressurePrompts = loadPressurePrompts();
   }
 
+  /**
+   * 采集当前 PI 运行时暴露给模型的工具与 skill 能力，供状态命令展示。
+   *
+   * @param event - 可选的 before_agent_start 事件；其中可能携带 systemPromptOptions。
+   * @returns 当前会话可见能力与可见工具来源状态。
+   */
+  async function collectCapabilitySnapshot(event?: any) {
+    let activeTools: any[] = [];
+    let allTools: any[] = [];
+    try {
+      // 新版本 PI 可能直接提供当前轮启用工具；老版本没有该 API 时保持空数组。
+      const tools = await Promise.resolve((pi as any).getActiveTools?.());
+      if (Array.isArray(tools)) activeTools = tools;
+    } catch {}
+    try {
+      // allTools 只给已可见工具补元数据，不能参与本轮工具可见性判定。
+      const tools = await Promise.resolve((pi as any).getAllTools?.());
+      if (Array.isArray(tools)) allTools = tools;
+    } catch {}
+    return buildCapabilitySnapshot({
+      systemPromptOptions: event?.systemPromptOptions,
+      activeTools,
+      allTools,
+    });
+  }
+
+  /**
+   * 获取扩展实例级能力快照。
+   *
+   * PI 的工具可见性在同一次扩展加载期间应保持稳定；若用户通过 /reload
+   * 变更插件或工具集合，模块会重新加载并自然清空该缓存。
+   *
+   * @param event - 可选的 before_agent_start 事件，用于首次采集时读取 systemPromptOptions。
+   * @returns 当前扩展实例缓存的能力快照。
+   */
+  async function getCapabilitySnapshot(event?: any) {
+    if (lastCapabilitySnapshot) return lastCapabilitySnapshot;
+    lastCapabilitySnapshot = await collectCapabilitySnapshot(event);
+    return lastCapabilitySnapshot;
+  }
+
   /** 每次会话启动时恢复状态并重载协议。 */
   pi.on("session_start", async () => {
     restoreState();
@@ -240,7 +291,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // Commands
+  // 命令
   // ═══════════════════════════════════════════════════════════════
 
   /**
@@ -284,8 +335,12 @@ export default function (pi: ExtensionAPI) {
       const level = getLevel(state.failureCount);
       const levelText = level === 0 ? "无" : `L${level}`;
       const flavor = config.flavor ?? "alibaba";
+      const capabilitySnapshot = await getCapabilitySnapshot();
+      const skillStatus = hasPuaSkill() ? "已安装" : "未找到";
+      const referencesSource = getReferencesDir() ? "skill references" : "fallback";
+      const capabilityStatus = formatCapabilityStatus(capabilitySnapshot);
       ctx.ui.notify(
-        `PUA 状态:\n- 开关: ${state.enabled ? "ON 🔥" : "OFF"}\n- 失败计数: ${state.failureCount}\n- 压力等级: ${levelText}\n- 味道: ${flavor}\n- config: ${existsSync(PUA_CONFIG) ? PUA_CONFIG : "N/A"}\n- 最后失败: ${state.lastFailureTs ? new Date(state.lastFailureTs).toLocaleTimeString() : "N/A"}`,
+        `PUA 状态:\n- 开关: ${state.enabled ? "ON 🔥" : "OFF"}\n- 失败计数: ${state.failureCount}\n- 压力等级: ${levelText}\n- 味道: ${flavor}\n- pua skill: ${skillStatus}\n- references: ${referencesSource}\n- config: ${existsSync(PUA_CONFIG) ? PUA_CONFIG : "N/A"}\n- 最后失败: ${state.lastFailureTs ? new Date(state.lastFailureTs).toLocaleTimeString() : "N/A"}\n${capabilityStatus}`,
         "info",
       );
     },
@@ -331,7 +386,7 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify(`PUA 压力升级: L${level}（失败 ${state.failureCount} 次）`, level >= 3 ? "error" : "warning");
       }
     } else {
-      // 一次成功即清零，体现 "Process > Hero" 的快速恢复机制
+      // 一次成功即清零，体现“流程优先于个人英雄”的快速恢复机制。
       if (state.failureCount > 0) {
         state.failureCount = 0;
         state.lastInjectedLevel = 0;
@@ -340,16 +395,42 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
+  /**
+   * 监听子 agent 工具调用，在派发前把当前 PUA 约束写入子任务 prompt。
+   *
+   * PI 的 tool_call 输入对象可原地修改；这里不拦截、不授权，只做上游
+   * “Sub-agent 也不养闲”协议的最小映射。
+   */
+  pi.on("tool_call", async (event) => {
+    if (!state.enabled) return undefined;
+
+    const toolName = event.toolName ?? event.tool_name ?? event.name;
+    if (!isSubagentToolName(toolName)) return undefined;
+
+    const capabilitySnapshot = await getCapabilitySnapshot();
+    if (!capabilitySnapshot.hasSubagents) return undefined;
+
+    const config = readPuaConfig();
+    const input = event.input ?? event.args ?? event.arguments;
+    decorateSubagentInput(input, {
+      flavor: config.flavor ?? "alibaba",
+      level: getLevel(state.failureCount),
+      failureCount: state.failureCount,
+    });
+    return undefined;
+  });
+
   // ═══════════════════════════════════════════════════════════════
   // 动态注入：完整行为协议 + 压力等级叠加
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * 在 Agent 启动前拦截，向其 system prompt 追加行为协议与压力 prompt。
+   * 在 Agent 启动前拦截，向其系统提示追加行为协议与压力提示。
    *
    * 注入顺序：
    * 1. 基础行为协议（味道文化 + 三条红线 + 方法论路由等）；
-   * 2. 根据当前失败等级叠加 L1–L4 压力 prompt。
+   * 2. 基于已可见工具追加正向能力增强提示；
+   * 3. 根据当前失败等级叠加 L1–L4 压力 prompt。
    *
    * 若检测到未加载 pua skill，则自动关闭扩展并提示用户安装。
    */
@@ -366,10 +447,18 @@ export default function (pi: ExtensionAPI) {
       return undefined;
     }
 
-    // 1. 注入完整行为协议（基础 layer）
+    const capabilitySnapshot = await getCapabilitySnapshot(event);
+
+    // 1. 注入完整行为协议（基础层）
     let extraPrompt = behaviorProtocol;
 
-    // 2. 叠加压力等级（L1–L4）
+    // 2. 可见能力增强：只正向追加已可用能力的 PUA 使用协议。
+    const capabilityEnhancement = buildCapabilityEnhancementPrompt(capabilitySnapshot);
+    if (capabilityEnhancement) {
+      extraPrompt += "\n\n" + capabilityEnhancement;
+    }
+
+    // 3. 叠加压力等级（L1–L4）
     const level = getLevel(state.failureCount);
     if (level > 0) {
       const pressure = pressurePrompts[level];

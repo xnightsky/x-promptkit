@@ -9,13 +9,17 @@
 declare module "@mariozechner/pi-coding-agent" {
   export interface ExtensionAPI {
     on(
-      event: "session_start" | "tool_result" | "before_agent_start",
+      event: "session_start" | "tool_result" | "tool_call" | "before_agent_start",
       handler: (event: any, ctx: any) => any | Promise<any>
     ): void;
     registerCommand(name: string, def: {
       description: string;
       handler: (args: string[], ctx: any) => Promise<any>;
     }): void;
+    /** 当前轮对模型可见的工具；旧版 PI 可能不提供。 */
+    getActiveTools?(): any[];
+    /** 宿主注册的完整工具清单；用于识别直连 MCP 工具。 */
+    getAllTools?(): any[];
   }
 }
 
