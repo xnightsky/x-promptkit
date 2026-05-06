@@ -1,7 +1,0 @@
-interface:
-  display_name: "Codex Kimi Worker Installer"
-  short_description: "Install or uninstall the Kimi (Moonshot) OpenAI-compatible provider and the kimi_worker subagent for Codex. No local bridge."
-  default_prompt: "Use $codex-kimi-worker-installer to install, repair, update, or uninstall the kimi_worker Codex integration."
-
-policy:
-  allow_implicit_invocation: false

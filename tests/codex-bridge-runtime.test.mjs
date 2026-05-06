@@ -1,13 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { parseEnvText, loadBridgeConfig } from "../runtime/codex-bridge/lib/config.mjs";
 import {
   anthropicEventToOpenAiStream,
   convertInputToAnthropic,
   convertToolsToAnthropic,
   mapAnthropicMessageToOpenAiResponse,
-  parseEnvText,
-} from "../skills/codex-bridge-minimax-worker-installer/vendor/codex-bridge/lib/bridge.mjs";
+} from "../runtime/codex-bridge/lib/adapters/anthropic-messages.mjs";
+
 
 test("parseEnvText strips comments and quotes", () => {
   assert.deepEqual(
@@ -23,6 +24,24 @@ ANTHROPIC_BASE_URL="https://api.minimaxi.com/anthropic"
       ANTHROPIC_BASE_URL: "https://api.minimaxi.com/anthropic",
     },
   );
+});
+
+test("loadBridgeConfig reads minimax adapter config", () => {
+  const config = loadBridgeConfig({
+    cwd: "/unused",
+    env: {
+      CODEX_BRIDGE_ADAPTER: "anthropic-messages",
+      ANTHROPIC_AUTH_TOKEN: "token-1",
+      ANTHROPIC_MODEL: "MiniMax-M2.7",
+      ANTHROPIC_BASE_URL: "https://api.minimaxi.com/anthropic",
+    },
+    readEnvFile: () => ({}),
+  });
+
+  assert.equal(config.adapter, "anthropic-messages");
+  assert.equal(config.apiKey, "token-1");
+  assert.equal(config.defaultModel, "MiniMax-M2.7");
+  assert.equal(config.baseUrl, "https://api.minimaxi.com/anthropic");
 });
 
 test("convertInputToAnthropic folds tool history into anthropic messages", () => {
@@ -145,3 +164,5 @@ test("mapAnthropicMessageToOpenAiResponse preserves tool calls and usage", () =>
   assert.equal(mapped.output[1].type, "function_call");
   assert.equal(mapped.usage.total_tokens, 12);
 });
+
+

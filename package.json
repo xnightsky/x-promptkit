@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "sync:codex-bridge-runtime": "node scripts/tooling/sync-codex-bridge-runtime.mjs",
     "lint": "npm run lint:code && npm run lint:docs && npm run lint:repo",
     "lint:code": "node scripts/tooling/lint-code.mjs",
     "lint:docs": "node scripts/tooling/lint-docs.mjs",

@@ -1,61 +1,10 @@
-import { createServer as createHttpServer } from "node:http";
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import {
+  buildSseFrame,
+  normalizeBaseUrl,
+  parseErrorResponse,
+} from "../responses-runtime.mjs";
 
-const DEFAULT_BASE_URL = "https://api.minimaxi.com/anthropic";
 const ANTHROPIC_VERSION = "2023-06-01";
-
-function stripMatchingQuotes(value) {
-  if (value.length >= 2) {
-    const first = value[0];
-    const last = value.at(-1);
-    if ((first === "'" || first === "\"") && first === last) {
-      return value.slice(1, -1);
-    }
-  }
-
-  return value;
-}
-
-export function parseEnvText(text) {
-  const result = {};
-  for (const rawLine of text.split(/\r?\n/u)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    const value = stripMatchingQuotes(line.slice(separatorIndex + 1).trim());
-    result[key] = value;
-  }
-
-  return result;
-}
-
-export function loadBridgeEnv({ cwd = process.cwd(), env = process.env } = {}) {
-  const envFile = path.join(cwd, ".env");
-  let fileEnv = {};
-
-  try {
-    fileEnv = parseEnvText(readFileSync(envFile, "utf8"));
-  } catch (error) {
-    if (error?.code !== "ENOENT") {
-      throw error;
-    }
-  }
-
-  return {
-    apiKey: env.ANTHROPIC_AUTH_TOKEN || fileEnv.ANTHROPIC_AUTH_TOKEN || "",
-    defaultModel: env.ANTHROPIC_MODEL || fileEnv.ANTHROPIC_MODEL || "",
-    baseUrl: env.ANTHROPIC_BASE_URL || fileEnv.ANTHROPIC_BASE_URL || DEFAULT_BASE_URL,
-  };
-}
 
 function textFromContentBlock(block) {
   if (typeof block === "string") {
@@ -251,10 +200,6 @@ export function convertToolsToAnthropic(tools) {
   }
 
   return anthropicTools.length > 0 ? anthropicTools : null;
-}
-
-function buildSseFrame(payload) {
-  return `data: ${JSON.stringify(payload)}\n\n`;
 }
 
 export function anthropicEventToOpenAiStream(event, context = {}) {
@@ -543,10 +488,6 @@ export function anthropicEventToOpenAiStream(event, context = {}) {
   return { context: nextContext, sse: "" };
 }
 
-function normalizeBaseUrl(baseUrl) {
-  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-}
-
 function buildAnthropicHeaders(apiKey, stream) {
   return {
     "content-type": "application/json",
@@ -555,106 +496,6 @@ function buildAnthropicHeaders(apiKey, stream) {
     "x-api-key": apiKey,
     authorization: `Bearer ${apiKey}`,
   };
-}
-
-async function readJsonBody(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-
-  if (chunks.length === 0) {
-    return {};
-  }
-
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-}
-
-function writeJson(res, statusCode, payload) {
-  res.writeHead(statusCode, {
-    "content-type": "application/json; charset=utf-8",
-  });
-  res.end(JSON.stringify(payload));
-}
-
-function buildErrorResponse(statusCode, message, type = "internal_error") {
-  return {
-    error: {
-      message,
-      type,
-      status_code: statusCode,
-    },
-  };
-}
-
-async function parseErrorResponse(response) {
-  const text = await response.text();
-  try {
-    const json = JSON.parse(text);
-    const message = json?.error?.message || json?.message || text;
-    return message || `Upstream request failed with status ${response.status}`;
-  } catch {
-    return text || `Upstream request failed with status ${response.status}`;
-  }
-}
-
-async function* iterateSseEvents(stream) {
-  let buffer = "";
-  for await (const chunk of stream) {
-    buffer += Buffer.from(chunk).toString("utf8");
-
-    while (true) {
-      const delimiterMatch = buffer.match(/\r?\n\r?\n/u);
-      if (!delimiterMatch || delimiterMatch.index == null) {
-        break;
-      }
-
-      const delimiterIndex = delimiterMatch.index;
-      const delimiterLength = delimiterMatch[0].length;
-      const rawEvent = buffer.slice(0, delimiterIndex);
-      buffer = buffer.slice(delimiterIndex + delimiterLength);
-
-      const lines = rawEvent.split(/\r?\n/u);
-      let eventName = "";
-      const dataLines = [];
-      for (const line of lines) {
-        if (line.startsWith("event:")) {
-          eventName = line.slice(6).trim();
-        } else if (line.startsWith("data:")) {
-          dataLines.push(line.slice(5).trimStart());
-        }
-      }
-
-      const data = dataLines.join("\n");
-      if (!data || data === "[DONE]") {
-        continue;
-      }
-
-      yield { event: eventName, data };
-    }
-  }
-}
-
-export async function requestAnthropic({
-  body,
-  apiKey,
-  baseUrl,
-  stream = false,
-}) {
-  const response = await fetch(new URL("v1/messages", normalizeBaseUrl(baseUrl)), {
-    method: "POST",
-    headers: buildAnthropicHeaders(apiKey, stream),
-    body: JSON.stringify(stream ? { ...body, stream: true } : body),
-  });
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
-    const error = new Error(message);
-    error.statusCode = response.status;
-    throw error;
-  }
-
-  return response;
 }
 
 export function mapAnthropicMessageToOpenAiResponse(message) {
@@ -704,195 +545,70 @@ export function mapAnthropicMessageToOpenAiResponse(message) {
   };
 }
 
-function buildOpenApiDocument(port) {
+export function createAnthropicMessagesAdapter() {
   return {
-    openapi: "3.1.0",
-    info: {
-      title: "codex-bridge",
-      version: "0.1.0",
+    buildUpstreamRequest({ body, runtimeConfig, profile }) {
+      const maxOutputTokens = body.max_output_tokens || body.max_tokens || 4096;
+      const temperature = body.temperature;
+      let instructions = body.instructions || body.system;
+      const stream = Boolean(body.stream);
+
+      const { messages, developerContent } = convertInputToAnthropic(body);
+      const tools = convertToolsToAnthropic(body.tools);
+      if (developerContent) {
+        instructions = instructions ? `${developerContent}\n${instructions}` : developerContent;
+      }
+
+      const anthropicBody = {
+        model: body.model || profile?.defaultModel || runtimeConfig.defaultModel,
+        messages,
+        max_tokens: maxOutputTokens,
+      };
+      if (typeof temperature === "number") {
+        anthropicBody.temperature = temperature;
+      }
+      if (instructions) {
+        anthropicBody.system = instructions;
+      }
+      if (tools) {
+        anthropicBody.tools = tools;
+      }
+
+      return {
+        stream,
+        model: anthropicBody.model,
+        request: {
+          apiKey: runtimeConfig.apiKey,
+          baseUrl: profile?.baseUrl || runtimeConfig.baseUrl,
+          body: anthropicBody,
+          stream,
+        },
+      };
     },
-    servers: [{ url: `http://127.0.0.1:${port}` }],
-    paths: {
-      "/responses": { post: { operationId: "handleResponses" } },
-      "/v1/responses": { post: { operationId: "handleResponsesV1" } },
-      "/healthz": { get: { operationId: "health" } },
-    },
-  };
-}
 
-async function handleResponses(req, res, runtimeConfig) {
-  let body;
-  try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    writeJson(
-      res,
-      400,
-      buildErrorResponse(400, `Invalid JSON body: ${error.message}`, "invalid_request_error"),
-    );
-    return;
-  }
-
-  const { apiKey, defaultModel, baseUrl } = runtimeConfig;
-  const model = body.model || defaultModel;
-  const maxOutputTokens = body.max_output_tokens || body.max_tokens || 4096;
-  const temperature = body.temperature;
-  let instructions = body.instructions || body.system;
-  const stream = Boolean(body.stream);
-
-  const { messages, developerContent } = convertInputToAnthropic(body);
-  const tools = convertToolsToAnthropic(body.tools);
-  if (developerContent) {
-    instructions = instructions ? `${developerContent}\n${instructions}` : developerContent;
-  }
-
-  const anthropicBody = {
-    model,
-    messages,
-    max_tokens: maxOutputTokens,
-  };
-  if (typeof temperature === "number") {
-    anthropicBody.temperature = temperature;
-  }
-  if (instructions) {
-    anthropicBody.system = instructions;
-  }
-  if (tools) {
-    anthropicBody.tools = tools;
-  }
-
-  if (stream) {
-    res.writeHead(200, {
-      "content-type": "text/event-stream; charset=utf-8",
-      "cache-control": "no-cache",
-      connection: "keep-alive",
-      "x-request-id": body.id || "",
-      "x-accel-buffering": "no",
-    });
-
-    try {
-      const upstream = await requestAnthropic({
-        body: anthropicBody,
-        apiKey,
-        baseUrl,
-        stream: true,
+    async sendUpstream(request) {
+      const response = await fetch(new URL("v1/messages", normalizeBaseUrl(request.baseUrl)), {
+        method: "POST",
+        headers: buildAnthropicHeaders(request.apiKey, request.stream),
+        body: JSON.stringify(request.stream ? { ...request.body, stream: true } : request.body),
       });
 
-      let context = {};
-      for await (const sseEvent of iterateSseEvents(upstream.body)) {
-        let parsed;
-        try {
-          parsed = JSON.parse(sseEvent.data);
-        } catch {
-          continue;
-        }
-
-        const translated = anthropicEventToOpenAiStream(parsed, context);
-        context = translated.context;
-        if (translated.sse) {
-          res.write(translated.sse);
-        }
+      if (!response.ok) {
+        const message = await parseErrorResponse(response);
+        const error = new Error(message);
+        error.statusCode = response.status;
+        throw error;
       }
-    } catch (error) {
-      const responseId = `err_${Math.floor(Date.now() / 1000)}`;
-      res.write(
-        buildSseFrame({
-          type: "response.completed",
-          response: {
-            id: responseId,
-            object: "response",
-            model,
-            created_at: Math.floor(Date.now() / 1000),
-            status: "failed",
-            error: {
-              message: error.message,
-              type: error.statusCode === 400 ? "invalid_request_error" : "server_error",
-            },
-            output: [],
-            usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
-          },
-        }),
-      );
-    }
 
-    res.end();
-    return;
-  }
+      return response;
+    },
 
-  try {
-    const upstream = await requestAnthropic({
-      body: anthropicBody,
-      apiKey,
-      baseUrl,
-      stream: false,
-    });
-    const message = await upstream.json();
-    writeJson(res, 200, mapAnthropicMessageToOpenAiResponse(message));
-  } catch (error) {
-    const statusCode = error.statusCode === 400 ? 400 : 500;
-    writeJson(
-      res,
-      statusCode,
-      buildErrorResponse(
-        statusCode,
-        error.message,
-        statusCode === 400 ? "invalid_request_error" : "internal_error",
-      ),
-    );
-  }
-}
+    translateStreamChunk(chunk, context) {
+      return anthropicEventToOpenAiStream(chunk, context);
+    },
 
-export function createBridgeServer(runtimeConfig) {
-  const { port } = runtimeConfig;
-  return createHttpServer(async (req, res) => {
-    const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
-
-    if (req.method === "GET" && url.pathname === "/healthz") {
-      writeJson(res, 200, { ok: true });
-      return;
-    }
-
-    if (req.method === "GET" && url.pathname === "/openapi.json") {
-      writeJson(res, 200, buildOpenApiDocument(port));
-      return;
-    }
-
-    if (
-      req.method === "POST" &&
-      (url.pathname === "/responses" || url.pathname === "/v1/responses")
-    ) {
-      await handleResponses(req, res, runtimeConfig);
-      return;
-    }
-
-    writeJson(res, 404, buildErrorResponse(404, `Not found: ${url.pathname}`, "not_found"));
-  });
-}
-
-export async function startBridgeServer({
-  cwd = process.cwd(),
-  host = "0.0.0.0",
-  port = 8000,
-} = {}) {
-  const runtime = loadBridgeEnv({ cwd });
-  if (!runtime.apiKey) {
-    throw new Error("ANTHROPIC_AUTH_TOKEN not set in .env or environment.");
-  }
-  if (!runtime.defaultModel) {
-    throw new Error("ANTHROPIC_MODEL not set in .env or environment.");
-  }
-
-  const server = createBridgeServer({
-    ...runtime,
-    cwd,
-    host,
-    port,
-  });
-
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, resolve);
-  });
-
-  return server;
+    translateFinalResponse(payload) {
+      return mapAnthropicMessageToOpenAiResponse(payload);
+    },
+  };
 }
