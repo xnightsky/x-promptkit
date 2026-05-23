@@ -148,5 +148,9 @@ vite.config.ts.timestamp-*
 # Local git worktrees
 .worktrees/
 
+# Python bytecode cache
+__pycache__/
+*.pyc
+
 # Local Codex marker file in repo root
 /.codex
