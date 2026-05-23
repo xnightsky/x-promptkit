@@ -275,6 +275,26 @@ export function normalizeCodexExecResult({
   const warnings = [];
   const parsedEvents = [];
 
+  // Factory that assembles the normalized result envelope. Each exit branch
+  // only supplies the fields that differ; the common skeleton lives here once.
+  function buildResult({ ok, finalText: ft, refusal: ref, threadId: tid, turnStatus: ts, eventsSeen: es, warnings: ws, failure }) {
+    return {
+      ok,
+      carrier: "isolated-context-run:codex",
+      backend: "exec-json",
+      result: { final_text: ft, refusal: ref },
+      execution: { thread_id: tid, turn_status: ts, exit_code: exitCode },
+      evidence: {
+        events_seen: es,
+        raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
+        stdout: `${normalizedArtifactsDir}/stdout.txt`,
+        stderr: `${normalizedArtifactsDir}/stderr.txt`,
+        warnings: ws,
+      },
+      failure,
+    };
+  }
+
   // `codex exec --json` is still backend-specific. We normalize only the
   // minimal facts the repo contract needs and keep malformed JSONL as a
   // contract failure instead of guessing from partial output.
@@ -282,28 +302,11 @@ export function normalizeCodexExecResult({
     try {
       parsedEvents.push(JSON.parse(line));
     } catch {
-      return {
-        ok: false,
-        carrier: "isolated-context-run:codex",
-        backend: "exec-json",
-        result: {
-          final_text: null,
-          refusal: false,
-        },
-        execution: {
-          thread_id: null,
-          turn_status: "failed",
-          exit_code: exitCode,
-        },
-        evidence: {
-          events_seen: [],
-          raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-          stdout: `${normalizedArtifactsDir}/stdout.txt`,
-          stderr: `${normalizedArtifactsDir}/stderr.txt`,
-          warnings: [],
-        },
+      return buildResult({
+        ok: false, finalText: null, refusal: false,
+        threadId: null, turnStatus: "failed", eventsSeen: [], warnings: [],
         failure: buildFailure("contract_failure", "jsonl_unparseable"),
-      };
+      });
     }
   }
 
@@ -359,160 +362,55 @@ export function normalizeCodexExecResult({
   }
 
   if (!ALLOWED_TURN_STATUS.has(turnStatus)) {
-    return {
-      ok: false,
-      carrier: "isolated-context-run:codex",
-      backend: "exec-json",
-      result: {
-        final_text: null,
-        refusal: false,
-      },
-      execution: {
-        thread_id: threadId,
-        turn_status: "failed",
-        exit_code: exitCode,
-      },
-      evidence: {
-        events_seen: eventsSeen,
-        raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-        stdout: `${normalizedArtifactsDir}/stdout.txt`,
-        stderr: `${normalizedArtifactsDir}/stderr.txt`,
-        warnings,
-      },
+    return buildResult({
+      ok: false, finalText: null, refusal: false,
+      threadId, turnStatus: "failed", eventsSeen, warnings,
       failure: buildFailure("contract_failure", "invalid_turn_status"),
-    };
+    });
   }
 
   const combinedFailureText = `${stderrText}\n${stdoutText}`;
   const inferredEnvironmentReason = inferEnvironmentReason(combinedFailureText);
 
   if (exitCode !== 0) {
-    return {
-      ok: false,
-      carrier: "isolated-context-run:codex",
-      backend: "exec-json",
-      result: {
-        final_text: null,
-        refusal,
-      },
-      execution: {
-        thread_id: threadId,
-        turn_status: "failed",
-        exit_code: exitCode,
-      },
-      evidence: {
-        events_seen: eventsSeen,
-        raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-        stdout: `${normalizedArtifactsDir}/stdout.txt`,
-        stderr: `${normalizedArtifactsDir}/stderr.txt`,
-        warnings,
-      },
-      failure:
-        failureFromEvents ??
-        buildFailure(
-          "environment_failure",
-          inferredEnvironmentReason ?? "process_exit_nonzero",
-        ),
-    };
+    return buildResult({
+      ok: false, finalText: null, refusal,
+      threadId, turnStatus: "failed", eventsSeen, warnings,
+      failure: failureFromEvents ??
+        buildFailure("environment_failure", inferredEnvironmentReason ?? "process_exit_nonzero"),
+    });
   }
 
   if (lines.length === 0) {
-    return {
-      ok: false,
-      carrier: "isolated-context-run:codex",
-      backend: "exec-json",
-      result: {
-        final_text: null,
-        refusal: false,
-      },
-      execution: {
-        thread_id: threadId,
-        turn_status: "failed",
-        exit_code: exitCode,
-      },
-      evidence: {
-        events_seen: eventsSeen,
-        raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-        stdout: `${normalizedArtifactsDir}/stdout.txt`,
-        stderr: `${normalizedArtifactsDir}/stderr.txt`,
-        warnings,
-      },
+    return buildResult({
+      ok: false, finalText: null, refusal: false,
+      threadId, turnStatus: "failed", eventsSeen, warnings,
       failure: buildFailure("environment_failure", "empty_response"),
-    };
+    });
   }
 
   if (typeof finalText !== "string" || finalText.length === 0) {
-    return {
-      ok: false,
-      carrier: "isolated-context-run:codex",
-      backend: "exec-json",
-      result: {
-        final_text: null,
-        refusal,
-      },
-      execution: {
-        thread_id: threadId,
-        turn_status: turnStatus === "unknown" ? "failed" : turnStatus,
-        exit_code: exitCode,
-      },
-      evidence: {
-        events_seen: eventsSeen,
-        raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-        stdout: `${normalizedArtifactsDir}/stdout.txt`,
-        stderr: `${normalizedArtifactsDir}/stderr.txt`,
-        warnings,
-      },
+    return buildResult({
+      ok: false, finalText: null, refusal,
+      threadId, turnStatus: turnStatus === "unknown" ? "failed" : turnStatus,
+      eventsSeen, warnings,
       failure: buildFailure("contract_failure", "missing_final_text"),
-    };
+    });
   }
 
   if (turnStatus === "failed") {
-    return {
-      ok: false,
-      carrier: "isolated-context-run:codex",
-      backend: "exec-json",
-      result: {
-        final_text: null,
-        refusal,
-      },
-      execution: {
-        thread_id: threadId,
-        turn_status: turnStatus,
-        exit_code: exitCode,
-      },
-      evidence: {
-        events_seen: eventsSeen,
-        raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-        stdout: `${normalizedArtifactsDir}/stdout.txt`,
-        stderr: `${normalizedArtifactsDir}/stderr.txt`,
-        warnings,
-      },
+    return buildResult({
+      ok: false, finalText: null, refusal,
+      threadId, turnStatus, eventsSeen, warnings,
       failure: failureFromEvents ?? buildFailure("contract_failure", "missing_failure_payload"),
-    };
+    });
   }
 
-  return {
-    ok: true,
-    carrier: "isolated-context-run:codex",
-    backend: "exec-json",
-    result: {
-      final_text: finalText,
-      refusal,
-    },
-    execution: {
-      thread_id: threadId,
-      turn_status: turnStatus,
-      exit_code: exitCode,
-    },
-    evidence: {
-      events_seen: eventsSeen,
-      raw_event_log: `${normalizedArtifactsDir}/raw-events.jsonl`,
-      stdout: `${normalizedArtifactsDir}/stdout.txt`,
-      stderr: `${normalizedArtifactsDir}/stderr.txt`,
-      warnings,
-    },
+  return buildResult({
+    ok: true, finalText, refusal,
+    threadId, turnStatus, eventsSeen, warnings,
     failure: null,
-  };
+  });
 }
 
 export function resolveSkillViewEntries(entries) {
