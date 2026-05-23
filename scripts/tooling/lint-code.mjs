@@ -7,7 +7,20 @@ import { formatFailures, walkRepoFiles } from "./lib.mjs";
 const rootDir = process.cwd();
 const codeFiles = walkRepoFiles(rootDir, {
   extensions: [".mjs"],
-}).filter((filePath) => filePath.startsWith("scripts/") || filePath.startsWith("tests/"));
+}).filter((filePath) => {
+  // Syntax-check all runtime .mjs files except vendored copies which are
+  // validated by the sync:codex-bridge-runtime consistency guarantee.
+  if (filePath.includes("/vendor/") || filePath.includes("\\vendor\\")) {
+    return false;
+  }
+  return (
+    filePath.startsWith("scripts/") ||
+    filePath.startsWith("tests/") ||
+    filePath.startsWith("skills/") ||
+    filePath.startsWith("runtime/") ||
+    filePath.startsWith("integration-tests/")
+  );
+});
 
 const failures = [];
 
