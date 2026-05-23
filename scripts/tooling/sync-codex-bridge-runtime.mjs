@@ -12,7 +12,10 @@ const targets = [
 for (const targetDir of targets) {
   fs.rmSync(targetDir, { recursive: true, force: true });
   fs.mkdirSync(path.dirname(targetDir), { recursive: true });
-  fs.cpSync(sourceDir, targetDir, { recursive: true });
+  fs.cpSync(sourceDir, targetDir, {
+    recursive: true,
+    filter: (src) => !src.includes("__pycache__"),
+  });
 }
 
 console.log("Synced codex-bridge runtime to skill vendors.");
