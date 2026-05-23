@@ -1,9 +1,9 @@
 ---
 name: opencode-run
-description: Use when the user explicitly wants a task wrapped as a single `opencode run` command, wants that command executed directly, or wants the current task handed off unchanged to an external OpenCode agent
+description: Use when the user explicitly wants a task wrapped as a single `opencode run` command, wants that command executed directly, or wants the current task handed off unchanged to an external OpenCode agent. Also covers the superpowers-prefix variant when the user explicitly requests it.
 interface:
   display_name: "OpenCode Run"
-  short_description: "生成并执行单条 OpenCode Run 命令"
+  short_description: "生成并执行单条 OpenCode Run 命令（含可选 superpowers 前缀模式）"
   default_prompt: "Use $opencode-run to compose a precise opencode run command for the current task."
 policy:
   allow_implicit_invocation: false
@@ -48,12 +48,18 @@ Default command template:
 cd <workdir> && opencode run "<task>"
 ```
 
+Superpowers-prefix template (only when user explicitly requests it):
+
+```bash
+cd <workdir> && opencode run "use skill tool to load superpowers/<skill>; <task>"
+```
+
 Rules:
 
 - Keep the outer double quotes.
 - If the user already provided a complete `opencode run` command, make only the minimum correction needed for quoting, escaping, or the working-directory prelude.
 - Do not rewrite the task text just to make it look cleaner.
-- Do not add `use skill tool to load ...` or any other superpowers prefix.
+- Do not add `use skill tool to load ...` or any other superpowers prefix unless the user explicitly asked for it.
 
 ## Shell Escaping
 
@@ -90,6 +96,17 @@ Treat `opencode run` as a one-shot non-interactive command.
 - Repeated "still running" or timeout updates should be emitted at most once every 30 minutes.
 - Exit, crash, error, or a direct user request to inspect status should be reported immediately.
 
+## Superpowers Prefix Mode
+
+This mode activates only when the user explicitly asks for a superpowers prefix.
+
+- If the user explicitly named a superpowers skill, use that exact skill.
+- If the user asked for "with superpowers" but did not name a specific skill, use `superpowers/brainstorming`.
+- Do not guess any fallback other than `superpowers/brainstorming`.
+- Do not rewrite ordinary skills as `superpowers/...`.
+- Do not append a second skill after the prefix.
+- Keep the semicolon separator inside the quoted task payload.
+
 ## Restrictions
 
 - Do not automatically add superpowers prefixes.
@@ -98,4 +115,5 @@ Treat `opencode run` as a one-shot non-interactive command.
 - Do not automatically add implementation advice.
 - Do not narrate every wait cycle back to the user.
 - Do not silently expand a task into a multi-stage workflow.
+- Do not rewrite ordinary skills as `superpowers/...`.
 

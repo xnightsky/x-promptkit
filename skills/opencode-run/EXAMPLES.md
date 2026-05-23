@@ -221,3 +221,96 @@ cd <workdir> && opencode run "让外部代理输出 \"done\" 并打印 \$HOME"
 
 - 重新总结任务并替换原命令内容
 - 擅自加入 skill 前缀、stop condition 或实现建议
+
+---
+
+## Case 08: 带 superpowers 前缀，未指定 skill
+
+触发方式：
+
+- "给我一条带 superpowers 前缀的 opencode run 命令"
+- "先加载 superpowers 再执行这个任务"
+
+最小上下文：
+
+- 用户没有给具体 superpowers skill
+
+期望产出：
+
+- 只允许回退到 `superpowers/brainstorming`
+
+标准输出样例：
+
+```bash
+cd <workdir> && opencode run "use skill tool to load superpowers/brainstorming; 处理当前单一任务"
+```
+
+验收标准：
+
+- 默认 skill 固定为 `superpowers/brainstorming`
+- 不猜别的 skill
+
+反例：
+
+- 自动猜 `superpowers/test-driven-development`
+- 自动拼多个 superpowers skill
+
+---
+
+## Case 09: 带 superpowers 前缀，用户指定了具体 skill
+
+触发方式：
+
+- "用 `superpowers/using-git-worktrees` 给我包一条 opencode run 命令"
+- "前缀 skill 指定成 `superpowers/skill-creator`"
+
+最小上下文：
+
+- 用户已明确给出具体 superpowers skill
+
+期望产出：
+
+- 使用用户指定的 skill
+- 不回退到默认 skill
+
+标准输出样例：
+
+```bash
+cd <workdir> && opencode run "use skill tool to load superpowers/skill-creator; 生成当前任务所需命令"
+```
+
+验收标准：
+
+- skill 名称与用户输入一致
+- 不偷偷替换成 `superpowers/brainstorming`
+
+反例：
+
+- 用户明示了 skill，结果仍回退默认值
+- 擅自把 skill 改成别的 superpowers skill
+
+---
+
+## Case 10: 用户给的是普通 skill 名称，不是 superpowers
+
+触发方式：
+
+- "前缀 skill 用 `opencode-run`"
+- "先加载 `isolated-context-run` 再执行"
+
+最小上下文：
+
+- 用户给的是普通 skill，不是 superpowers skill
+
+期望产出：
+
+- 不把普通 skill 改写成 `superpowers/...`
+
+验收标准：
+
+- 不输出 `superpowers/opencode-run`
+- 不输出 `superpowers/isolated-context-run`
+
+反例：
+
+- 把任何 skill 名都盲目前缀成 `superpowers/`
