@@ -8,15 +8,18 @@
 
 | 能力 | 来源 | 当前状态 |
 |------|------|----------|
-| 自动注入 PUA 协议 | `before_agent_start` | 已实现 |
-| 恢复开关和失败计数 | `session_start` + `~/.pua` 状态文件 | 已实现 |
-| 工具失败计数 | `tool_result` | 已实现 |
-| L1-L4 压力升级 | 失败计数 + pressure prompts | 已实现 |
-| `/pua-on`、`/pua-off`、`/pua-status`、`/pua-reset` | PI command | 已实现 |
-| PUA skill 缺失保护 | 本地 skill 目录嗅探 | 已实现 |
-| 能力状态观测与正向增强 | PI active tools / loaded skills | 已实现 |
-| 子 agent PUA 继承 | PI `tool_call` + subagent tools | 已实现 |
-| 通用事前工具拦截 | PI `tool_call` | 未实现，见 [docs/DESIGN.md](./docs/DESIGN.md) |
+| 自动注入 PUA 协议 | `before_agent_start` | ✅ 已实现 |
+| 恢复开关和失败计数 | `session_start` + `~/.pua` 状态文件 | ✅ 已实现 |
+| 工具失败计数 | `tool_result` | ✅ 已实现 |
+| L1-L4 压力升级 | 失败计数 + pressure prompts | ✅ 已实现 |
+| `/pua-on`、`/pua-off`、`/pua-status`、`/pua-reset` | PI command | ✅ 已实现 |
+| PUA skill 缺失保护 | 本地 skill 目录嗅探 | ✅ 已实现 |
+| 能力状态观测与正向增强 | PI active tools / loaded skills | ✅ 已实现 |
+| 子 agent PUA 继承 | PI `tool_call` + subagent tools | ✅ 已实现 |
+| 用户挫败检测 | PI `input` | 🚧 待实现 |
+| 四权分立 + 重复检测 | PI `tool_call` + block | 🚧 待实现 |
+| 压缩前状态保存 | PI `session_before_compact` | 🚧 待实现 |
+| 空口完成 + 原地打转检测 | PI `turn_end` | 🚧 待实现 |
 
 ## 当前不具备的能力
 

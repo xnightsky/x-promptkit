@@ -1,19 +1,33 @@
 # PI PUA Adapter 设计
 
-本文记录 PI 版 PUA 的内部设计。用户安装和运行说明见 `../INSTALL.md`，能力矩阵见 `CAPABILITIES.md`，上游同步策略见 `UPSTREAM.md`。
+本文记录 PI 版 PUA 的内部设计。用户安装和运行说明见 `../INSTALL.md`，能力矩阵见 `CAPABILITIES.md`，上游同步策略见 `UPSTREAM.md`，4 hook 增强的决策依据见 [`plans/enhance-4-hooks-rationale.md`](./plans/enhance-4-hooks-rationale.md)。
+
+## 设计哲学
+
+本模块的定位是 **PI 生态中 PUA 行为协议的完整 runtime 实现**，不是官方 `@tanweai/pi-pua` 的 fork 或补丁。
+
+官方 PI 适配（`@tanweai/pi-pua` v3.4.6）是一个 ~100 行的最小占位符，只做 prompt 注入和基础计数。本模块在此基础上提供：
+
+1. **完整味道系统**：13 种 methodology + 路由 + Banner 协议 + 失败切换链。
+2. **能力感知**：按 PI active tools 正向增强，不假设不可见工具。
+3. **主动约束**：通过 `tool_call` block、`input` 挫败检测、`turn_end` 打转检测、`session_before_compact` 状态保存，将 PUA 从"建议"升级为"约束"。
+4. **子 agent 治理**：通过 `tool_call` capsule 注入确保子 agent 继承 PUA 约束。
+
+与官方的关系：**替代而非叠加**。两个扩展不能共存（命令和 hook 冲突），本模块完整覆盖官方功能并大幅扩展。
 
 ## 目标与非目标
 
 目标：
 
-- 作为 `tanweai/pua` 的 PI adapter，尽量复刻 Claude Code PUA 插件的 always-on、失败升级和味道系统语义。
-- 利用 PI extension lifecycle，在会话启动、agent 启动前和工具执行后插入 PUA prompt 与失败状态更新。
+- 作为 `tanweai/pua` 的 PI adapter，对标 Claude Code PUA 插件的完整 hook 能力矩阵。
+- 利用 PI extension lifecycle 全部可用事件，实现从 prompt 注入到行为约束的完整闭环。
 - 根据当前 active tools 和 loaded skills 做能力状态观测与正向增强，避免把外部插件能力写成 PUA 自身能力。
+- 通过 `input`、`tool_call`、`turn_end`、`session_before_compact` 实现主动行为检测与约束。
 
 非目标：
 
 - 不把 web search、MCP、PowerShell、subagent 等外部插件能力写成 PUA 自带能力。
-- 不把权限、沙箱、危险命令确认或工具屏蔽写成 PUA 当前能力。
+- 不做通用权限系统（那是 `pi-permission-system` 的职责）；只做 PUA 视角的轻量四权分立。
 - 不在设计文档中保存本机环境快照、用户目录绝对路径、token、账号或私有配置。
 - 不承诺 PI 目前没有的 `PreResponse` 能力；自然语言最终输出仍只能通过 prompt 约束提高遵守率。
 

@@ -9,7 +9,15 @@
 declare module "@mariozechner/pi-coding-agent" {
   export interface ExtensionAPI {
     on(
-      event: "session_start" | "tool_result" | "tool_call" | "before_agent_start",
+      event:
+        | "session_start"
+        | "tool_result"
+        | "tool_call"
+        | "before_agent_start"
+        | "input"
+        | "turn_end"
+        | "agent_end"
+        | "session_before_compact",
       handler: (event: any, ctx: any) => any | Promise<any>
     ): void;
     registerCommand(name: string, def: {

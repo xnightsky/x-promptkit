@@ -191,9 +191,24 @@ check_pi_package "pi-ask-user" "pi install npm:pi-ask-user"
 ```json
 {
   "always_on": true,
-  "flavor": "huawei"
+  "flavor": "huawei",
+  "enforcement_level": "suggest",
+  "integrity_guard": true,
+  "frustration_detection": true,
+  "loop_detection": true,
+  "compact_state_save": true
 }
 ```
+
+### enforcement 配置字段
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enforcement_level` | `"observe"` \| `"suggest"` \| `"enforce"` | `"suggest"` | observe=只通知，suggest=通知+确认，enforce=自动 block |
+| `integrity_guard` | boolean | `true` | 四权分立保护（写入 tests/CI/secrets 时提示或拦截） |
+| `frustration_detection` | boolean | `true` | 用户挫败检测（仅交互模式） |
+| `loop_detection` | boolean | `true` | 原地打转检测（重复命令 + 空口完成） |
+| `compact_state_save` | boolean | `true` | 压缩前自动保存状态到 `~/.pua/builder-journal.md` |
 
 ## 模板文件
 
@@ -242,3 +257,15 @@ powershell -ExecutionPolicy Bypass -File $env:USERPROFILE\.pi\agent\extensions\p
 ```
 
 > 该脚本消耗真实 AI token，属于集成测试，不进入默认批量回归。
+
+### Enforcement Hooks 集成测试
+
+针对 4 个增强 hook 的专项集成测试，使用弱模型（Kimi）暴露问题：
+
+**Windows (PowerShell)**
+```powershell
+. $env:USERPROFILE\.pi\agent\extensions\pua\pua-enforcement.ittest.ps1
+```
+
+> 测试内容：挫败检测、四权分立 deny、重复命令 block、空口完成检测。
+> 其中 `input` 和 `turn_end` hook 仅在交互模式下生效，print mode 下跳过（单元测试已覆盖逻辑）。

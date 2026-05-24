@@ -29,6 +29,15 @@ import {
   formatCapabilityStatus,
   isSubagentToolName,
 } from "./capabilities.js";
+import {
+  detectFrustration,
+  checkIntegrity,
+  CommandHistory,
+  buildCompactStateMarkdown,
+  analyzeTurn,
+  resolveEnforcementConfig,
+  type EnforcementConfig,
+} from "./enforcement.js";
 
 /** PUA 扩展的运行时状态 */
 interface PuaState {
@@ -207,6 +216,12 @@ export default function (pi: ExtensionAPI) {
   let pressurePrompts: Record<number, string> = {};
   /** 当前扩展实例内缓存的能力快照；/reload 后由模块重载自然刷新。 */
   let lastCapabilitySnapshot: any = null;
+  /** enforcement 配置（从 config.json 读取） */
+  let enforcementConfig = resolveEnforcementConfig(undefined);
+  /** 命令历史记录器（用于重复检测） */
+  const commandHistory = new CommandHistory(5);
+  /** 最近失败的工具命令摘要（用于 compact state save） */
+  let recentFailures: string[] = [];
 
   /**
    * 从文件系统恢复完整运行时状态（配置、失败计数、扩展私有状态）。
@@ -221,6 +236,7 @@ export default function (pi: ExtensionAPI) {
       lastFailureTs: piExt.lastFailureTs,
       lastInjectedLevel: piExt.lastInjectedLevel,
     };
+    enforcementConfig = resolveEnforcementConfig(config as any);
   }
 
   /**
@@ -417,6 +433,146 @@ export default function (pi: ExtensionAPI) {
       level: getLevel(state.failureCount),
       failureCount: state.failureCount,
     });
+    return undefined;
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // 主动约束层：4 个增强 hook
+  // ═══════════════════════════════════════════════════════════════
+
+  /**
+   * Hook 1: 用户挫败检测。
+   * 匹配到挫败关键词时，自动将失败计数提升到至少 2（触发 L1）。
+   */
+  pi.on("input", (event, ctx) => {
+    if (!state.enabled || !enforcementConfig.frustration_detection) return undefined;
+    const text = event?.text ?? "";
+    if (detectFrustration(text)) {
+      if (state.failureCount < 2) {
+        state.failureCount = 2;
+        persistState();
+      }
+      ctx.ui.notify(
+        `[PUA] 检测到用户挫败信号，压力升级至 L${getLevel(state.failureCount)}`,
+        "warning"
+      );
+    }
+    return { action: "continue" };
+  });
+
+  /**
+   * Hook 2: 四权分立 + 重复命令检测。
+   * 在已有子 agent 装饰逻辑之后追加。
+   */
+  pi.on("tool_call", async (event, ctx) => {
+    if (!state.enabled) return undefined;
+
+    const toolName = event.toolName ?? event.tool_name ?? event.name ?? "";
+    const input = event.input ?? event.args ?? event.arguments;
+
+    // 四权分立检查
+    if (enforcementConfig.integrity_guard) {
+      const result = checkIntegrity(toolName, input);
+      if (result.level === "deny") {
+        ctx.ui.notify(`[PUA Integrity Guard] DENY: ${result.reason}\nTarget: ${result.target}`, "error");
+        return { block: true, reason: result.reason };
+      }
+      if (result.level === "advisory") {
+        ctx.ui.notify(`[PUA Integrity Guard] 注意: ${result.reason}\nTarget: ${result.target}`, "warning");
+      }
+    }
+
+    // 重复命令检测（仅 L2+ 且 bash 工具）
+    if (enforcementConfig.loop_detection && toolName.toLowerCase() === "bash" && getLevel(state.failureCount) >= 2) {
+      const cmd = input?.command ?? "";
+      if (cmd && commandHistory.isRepetitive(cmd)) {
+        const level = enforcementConfig.enforcement_level;
+        if (level === "enforce") {
+          ctx.ui.notify("[PUA] 检测到重复命令模式，已阻止执行。请切换思路。", "error");
+          return { block: true, reason: "PUA: 连续失败后重复相同命令，已阻止" };
+        }
+        if (level === "suggest") {
+          ctx.ui.notify("[PUA] 检测到重复命令模式。建议切换思路。", "warning");
+        }
+      }
+      if (cmd) commandHistory.push(cmd);
+    }
+
+    return undefined;
+  });
+
+  /**
+   * Hook 3: 压缩前状态保存。
+   * 将当前 PUA 运行时状态写入 builder-journal.md。
+   */
+  pi.on("session_before_compact", (event, ctx) => {
+    if (!state.enabled || !enforcementConfig.compact_state_save) return undefined;
+    try {
+      const config = readPuaConfig();
+      const snapshot = buildCompactStateMarkdown({
+        timestamp: new Date().toISOString(),
+        pressure_level: `L${getLevel(state.failureCount)}`,
+        failure_count: state.failureCount,
+        current_flavor: (config as any).flavor ?? "alibaba",
+        recent_failures: recentFailures.slice(-5),
+      });
+      const journalPath = join(PUA_DIR, "builder-journal.md");
+      mkdirSync(PUA_DIR, { recursive: true });
+      writeFileSync(journalPath, snapshot, "utf-8");
+      ctx.ui.notify("[PUA] 压缩前状态已保存到 builder-journal.md", "info");
+    } catch {}
+    return undefined;
+  });
+
+  /**
+   * Hook 4: 空口完成 + 原地打转检测。
+   */
+  pi.on("turn_end", (event, ctx) => {
+    if (!state.enabled) return undefined;
+
+    const message = event?.message;
+    const toolResults = event?.toolResults ?? [];
+
+    // 提取 assistant 文本
+    let assistantText = "";
+    if (message?.role === "assistant") {
+      const content = message.content;
+      if (typeof content === "string") {
+        assistantText = content;
+      } else if (Array.isArray(content)) {
+        assistantText = content
+          .filter((c: any) => c?.type === "text")
+          .map((c: any) => c.text ?? "")
+          .join("\n");
+      }
+    }
+
+    // 记录失败的 bash 命令到 recentFailures
+    for (const r of toolResults) {
+      if (r?.isError && r?.input?.command) {
+        recentFailures.push(r.input.command.slice(0, 100));
+        if (recentFailures.length > 10) recentFailures.shift();
+      }
+    }
+
+    const analysis = analyzeTurn(assistantText, toolResults, commandHistory);
+
+    if (analysis.unverifiedCompletion) {
+      state.failureCount++;
+      persistState();
+      ctx.ui.notify(
+        `[PUA] 检测到空口完成：声称完成但本轮无验证证据。失败计数 +1（当前 ${state.failureCount}）`,
+        "warning"
+      );
+    }
+
+    if (analysis.loopDetected && enforcementConfig.loop_detection) {
+      ctx.ui.notify(
+        "[PUA] 检测到原地打转：连续多轮执行相似失败命令。建议切换方法论。",
+        "error"
+      );
+    }
+
     return undefined;
   });
 
