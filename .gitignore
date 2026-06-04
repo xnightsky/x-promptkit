@@ -154,3 +154,6 @@ __pycache__/
 
 # Local Codex marker file in repo root
 /.codex
+
+# recall-evaluator provider matrix (real secrets live here; the .example template stays tracked)
+skills/recall-evaluator/.recall-replay.env.yaml

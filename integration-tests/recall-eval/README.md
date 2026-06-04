@@ -92,3 +92,4 @@ Notes:
 - `mixed-source-ref.test.yaml`: queue-level and case-level `source_ref` resolution through the harness path
 - `harness.test.mjs`: fake executor + temp workspace orchestration coverage
 - `real-host.token.test.mjs`: token-backed real Codex host validation for should-trigger, should-not-trigger, and broken queue refusal
+- `recall-replay.token.test.mjs`: token-backed provider-matrix replay that asserts clean-context policy echo across enabled providers (self-skips without a configured provider matrix)

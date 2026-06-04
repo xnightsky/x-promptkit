@@ -28,12 +28,26 @@ Responsibilities:
 - `run-eval.mjs`: evaluate a single queue in score-only or live mode, or batch multiple queue targets in live mode, then print either the fixed five-section report or a batch wrapper with per-target embedded reports
 - `iitest-lib.mjs`: initialized-workspace recall harness helpers
 - `run-iitest.mjs`: initialize a temp workspace from a fixture, run a task phase in a child executor, then run the recall phase and score it
+- `replay-matrix.mjs`: turn a provider matrix into an ephemeral, in-process recall agent for offline self-tests and token-backed replay
 
 Live recall defaults:
 
 - every recall-phase bridge request carries `context_policy.id = clean-context-v1`
 - `clean-context-v1` means memory-only answer, no tools, no web search, and no repo reads
 - compare live recall runs only when they used the same clean-context policy
+
+Provider-matrix replay (token):
+
+- the replay harness turns a `.env`-style provider matrix into an ephemeral, in-process recall agent; it has zero local footprint (nothing is written to disk and no clean-up step runs) and pulls the clean-context policy from `carrier-adapter.mjs` so the replay path and the live recall path stay aligned
+- reusable scoring or carrier strategy belongs upstream in the shared runtime, not in this harness
+- helper module: `replay-matrix.mjs`
+- offline coverage: `npm run test:recall-replay-unit` (also runs under the default `npm test`)
+- token-backed replay: `npm run iitest:token:recall-replay` (excluded from the default `npm run iitest`; self-skips unless a key-bearing provider is enabled)
+- copy `.recall-replay.env.example.yaml` to `.recall-replay.env.yaml` (git-ignored) and fill in real values; override the path with the `RECALL_REPLAY_MATRIX` environment variable
+- secrets are referenced through `key_env` only; inline `key` values are allowed solely for the offline `echo` backend
+- supported `api` values: `openai-chat`, `anthropic-messages`, `gemini-generate`, `echo`
+- supported memory modes: `in-process` (keep recalled facts inside the ephemeral agent) and `upstream` (defer persistence to the shared recall store)
+- every replay request carries `context_policy.id = clean-context-v1`; the token suite asserts the provider echoes it back
 
 Runtime failure accounting:
 
@@ -63,6 +77,7 @@ Test layers:
 - `npm run test:recall-unit`: pure function coverage for queue validation, carrier precedence, scoring, and report formatting
 - `npm run test:recall-bridge`: carrier adapter contract coverage without requiring a real host subagent
 - `npm run test:recall-cli`: black-box CLI coverage for `validate-schema`, `resolve-target`, and `run-eval`
+- `npm run test:recall-replay-unit`: offline coverage for the provider-matrix replay helper (matrix parsing, provider selection, protocol dispatch via injected fetch, and echo-backend scoring)
 - `npm run iitest:recall-harness`: initialized-workspace harness coverage with a fake child executor; despite the fake executor, this is still integration coverage because it validates the full workspace/task/recall orchestration path
 - `integration-tests/recall-eval/`: real integration-test assets for initialized-workspace recall, including YAML suites, fixtures, docs, and host-backed tests
 
