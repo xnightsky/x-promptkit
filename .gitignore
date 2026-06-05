@@ -155,5 +155,8 @@ __pycache__/
 # Local Codex marker file in repo root
 /.codex
 
-# recall-evaluator provider matrix (real secrets live here; the .example template stays tracked)
-skills/recall-evaluator/.recall-replay.env.yaml
+# recall-evaluator provider 矩阵:真实密钥写在「使用方仓库根目录」的下列文件里，
+# 这些文件绝不入库;仓库内仅保留 .recall-replay.env.example.yaml 模板。
+/.recall-replay.env.yaml
+/.recall-replay.env.yml
+/.recall-replay.env

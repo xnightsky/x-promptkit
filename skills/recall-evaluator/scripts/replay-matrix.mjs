@@ -1,24 +1,35 @@
 // skills/recall-evaluator/scripts/replay-matrix.mjs
 //
-// Provider-matrix replay helper for the recall-evaluator skill.
+// recall-evaluator 技能的「provider 矩阵」回放(replay)助手。
 //
-// This module turns a ".env"-style provider matrix (declared in YAML) into an
-// ephemeral, in-process recall agent run. It is intentionally free of local
-// state: nothing is written to disk, no clean-up step is required, and the
-// clean-context policy is sourced from the upstream carrier-adapter so the
-// replay path and the live recall path stay in lock-step. Any reusable scoring
-// or carrier strategy belongs upstream in the shared runtime, not here.
+// 本模块把一份 ".env" 风格的 provider 矩阵(用 YAML 声明)转换成一个
+// 临时的、进程内的 recall agent 运行。它刻意做到对本地零依赖:
+//   - 运行过程不向磁盘写任何文件，结束后直接丢弃引用，无需任何清理步骤;
+//   - clean-context 策略统一从上游 carrier-adapter 读取，保证「回放路径」与
+//     「真实 recall 路径」始终对齐;
+//   - 任何可复用的打分 / carrier 策略都应沉淀到上游共享 runtime，而不是这里。
 
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { parse as parseYaml } from "yaml"
 import {
 	SUBAGENT_CARRIER,
 	DEFAULT_CLEAN_CONTEXT_POLICY,
 } from "./carrier-adapter.mjs"
 
-export const DEFAULT_REPLAY_MATRIX_PATH =
-	"skills/recall-evaluator/.recall-replay.env.yaml"
+// 真实矩阵文件「默认放在使用方仓库根目录」，而不是技能安装目录。
+// 在仓库根按顺序命中下列文件名中的第一个。
+export const REPLAY_MATRIX_FILENAMES = Object.freeze([
+	".recall-replay.env.yaml",
+	".recall-replay.env.yml",
+	".recall-replay.env",
+])
+
+// 覆盖矩阵路径用的环境变量名。
 export const DEFAULT_REPLAY_MATRIX_ENV = "RECALL_REPLAY_MATRIX"
+
+// 仅用于文档 / 错误信息展示的「主文件名」(相对仓库根)。
+export const DEFAULT_REPLAY_MATRIX_PATH = REPLAY_MATRIX_FILENAMES[0]
 
 export const SUPPORTED_REPLAY_APIS = Object.freeze([
 	"openai-chat",
@@ -36,8 +47,51 @@ const DEFAULT_DEFAULTS = Object.freeze({
 	timeout_ms: 60000,
 })
 
-// Parse a provider-matrix YAML string into a normalized matrix object. Provider
-// entries inherit the top-level defaults so callers always see resolved values.
+// 从 startDir 逐级向上寻找仓库根:命中含 `.git` 的目录即认为是仓库根。
+// 若一直走到文件系统根仍未命中，则回退为起点目录，保证行为可预测、可测试。
+// fileExists 可注入，便于测试不触碰真实文件系统。
+export function findRepoRoot(startDir, options = {}) {
+	const { fileExists = (target) => existsSync(target) } = options
+	let current = startDir
+	while (true) {
+		if (fileExists(join(current, ".git"))) {
+			return current
+		}
+		const parent = dirname(current)
+		if (parent === current) {
+			return startDir
+		}
+		current = parent
+	}
+}
+
+// 解析真实矩阵文件路径。优先级:
+//   1) RECALL_REPLAY_MATRIX 环境变量(显式指定，最高优先);
+//   2) 从 cwd 向上找到的仓库根下，按 REPLAY_MATRIX_FILENAMES 命中的第一个存在文件;
+//   3) 都不存在时回退到「仓库根 + 主文件名」，让后续读取报错时指向正确位置。
+// cwd / env / fileExists 均可注入，便于测试。
+export function discoverReplayMatrixPath(options = {}) {
+	const {
+		cwd = process.cwd(),
+		env = process.env,
+		fileExists = (target) => existsSync(target),
+	} = options
+	const override = env[DEFAULT_REPLAY_MATRIX_ENV]
+	if (typeof override === "string" && override.length > 0) {
+		return override
+	}
+	const repoRoot = findRepoRoot(cwd, { fileExists })
+	for (const filename of REPLAY_MATRIX_FILENAMES) {
+		const candidate = join(repoRoot, filename)
+		if (fileExists(candidate)) {
+			return candidate
+		}
+	}
+	return join(repoRoot, REPLAY_MATRIX_FILENAMES[0])
+}
+
+// 把一份 provider 矩阵 YAML 文本解析为规范化的矩阵对象。每个 provider 都会
+// 继承顶层 defaults，因此调用方拿到的永远是解析后的最终值。
 export function parseReplayMatrix(text) {
 	if (typeof text !== "string" || text.trim() === "") {
 		throw new Error("replay matrix source is empty")
@@ -69,22 +123,22 @@ export function parseReplayMatrix(text) {
 	}
 }
 
-// Resolve the matrix path (explicit > env var > default) and parse it. The file
-// reader is injectable so tests never touch the real filesystem.
+// 解析矩阵路径(显式 path > 发现规则)并读取解析。文件读取函数可注入，
+// 测试因此永不触碰真实文件系统。
 export function loadReplayMatrix(options = {}) {
 	const {
 		path,
+		cwd = process.cwd(),
 		env = process.env,
+		fileExists,
 		fileReader = (target) => readFileSync(target, "utf8"),
 	} = options
-	const resolved =
-		path ?? env[DEFAULT_REPLAY_MATRIX_ENV] ?? DEFAULT_REPLAY_MATRIX_PATH
+	const resolved = path ?? discoverReplayMatrixPath({ cwd, env, fileExists })
 	const text = fileReader(resolved)
 	return { path: resolved, matrix: parseReplayMatrix(text) }
 }
 
-// Structural validation. Returns { ok, errors } rather than throwing so callers
-// can surface every problem at once.
+// 结构化校验。返回 { ok, errors } 而非抛错，便于调用方一次性暴露所有问题。
 export function validateReplayMatrix(matrix) {
 	const errors = []
 	if (!matrix || typeof matrix !== "object") {
@@ -128,9 +182,8 @@ export function validateReplayMatrix(matrix) {
 	return { ok: errors.length === 0, errors }
 }
 
-// Pick providers that are enabled AND reachable. Real providers need their
-// key_env (or an inline echo key) present, which is what makes the token suite
-// self-skip when no credentials are configured.
+// 选出「已启用且可达」的 provider。真实 provider 需要其 key_env(或 echo 的内联
+// key)存在，这正是 token 套件在没有任何凭据时能自动跳过的原因。
 export function selectEnabledProviders(matrix, options = {}) {
 	const { env = process.env } = options
 	const providers = Array.isArray(matrix?.providers) ? matrix.providers : []
@@ -149,9 +202,8 @@ export function selectEnabledProviders(matrix, options = {}) {
 	})
 }
 
-// Build the system/user messages for one recall case. The clean-context policy
-// is echoed in the system prompt and the recalled memory is the only allowed
-// answer basis.
+// 为单个 recall case 构造 system / user 消息。clean-context 策略会被写进
+// system 提示，且「召回到的 memory」是唯一允许的作答依据。
 export function buildReplayMessages(caseReport, options = {}) {
 	const policy = { ...DEFAULT_CLEAN_CONTEXT_POLICY, ...(options.policy ?? {}) }
 	const memory =
@@ -171,7 +223,7 @@ export function buildReplayMessages(caseReport, options = {}) {
 	return { system, user: caseReport?.question ?? "", policy }
 }
 
-// Pull the echoed clean-context policy id out of a model response.
+// 从模型回答里抽取被回显的 clean-context 策略 id。
 export function extractPolicyEcho(text) {
 	if (typeof text !== "string") {
 		return null
@@ -180,8 +232,7 @@ export function extractPolicyEcho(text) {
 	return match ? match[1] : null
 }
 
-// Dispatch one request to a provider. The echo backend short-circuits offline;
-// real backends go through an injectable fetch implementation.
+// 向某个 provider 发起一次请求。echo 后端离线短路;真实后端走可注入的 fetch 实现。
 export async function callReplayModel(options = {}) {
 	const {
 		provider,
@@ -225,9 +276,8 @@ export async function callReplayModel(options = {}) {
 	}
 }
 
-// Assemble an ephemeral in-process agent. It holds no persistent state; its
-// run() answers a single recall case and the caller simply drops the reference
-// when finished (no clean-up needed).
+// 组装一个临时的进程内 agent。它不持有任何持久状态;run() 回答单个 recall case，
+// 调用方用完直接丢弃引用即可(无需清理)。
 export function assembleEphemeralAgent(options = {}) {
 	const {
 		matrix,
@@ -266,9 +316,8 @@ export function assembleEphemeralAgent(options = {}) {
 	}
 }
 
-// A tiny built-in recall queue used by both the offline unit test and the
-// token suite. The must_not_include token is deliberately a synthetic string
-// (not a number like "80") so it cannot collide with answer content.
+// 一个内置的极小 recall 队列，离线单测与 token 套件共用。must_not_include 刻意
+// 用合成字符串(而非像 "80" 这样的数字)，以免与正常答案内容碰撞。
 export function buildReplayQueueFixture() {
 	return {
 		version: 1,
@@ -298,6 +347,7 @@ export function buildReplayQueueFixture() {
 	}
 }
 
+// 按 api 类型构造底层 HTTP 请求(url / headers / body)。
 function buildProviderRequest({ provider, messages, key }) {
 	const api = provider.api
 	const model = provider.model
@@ -356,6 +406,7 @@ function buildProviderRequest({ provider, messages, key }) {
 	throw new Error(`unsupported api "${api}"`)
 }
 
+// 从不同 api 的响应体里抽取纯文本答案。
 function extractProviderText(api, payload) {
 	if (api === "openai-chat") {
 		return payload?.choices?.[0]?.message?.content ?? ""
