@@ -12,7 +12,6 @@ Commands:
 - `npm run recall:run -- <yaml-path|target-path> --case <id> --answer "<text>"`
 - `npm run recall:run -- <yaml-path|target-path> --case <id> --live [--runs-dir <path>]`
 - `npm run recall:run -- <yaml-path|target-path> [<yaml-path|target-path> ...] --live [--runs-dir <path>]`
-- `npm run recall:iitest -- <suite-yaml> [--case <id>] [--keep-workspace]`
 
 Development rules:
 
@@ -26,8 +25,6 @@ Responsibilities:
 - `resolve-target.mjs`: inspect effective `source_ref`
 - `carrier-adapter.mjs`: runtime carrier bridge, clean-context policy injection, failure normalization, and retry budgeting
 - `run-eval.mjs`: evaluate a single queue in score-only or live mode, or batch multiple queue targets in live mode, then print either the fixed five-section report or a batch wrapper with per-target embedded reports
-- `iitest-lib.mjs`: initialized-workspace recall harness helpers
-- `run-iitest.mjs`: initialize a temp workspace from a fixture, run a task phase in a child executor, then run the recall phase and score it
 - `replay-matrix.mjs`: turn a provider matrix into an ephemeral, in-process recall agent for offline self-tests and token-backed replay
 
 Live recall defaults:
@@ -43,7 +40,8 @@ Provider-matrix replay (token):
 - helper module: `replay-matrix.mjs`
 - offline coverage: `npm run test:recall-replay-unit` (also runs under the default `npm test`)
 - token-backed replay: `npm run iitest:token:recall-replay` (excluded from the default `npm run iitest`; self-skips unless a key-bearing provider is enabled)
-- copy `.recall-replay.env.example.yaml` to `.recall-replay.env.yaml` (git-ignored) and fill in real values; override the path with the `RECALL_REPLAY_MATRIX` environment variable
+- matrix discovery walks up from the current working directory to the repo root (the directory containing `.git`) and reads the first of `.recall-replay.env.yaml` / `.recall-replay.env.yml` / `.recall-replay.env`; override the path with the `RECALL_REPLAY_MATRIX` environment variable
+- copy `.recall-replay.env.example.yaml` to the repo-root `.recall-replay.env.yaml` (git-ignored) and fill in real values
 - secrets are referenced through `key_env` only; inline `key` values are allowed solely for the offline `echo` backend
 - supported `api` values: `openai-chat`, `anthropic-messages`, `gemini-generate`, `echo`
 - supported memory modes: `in-process` (keep recalled facts inside the ephemeral agent) and `upstream` (defer persistence to the shared recall store)
@@ -78,14 +76,5 @@ Test layers:
 - `npm run test:recall-bridge`: carrier adapter contract coverage without requiring a real host subagent
 - `npm run test:recall-cli`: black-box CLI coverage for `validate-schema`, `resolve-target`, and `run-eval`
 - `npm run test:recall-replay-unit`: offline coverage for the provider-matrix replay helper (matrix parsing, provider selection, protocol dispatch via injected fetch, and echo-backend scoring)
-- `npm run iitest:recall-harness`: initialized-workspace harness coverage with a fake child executor; despite the fake executor, this is still integration coverage because it validates the full workspace/task/recall orchestration path
-- `integration-tests/recall-eval/`: real integration-test assets for initialized-workspace recall, including YAML suites, fixtures, docs, and host-backed tests
-
-`run-iitest.mjs` expects a suite yaml that points at:
-
-- a recall queue
-- a fixture directory to copy into a temp workspace
-- a `task_prompt` to execute before recall
-- optional `workspace_assert` checks
-
-The real executor path is host-injected. The default command bridge reads a JSON request from stdin and should return plain-text output on stdout.
+- `npm run iitest:token:recall-replay`: token-backed provider-matrix replay across enabled providers (self-skips without a configured provider matrix)
+- `integration-tests/recall-eval/`: token-backed integration assets for recall evaluation

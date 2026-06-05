@@ -1,95 +1,24 @@
 # recall-eval integration-tests
 
-Overview: see [../README.md](../README.md). This directory stores initialized-workspace recall integration tests, including token-backed real host validation, and their supporting assets.
+Overview: see [../README.md](../README.md). This directory holds token-backed integration coverage for recall evaluation.
 
-These files define repo-root integration coverage for initialized-workspace recall.
-
-They are not the schema source of truth. Real recall fixtures live next to the prompt targets under `.recall/`.
-
-## Main Model
-
-Each suite drives this lifecycle:
-
-1. Read the suite yaml.
-2. Load the referenced queue.
-3. Copy `fixture_ref` into a fresh temp workspace.
-4. Execute `task_prompt` in that temp workspace through a host-injected child executor.
-5. Validate `workspace_assert` when present.
-6. Ask each selected recall question through the same executor contract.
-7. Score the recall answer with the queue's `expected` and `score_rule`.
-
-## Suite Contract
-
-Required fields:
-
-- `name`
-- `queue`
-- `fixture_ref`
-- `task_prompt`
-- `cases`
-
-Optional fields:
-
-- `carrier`
-- `workspace_assert.must_exist`
-- `workspace_assert.file_contains`
-
-`cases` must list queue case ids. The queue remains the source of truth for:
-
-- `source_ref`
-- `question`
-- `medium`
-- `carrier`
-- `expected`
-- `score_rule`
-
-## Executor Contract
-
-The default bridge uses `RECALL_EVAL_SUBAGENT_EXECUTOR_COMMAND`.
-
-The command receives one JSON request on stdin:
-
-```json
-{
-  "phase": "task|recall",
-  "prompt": "...",
-  "workspace_root": "<workspace-root>",
-  "source_ref": "AGENTS.md#anchor",
-  "carrier": "isolated-context-run:subagent",
-  "case_id": "case-id",
-  "medium": "skill-mechanism",
-  "context_policy": {
-    "id": "clean-context-v1",
-    "answer_basis": "memory-only",
-    "tools": "forbidden",
-    "web_search": "forbidden",
-    "repo_read": "forbidden"
-  }
-}
-```
-
-The command must return plain text on stdout.
-
-Notes:
-
-- task phase sets `context_policy` to `null`; recall phase must carry `clean-context-v1`
-- live recall comparability depends on preserving that clean-context policy
-- bridge/runtime failures should be reported separately from answer-content scoring
-
-## Execution Policy
-
-- treat everything under this directory as real integration-test assets, whether the file is YAML, Markdown, fixture content, or executable test code
-- initialized-workspace recall orchestration is always an integration test, even when the child executor itself is fake
-- use these suites when changing carrier/runtime wiring or when you need higher confidence in a token-backed real host path
-- keep assertions focused on task success, workspace state, status classification, and recall scoring rather than long answer bodies
-- classify runtime environment failures separately from content failures; bridge EOF / stream closed should not become a recall score
+These files are not the schema source of truth. Real recall fixtures live next to the prompt targets under `.recall/`.
 
 ## Current Suites
 
-- `smoke.test.yaml`: happy-path initialized workspace recall
-- `carrier-resolution.test.yaml`: explicit carrier resolution through the harness path
-- `carrier-execution-failure.test.yaml`: task phase succeeds but recall carrier execution fails in runtime
-- `mixed-source-ref.test.yaml`: queue-level and case-level `source_ref` resolution through the harness path
-- `harness.test.mjs`: fake executor + temp workspace orchestration coverage
-- `real-host.token.test.mjs`: token-backed real Codex host validation for should-trigger, should-not-trigger, and broken queue refusal
-- `recall-replay.token.test.mjs`: token-backed provider-matrix replay that asserts clean-context policy echo across enabled providers (self-skips without a configured provider matrix)
+- `recall-replay.token.test.mjs`: token-backed provider-matrix replay that asserts the clean-context policy echo across enabled providers (self-skips without a configured provider matrix)
+
+## Provider-matrix replay
+
+The replay suite turns a `.env`-style provider matrix into an ephemeral, in-process recall agent. It has zero local footprint — nothing is written to disk and no clean-up step runs — and pulls the clean-context policy from `carrier-adapter.mjs` so the replay path and the live recall path stay aligned.
+
+- helper module: `skills/recall-evaluator/scripts/replay-matrix.mjs`
+- matrix discovery walks up from the current working directory to the repo root (the directory containing `.git`) and reads the first of `.recall-replay.env.yaml` / `.recall-replay.env.yml` / `.recall-replay.env`; override with `RECALL_REPLAY_MATRIX`
+- copy `skills/recall-evaluator/.recall-replay.env.example.yaml` to the repo-root `.recall-replay.env.yaml` (git-ignored) and fill in real values
+- run with `npm run iitest:token:recall-replay` (excluded from the default `npm run iitest`)
+
+## Execution Policy
+
+- treat everything under this directory as real integration-test assets
+- keep assertions focused on clean-context policy echo and recall scoring rather than long answer bodies
+- classify runtime environment failures separately from content failures; bridge EOF / stream closed should not become a recall score

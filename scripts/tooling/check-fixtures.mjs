@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-import fs from "node:fs";
-import YAML from "yaml";
-
-import { validateIitestSuite } from "../../skills/recall-evaluator/scripts/iitest-lib.mjs";
 import { loadRecallYaml, validateRecallData } from "../../skills/recall-evaluator/scripts/lib.mjs";
 import { classifyFixturePath, formatFailures, walkRepoFiles } from "./lib.mjs";
 
@@ -14,26 +10,19 @@ const failures = [];
 
 for (const filePath of yamlFiles) {
   const fixture = classifyFixturePath(filePath);
-  if (!fixture) {
+  // 只校验 recall 契约 fixture。workspace harness(iitest)已整体移除，
+  // 其他分类(如 integration-test yaml)不再做 schema 校验，直接跳过。
+  if (!fixture || fixture.kind !== "recall") {
     continue;
   }
 
-  if (fixture.kind === "recall") {
-    const loaded = loadRecallYaml(filePath, rootDir);
-    const report = validateRecallData(loaded.data);
-    // The repository keeps both valid fixtures and intentionally broken contract fixtures.
-    if (report.isValid !== fixture.expectValid) {
-      failures.push(
-        `${filePath}: expected ${fixture.expectValid ? "valid" : "invalid"} recall fixture`,
-      );
-    }
-    continue;
-  }
-
-  const suite = YAML.parse(fs.readFileSync(filePath, "utf8"));
-  const report = validateIitestSuite(suite);
+  const loaded = loadRecallYaml(filePath, rootDir);
+  const report = validateRecallData(loaded.data);
+  // 仓库同时保留合法 fixture 与「故意写坏」的契约 fixture。
   if (report.isValid !== fixture.expectValid) {
-    failures.push(`${filePath}: expected valid integration-test suite`);
+    failures.push(
+      `${filePath}: expected ${fixture.expectValid ? "valid" : "invalid"} recall fixture`,
+    );
   }
 }
 
