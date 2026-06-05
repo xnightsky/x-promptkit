@@ -39,6 +39,27 @@ const DEFAULT_DEFAULTS = Object.freeze({
   timeout_ms: 60000,
 });
 
+// ── 路径展开 ──
+
+/**
+ * 把配置里的 `~` 前缀展开为用户 home 目录。
+ *
+ * 为什么需要:`~` 展开是 shell 的行为,Node 与 Windows 都不会自动做——
+ * `RECALL_REPLAY_MATRIX=~/.recall-replay.env.yaml` 在 Windows 上会被当成
+ * 名为 `~` 的普通目录,导致配置静默失效。这里做一层显式转换,
+ * 让 POSIX / Windows 行为一致。
+ *
+ * 边界:只处理 `~`、`~/`、`~\` 前缀;`~user` 形式依赖系统用户数据库,刻意不支持。
+ */
+export function expandHomePath(inputPath, homeDir = homedir()) {
+  if (typeof inputPath !== "string" || inputPath.length === 0) return inputPath;
+  if (inputPath === "~") return homeDir;
+  if (inputPath.startsWith("~/") || inputPath.startsWith("~\\")) {
+    return join(homeDir, inputPath.slice(2));
+  }
+  return inputPath;
+}
+
 // ── 仓库根发现 ──
 
 export function findRepoRoot(startDir, fileExists = (t) => existsSync(t)) {
@@ -68,8 +89,8 @@ export function loadProviders(options = {}) {
     fileReader = (t) => readFileSync(t, "utf8"),
   } = options;
 
-  // 发现矩阵文件
-  const override = env.RECALL_REPLAY_MATRIX;
+  // 发现矩阵文件;override 先做 `~` 展开,否则 Windows 上指向不存在的字面目录
+  const override = expandHomePath(env.RECALL_REPLAY_MATRIX, homeDir);
   const candidates = [cwd, findRepoRoot(cwd, fileExists), skillDir, homeDir];
   const seen = new Set();
   let matrixPath = null;

@@ -21,7 +21,8 @@ import {
   scoreAnswer,
   validateRecallData,
 } from "./lib.mjs";
-import { loadProviders } from "../../_shared/model-client.mjs";
+import { dirname } from "node:path";
+import { findRepoRoot, loadProviders } from "../../_shared/model-client.mjs";
 import { runRecallAgent } from "./model-agent.mjs";
 
 // 带值的 flag（下一个 arg 为其取值）。
@@ -120,6 +121,9 @@ async function evaluateQueueTarget(yamlPath) {
   }
 
   const { path: inputPath, data } = loadedQueue;
+  // source_ref 约定为「相对于队列所在仓库根」:从队列文件位置向上找 .git。
+  // 不能用进程 cwd——队列可能以绝对路径从仓库外的工作目录被引用。
+  const sourceBaseDir = findRepoRoot(dirname(inputPath));
   const report = validateRecallData(data);
 
   let caseReports = report.caseReports;
@@ -165,6 +169,7 @@ async function evaluateQueueTarget(yamlPath) {
         question: caseReport.caseValue.question,
         provider,
         maxRetries: 2,
+        baseDir: sourceBaseDir,
       });
 
       if (!result.ok) {

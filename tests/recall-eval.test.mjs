@@ -303,15 +303,41 @@ test("run-eval executes live recall via echo provider and produces a report", ()
   assert.match(output, /Summary/);
 });
 
-// 场景：--live 时无显式 RECALL_REPLAY_MATRIX 但 home 目录有矩阵。预期：使用 home 矩阵。
+// 为 --live 的发现类用例搭隔离环境：临时 cwd(自带 .git,把仓库根收敛在沙箱内)
+// + 临时 home。home 通过 HOME / USERPROFILE 注入(os.homedir() 在 POSIX 读
+// HOME、Windows 读 USERPROFILE),因此用例不依赖宿主机真实 home 或仓库根的
+// 本地矩阵文件状态——这两处的本地文件都被 .gitignore 忽略,内容不可预期。
+function makeLiveSandbox() {
+  const sandboxCwd = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-cwd-"));
+  fs.mkdirSync(path.join(sandboxCwd, ".git"));
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-home-"));
+  return {
+    sandboxCwd,
+    homeDir,
+    // 子进程 cwd 是沙箱,队列路径必须用仓库根的绝对路径
+    queuePath: path.join(cwd, "skills", "recall-eval", ".recall", "queue.yaml"),
+    env: { HOME: homeDir, USERPROFILE: homeDir, RECALL_REPLAY_MATRIX: "" },
+  };
+}
+
+const ECHO_MATRIX = [
+  "version: 1",
+  "providers:",
+  "  - id: echo-home",
+  "    enabled: true",
+  "    api: echo",
+].join("\n");
+
+// 场景：--live 时无显式 RECALL_REPLAY_MATRIX 但 home 目录有矩阵。预期：自动发现 home 矩阵。
 test("run-eval uses home directory provider matrix when available in live mode", () => {
-  // 不注入额外 env，应该自动发现 /root/.recall-replay.env.yaml
-  const output = runScript("run-eval.mjs", [
-    "skills/recall-eval/.recall/queue.yaml",
-    "--case",
-    "recall_eval.reject_missing_medium",
-    "--live",
-  ]);
+  const { sandboxCwd, homeDir, queuePath, env } = makeLiveSandbox();
+  fs.writeFileSync(path.join(homeDir, ".recall-replay.env.yaml"), ECHO_MATRIX);
+
+  const output = runScript(
+    "run-eval.mjs",
+    [queuePath, "--case", "recall_eval.reject_missing_medium", "--live"],
+    { env, cwd: sandboxCwd },
+  );
 
   // 应产出 5 段报告结构
   assert.match(output, /Queue/);
@@ -319,6 +345,27 @@ test("run-eval uses home directory provider matrix when available in live mode",
   assert.match(output, /Integrity Check/);
   assert.match(output, /Case Results/);
   assert.match(output, /Summary/);
+  // 回归钉:source_ref 必须按队列所在仓库根解析;按进程 cwd(沙箱)解析时
+  // 这里会稳定输出 not evaluated | source_ref not found
+  assert.doesNotMatch(output, /source_ref not found/);
+});
+
+// 场景：RECALL_REPLAY_MATRIX 用 `~/` 前缀指向 home 下的矩阵。预期：展开后正常 live。
+// 矩阵文件名刻意不在自动发现名单里，证明走的是 override 展开而非目录发现。
+test("run-eval expands a ~ prefix in RECALL_REPLAY_MATRIX to the home directory", () => {
+  const { sandboxCwd, homeDir, queuePath, env } = makeLiveSandbox();
+  fs.writeFileSync(path.join(homeDir, "custom-matrix.yaml"), ECHO_MATRIX);
+
+  const output = runScript(
+    "run-eval.mjs",
+    [queuePath, "--case", "recall_eval.reject_missing_medium", "--live"],
+    { env: { ...env, RECALL_REPLAY_MATRIX: "~/custom-matrix.yaml" }, cwd: sandboxCwd },
+  );
+
+  assert.match(output, /Case Results/);
+  assert.match(output, /Summary/);
+  assert.doesNotMatch(output, /SKIP: no active provider/);
+  assert.doesNotMatch(output, /source_ref not found/);
 });
 
 // 场景：无 --live 且未提供直接答案。预期：not evaluated | missing answer input。

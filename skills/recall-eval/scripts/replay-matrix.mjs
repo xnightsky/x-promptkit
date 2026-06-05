@@ -19,6 +19,7 @@ import {
 	DEFAULT_CLEAN_CONTEXT_POLICY,
 } from "./lib.mjs"
 import { callModel } from "../../_shared/model-runner.mjs"
+import { expandHomePath } from "../../_shared/model-client.mjs"
 
 // 本脚本(replay-matrix.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
 // 当作候选目录之一，从而支持把 .recall-replay.env.yaml 放在技能安装目录旁边。
@@ -119,7 +120,9 @@ export function discoverReplayMatrixPath(options = {}) {
 	} = options
 	const override = env[DEFAULT_REPLAY_MATRIX_ENV]
 	if (typeof override === "string" && override.length > 0) {
-		return override
+		// `~` 前缀展开为 homeDir:shell 之外没人会替我们展开它,
+		// 尤其 Windows 上会被当成字面目录名导致 override 静默失效
+		return expandHomePath(override, homeDir)
 	}
 	const searchDirs = replayMatrixSearchDirs({
 		cwd,
@@ -269,15 +272,21 @@ export function buildReplayMessages(caseReport, options = {}) {
 		caseReport?.context ??
 		caseReport?.source_text ??
 		""
-	const system = [
+	const lines = [
 		`policy: ${policy.id}`,
 		`answer_basis: ${policy.answer_basis}`,
 		"You may only answer using the memory provided below.",
-		"",
-		"<memory>",
-		memory,
-		"</memory>",
-	].join("\n")
+	]
+	// assert_echo 时必须显式要求模型回显策略 id:echo 后端会原样回显整个 prompt
+	// 所以"碰巧"通过,但真实模型不会照抄 system 里的声明行——没有这条指令,
+	// extractPolicyEcho 对真实 provider 永远拿到 null,token 套件必挂。
+	if (policy.assert_echo !== false) {
+		lines.push(
+			`Begin your reply with this exact line, then answer on the next line: policy: ${policy.id}`,
+		)
+	}
+	lines.push("", "<memory>", memory, "</memory>")
+	const system = lines.join("\n")
 	return { system, user: caseReport?.question ?? "", policy }
 }
 
@@ -288,6 +297,19 @@ export function extractPolicyEcho(text) {
 	}
 	const match = text.match(/policy:\s*(\S+)/)
 	return match ? match[1] : null
+}
+
+// 把 provider 的 apikey(env 变量名或 inline key)物化为实际 key 值。
+// callModel 只读取 provider.key;若不在这里解析,带 `apikey: SOME_ENV_NAME`
+// 的 provider 会以 `Bearer undefined` 发请求,稳定得到 401。
+// 解析顺序与 selectEnabledProviders 的可达性判断保持一致:
+// 优先同名环境变量,取不到则把字段值本身当 inline key。
+export function resolveProviderKey(provider, env = process.env) {
+	const rawKey = provider?.apikey || provider?.key_env || provider?.key
+	if (typeof rawKey !== "string" || rawKey.length === 0) {
+		return ""
+	}
+	return env[rawKey] || rawKey
 }
 
 // 组装一个临时的进程内 agent。它不持有任何持久状态;run() 回答单个 recall case，
@@ -306,6 +328,8 @@ export function assembleEphemeralAgent(options = {}) {
 		...DEFAULT_CLEAN_CONTEXT_POLICY,
 		...(matrix?.context_policy ?? {}),
 	}
+	// callModel 只认 provider.key,这里先把 apikey/key_env 物化为实际 key 值
+	const effectiveProvider = { ...provider, key: resolveProviderKey(provider, env) }
 	return {
 		id: `recall-replay:${provider.id}`,
 		carrier: SUBAGENT_CARRIER,
@@ -315,7 +339,7 @@ export function assembleEphemeralAgent(options = {}) {
 		async run(caseReport) {
 			const messages = buildReplayMessages(caseReport, { policy })
 			const prompt = messages.system + "\n\n---\n\n" + messages.user
-			const answer = await callModel(provider, prompt, { maxRetries: 0, fetchImpl })
+			const answer = await callModel(effectiveProvider, prompt, { maxRetries: 0, fetchImpl })
 			return {
 				caseId: caseReport?.id,
 				provider: provider.id,
