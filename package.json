@@ -1,7 +1,7 @@
 {
   "name": "x-promptkit",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "sync:codex-bridge-runtime": "node scripts/tooling/sync-codex-bridge-runtime.mjs",
