@@ -57,7 +57,7 @@
 - `npm test` 与所有 `test:*` 前缀脚本只属于单元测试。
 - `npm run iitest` 与所有 `iitest:*` 前缀脚本只属于集成测试。
 - `iitest:token:*` 只用于会消耗真实 AI token 的显式集成测试入口。
-- `*.token.test.mjs` 不进入默认批量回归，只能通过对应显式 `iitest:token:*` 脚本单独运行。
+- 消耗真实 token 的集成测试统一命名为 `*.token.ittest.mjs`，不进入默认批量回归，只能通过对应显式 `iitest:token:*` 脚本单独运行；不要再用 `*.token.test.mjs` 旧命名。
 - 纯 fake is unit。即使起了子进程，只要不消耗真实 AI token，且不验证整个环境或编排行为，仍按单元测试处理。
 - 任何真实 AI 调用、真实 token 消耗、workspace/clean-room 生命周期、artifact 持久化、carrier/harness 编排或真实宿主路径验证，都属于集成测试。
 

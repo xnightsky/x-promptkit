@@ -11,7 +11,8 @@ const testFiles = walkRepoFiles(rootDir, {
   // `npm test` is the unit-test entrypoint. Keep it scoped to the low-side-
   // effect suite under `tests/` and leave all environment/runtime integration
   // coverage, including token-backed host validation, to dedicated `iitest`
-  // entrypoints.
+  // entrypoints. Token suites are named `*.token.ittest.mjs` by convention;
+  // the `.token.test.mjs` exclusion below is a guard against legacy naming.
   const normalizedPath = filePath.split(path.sep).join("/");
   return (
     normalizedPath.startsWith("tests/") &&

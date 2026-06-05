@@ -9,7 +9,7 @@
 - `test:*` 前缀只属于单元测试
 - `iitest:*` 前缀只属于集成测试
 - `iitest:token:*` 只用于会消耗真实 AI token 的显式集成测试入口
-- `*.token.test.mjs` 不进入默认 `npm run iitest`
+- 消耗真实 token 的集成测试统一命名 `*.token.ittest.mjs`（`.ittest.mjs` 后缀天然不被 `npm run iitest` 批量收集），不要再用 `*.token.test.mjs` 旧命名
 - 纯 fake is unit；验证整个环境或消耗真实 token 才是集成测试
 
 本目录只描述测试入口、执行协议和维护约束，不替代各子系统自己的 schema、runtime 或专题设计文档。
@@ -25,17 +25,19 @@
 
 当前入口：
 
-- `integration-tests/recall-eval/recall-replay.token.test.mjs`
+- `integration-tests/recall-eval/recall-replay.token.ittest.mjs`
+- `integration-tests/recall-eval/recall-live.token.ittest.mjs`
 
 对应命令：
 
 - `npm run iitest`
 - `npm run iitest:token:recall-replay`
+- `npm run iitest:token:recall-live`
 
 说明：
 
-- `npm run iitest` 会收集 `integration-tests/` 下的非 token Node 集成测试（当前无，因此会报 "no active non-token integration test files"）
-- `iitest:token:recall-replay` 会触达真实宿主路径并消耗真实 token，验证 recall-replay 的真实宿主触发与 artifact 证据
+- `npm run iitest` 会收集 `integration-tests/` 下的非 token Node 集成测试；当前没有此类测试，因此按 SKIP 退出 0（空集是有意状态，新增非 token 集成测试后自动恢复收集）
+- `iitest:token:*` 会触达真实 provider 并消耗真实 token；无可用 provider 矩阵时自动跳过（self-skip）
 
 ### 2. Markdown case 集成测试
 
