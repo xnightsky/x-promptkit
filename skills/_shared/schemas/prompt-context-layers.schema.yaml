@@ -1,0 +1,33 @@
+# context 层声明的结构权威（类 JSON Schema 子集，由 _shared/schema-validator.mjs 解释执行）。
+#
+# 声明语义：调用方契约（如召回队列 yaml 的 `context` 块）用它显式回答两个问题——
+#   是否加载项目提示词（repo 层）、是否加载全局提示词（global 层）。
+# `enabled` 必须显式给布尔值：声明的意义就是「明确说要不要加载」，不许省略。
+#
+# schema 表达不了的跨字段语义（global.enabled 为 true 时必须给 path——
+# 全局提示词没有跨平台默认路径）由 prompt-context.mjs 的 validateContextSemantics 补足。
+# 人读样例见 ../examples/context-layers.example.yaml。
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: prompt-context layers declaration
+type: object
+additionalProperties: false
+properties:
+  repo:
+    $ref: "#/$defs/layer"
+  global:
+    $ref: "#/$defs/layer"
+$defs:
+  layer:
+    type: object
+    additionalProperties: false
+    required: [enabled]
+    properties:
+      enabled:
+        type: boolean
+      # repo 层省略 path 时约定默认 AGENTS.md（相对调用方给定的解析基准目录）
+      path:
+        type: string
+        pattern: "\\S"
+      max_bytes:
+        type: integer
+        minimum: 1

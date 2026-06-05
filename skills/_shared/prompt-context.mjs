@@ -1,15 +1,38 @@
 // skills/_shared/prompt-context.mjs
 //
 // 三层上下文拼装引擎：纯函数，接收 config 对象，输出 system prompt 字符串。
-// 不读文件、不解析 YAML——文件读取由调用方完成，content 字段直接传入。
+// content 字段直接传入时不读文件；仅当 item 只给 path 时做兜底读取。
+//
+// 能力边界（机制层）：本模块只提供 skills/repo/global 三层的拼装能力与
+// context 声明的结构定义；是否加载哪一层、加载什么路径，一律由调用方决定，
+// 引擎不内置任何策略。策略（如 recall-eval 的 clean-context-v1）钉死在调用方代码。
+// 各共享模块的边界划分见 ./README.md。
 
 import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadSchemaFile, validateAgainstSchema } from "./schema-validator.mjs";
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+// context 层声明的结构权威：独立 schema 文件（类 JSON Schema 子集）
+const LAYERS_SCHEMA_PATH = resolve(SCRIPT_DIR, "schemas", "prompt-context-layers.schema.yaml");
 
 // ── 内部工具 ──
 
+// `~` 前缀展开：shell 行为，Node 与 Windows 都不会自动做；Windows 上 HOME
+// 常未设置（只有 USERPROFILE），直接用 process.env.HOME 会静默落空，
+// 因此统一走 os.homedir()。只支持 `~`、`~/`、`~\` 前缀，`~user` 形式刻意不支持。
+function expandHome(filePath) {
+  if (filePath === "~") return homedir();
+  if (filePath.startsWith("~/") || filePath.startsWith("~\\")) {
+    return join(homedir(), filePath.slice(2));
+  }
+  return filePath;
+}
+
 function readMaybe(filePath, cwd) {
-  const abs = resolve(cwd, filePath.replace(/^~/, (process.env.HOME || "")));
+  const abs = resolve(cwd, expandHome(filePath));
   if (!existsSync(abs)) return "";
   return readFileSync(abs, "utf8");
 }
@@ -92,4 +115,91 @@ export function buildSystemPrompt(config = {}) {
   }
 
   return parts.join("\n\n---\n\n");
+}
+
+// ── context 层声明：结构定义 ──
+//
+// 文件态声明形式（yaml/JSON 中书写，snake_case），供召回队列等调用方契约内嵌：
+//
+//   context:
+//     repo:   { enabled: true, path: "AGENTS.md", max_bytes: 8192 }
+//     global: { enabled: true, path: "~/.claude/CLAUDE.md", max_bytes: 4096 }
+//
+// 结构权威是独立 schema 文件 schemas/prompt-context-layers.schema.yaml
+// （人读样例见 examples/context-layers.example.yaml）；这里只补 schema
+// 表达不了的跨字段语义。「哪个用例该不该开哪层」属于调用方策略，不做判断。
+
+const CONTEXT_LAYER_KEYS = Object.freeze(["repo", "global"]);
+
+// 判断是否为普通对象（排除数组/null）。
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * 跨字段语义校验（schema 子集表达不了的部分）：
+ * `global.enabled: true` 必须显式给 `path`——全局提示词没有跨平台默认路径；
+ * repo 层允许省略 path（约定默认 AGENTS.md，相对解析基准目录）。
+ *
+ * @param {*} context - context 层声明
+ * @param {string} [basePath="context"] - 错误消息中的路径前缀
+ * @returns {string[]}
+ */
+export function validateContextSemantics(context, basePath = "context") {
+  if (!isPlainObject(context)) return [];
+
+  const globalLayer = context.global;
+  if (
+    isPlainObject(globalLayer) &&
+    globalLayer.enabled === true &&
+    (typeof globalLayer.path !== "string" || globalLayer.path.trim().length === 0)
+  ) {
+    return [`missing \`${basePath}.global.path\` (no cross-platform default for the global prompt)`];
+  }
+  return [];
+}
+
+/**
+ * 校验一份 context 层声明（shape 走 schema 文件 + 跨字段语义），
+ * 返回错误消息数组（空数组 = 合法）。
+ */
+export function validateContextLayers(context) {
+  const shapeErrors = validateAgainstSchema(context, loadSchemaFile(LAYERS_SCHEMA_PATH), {
+    basePath: "context",
+  }).map((error) => error.message);
+
+  return [...shapeErrors, ...validateContextSemantics(context)];
+}
+
+/**
+ * 把文件态声明（snake_case）映射为 buildSystemPrompt 的 repo/global config
+ * （camelCase）。repo 层省略 path 时落到约定默认值 AGENTS.md。
+ * 输入应已通过 validateContextLayers；对非法输入不做修复，仅尽力映射。
+ *
+ * @returns {{repo?: object, global?: object}}
+ */
+export function normalizeContextLayers(context) {
+  if (!isPlainObject(context)) return {};
+
+  const normalized = {};
+
+  for (const layer of CONTEXT_LAYER_KEYS) {
+    const value = context[layer];
+    if (!isPlainObject(value)) continue;
+
+    const config = { enabled: value.enabled === true };
+    const path = typeof value.path === "string" && value.path.trim().length > 0
+      ? value.path
+      : layer === "repo"
+        ? "AGENTS.md"
+        : undefined;
+    if (path !== undefined) config.path = path;
+    if (Number.isInteger(value.max_bytes) && value.max_bytes > 0) {
+      config.maxBytes = value.max_bytes;
+    }
+
+    normalized[layer] = config;
+  }
+
+  return normalized;
 }

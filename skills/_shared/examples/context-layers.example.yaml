@@ -1,0 +1,13 @@
+# context 层声明样例（非队列的简单版本）。
+# 结构权威：../schemas/prompt-context-layers.schema.yaml；本文件只是人读样例，
+# 由单元测试保证与 schema 持续一致。
+# 用法：整块内嵌进调用方契约（如召回队列 yaml 的 `context` 块），
+# 或作为独立文件由调用方读取后传给 prompt-context 引擎。
+repo:
+  enabled: true            # 必须显式布尔值：是否加载项目提示词
+  path: AGENTS.md          # 可省略；默认 AGENTS.md，相对调用方给定的解析基准目录
+  max_bytes: 8192          # 可选；正整数，超出部分按 UTF-8 字节截断
+global:
+  enabled: true            # 必须显式布尔值：是否加载全局提示词
+  path: ~/.claude/CLAUDE.md  # enabled 时必填——全局提示词没有跨平台默认路径
+  max_bytes: 4096
