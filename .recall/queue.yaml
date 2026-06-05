@@ -13,7 +13,8 @@ cases:
     expected:
       must_include:
         - 简体中文
-        - [by=x-promptkit]
+        # 注意引号：不带引号的 [..] 会被 YAML 解析成嵌套数组而不是字符串
+        - "[by=x-promptkit]"
       should_include:
         - 每次回复末尾
       must_not_include:
