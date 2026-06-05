@@ -1,6 +1,6 @@
 # integration-tests
 
-`integration-tests/` 用来放置集成测试资产。这里的边界不是“是否起子进程”，而是是否验证整个环境、编排链路、workspace/clean-room 生命周期，或是否消耗真实 AI token。
+`integration-tests/` 用来放置集成测试资产。这里的边界不是"是否起子进程"，而是是否验证整个环境、编排链路、workspace/clean-room 生命周期，或是否消耗真实 AI token。
 
 仓库级硬规则：
 
@@ -20,56 +20,34 @@
 
 适用场景：
 
-- 修改 clean-room、workspace-link、git-worktree、artifact 持久化等 runtime 行为
-- 修改 Codex runner 探测、执行链路、真实宿主交互
+- 修改 recall orchestration、队列装载、workspace assert、scoring 逻辑
+- 修改 recall-eval 的 YAML suite 契约或 fixture 交互
 
 当前入口：
 
-- `integration-tests/recall-eval/harness.test.mjs`
-- `integration-tests/claude-p-watch-pid-tail.test.mjs`
-- `integration-tests/claude-p-watch-discover-pid.test.mjs`
-- `integration-tests/codex-runner.harness.test.mjs`
-- `integration-tests/codex-runner.token.test.mjs`
-- `integration-tests/recall-eval/real-host.token.test.mjs`
+- `integration-tests/recall-eval/recall-replay.token.test.mjs`
 
 对应命令：
 
 - `npm run iitest`
-- `npm run iitest:recall-harness`
-- `npm run iitest:claude-p-watch-harness`
-- `npm run iitest:claude-p-watch`
-- `npm run iitest:codex-harness`
-- `npm run iitest:token:codex`
-- `npm run iitest:token:recall`
+- `npm run iitest:token:recall-replay`
 
 说明：
 
-- `npm run iitest` 会收集 `integration-tests/` 下的非 token Node 集成测试
-- `iitest:recall-harness` 用 fake child executor 覆盖 initialized-workspace recall 编排；它仍然是集成测试，因为验证的是整条 workspace/task/recall 环境链路
-- `iitest:claude-p-watch-harness` 用可控子进程验证 `tail-by-pid` 的 stdout/stderr regular-file capture 与 fallback
-- `iitest:claude-p-watch` 用 `discover-pid.mjs` 验证按命令特征 + 最近启动定位运行中 PID
-- `iitest:codex-harness` 偏向可控环境下的 runtime/harness 集成覆盖，也覆盖 legacy `SKILLS.fallback.md` 被规范化挂载为 `SKILL.md` 的 skill-loading 兼容路径
-- `iitest:token:codex` 会触达真实 Codex 宿主路径并消耗真实 token，适合需要验证真实环境时使用
-- `iitest:token:recall` 会触达真实 Codex 宿主路径并消耗真实 token，验证 recall-eval 的真实宿主触发与 artifact 证据
-
-更多背景见：
-
-- [isolated-context-run-codex/README.md](./isolated-context-run-codex/README.md)
-- [../docs/isolated-context-run-codex/README.md](../docs/isolated-context-run-codex/README.md)
+- `npm run iitest` 会收集 `integration-tests/` 下的非 token Node 集成测试（当前无，因此会报 "no active non-token integration test files"）
+- `iitest:token:recall-replay` 会触达真实宿主路径并消耗真实 token，验证 recall-replay 的真实宿主触发与 artifact 证据
 
 ### 2. Markdown case 集成测试
 
 适用场景：
 
-- 修改 `isolated-context-run` 父层输出骨架或 runner 选择语义
-- 修改 `isolated-context-run:subagent` / `isolated-context-run:codex` 的提示词契约
-- 调整 `Selected Runner`、`Why`、`Override`、`Install Guidance` 等面向用户的结构化输出
+- 修改 `ai-run` skill 的后端选择逻辑、命令模板或输出骨架
+- 修改 `isolated-context-run-subagent` 的提示词契约
 
 当前目录：
 
+- `integration-tests/ai-run/`
 - `integration-tests/isolated-context-run-subagent/`
-- `integration-tests/isolated-context-run-codex/`
-- `integration-tests/claude-p-watch/`
 
 执行协议：
 
@@ -84,43 +62,31 @@
 维护约束：
 
 - 这是协议说明，不表示仓库当前已经提供统一的自动化 npm script
-- 这类 case 默认先跑 minimal pass
-- 如果只差结构或字面片段，再做一次 targeted tightening pass
-- 如果 minimal pass 加一次 targeted tightening pass 之后仍不满足断言，应标记为 `prompt unresolved`
-- `subagent.md` 只放会发给执行 agent 的输入与执行约束；主代理专用的验证理由、watch 次数换算、维护者侧推导或验收计算规则，一律放到 `main-agent-assert.md`，通常写在 `## Assert Notes`
-- 如果 case 运行依赖 `skill_entries`，默认只挂当前 case 所需的最小 allowlist；不要把无关 repo skills 一起暴露给执行层
-- `integration-tests/claude-p-watch/` 这组 Markdown case 默认直接用 subagent carrier 执行即可；不要额外套 `isolated-context-run:codex`，除非某个 case 明确测试该层 wiring
+- Markdown case 默认直接用 subagent carrier 执行
+- 如果 case 运行依赖 `skill_entries`，只挂当前 case 所需的最小 allowlist
+- `subagent.md` 只放会发给执行 agent 的输入与执行约束
+- 主代理专用的验证理由与推导放到 `main-agent-assert.md`
 
 详细协议见：
 
+- [ai-run/README.md](./ai-run/README.md)
 - [isolated-context-run-subagent/README.md](./isolated-context-run-subagent/README.md)
-- [isolated-context-run-codex/README.md](./isolated-context-run-codex/README.md)
-- [claude-p-watch/README.md](./claude-p-watch/README.md)
 
 ### 3. YAML orchestration / fixture 集成测试
 
 适用场景：
 
 - 修改 recall orchestration、队列装载、workspace assert、scoring 逻辑
-- 修改 `integration-tests/recall-eval/*.test.yaml` 的 suite 契约
-- 修改 `.recall/` 队列数据、fixture 引用或 executor bridge
+- 修改 recall-eval fixture 引用或 executor bridge
 
 当前目录：
 
 - `integration-tests/recall-eval/`
-- `integration-tests/recall-eval/*.test.yaml`
 
 相关命令：
 
 - `npm run check`
 - `npm run check:fixtures`
-- `npm run recall:iitest`
-
-说明：
-
-- `npm run check` / `npm run check:fixtures` 负责 fixture 与 suite 契约校验
-- `npm run recall:iitest` 对应 recall integration runner，适合实际驱动 YAML suite
-- 这类 YAML 文件是 orchestration 层集成资产，不是 schema source of truth
 
 详细协议见：
 
@@ -128,14 +94,12 @@
 
 ## 怎么选
 
-- 修改 runtime / clean-room / Codex runner：
-  先跑 `npm run iitest:codex-harness`；需要真实宿主与 token 证据时再跑 `npm run iitest:token:codex`
-- 修改 `claude-p-watch` 持续监控或日志观察 runtime：
-  先跑 `npm run test:claude-p-watch-unit`、`npm run iitest:claude-p-watch-harness` 和 `npm run iitest:claude-p-watch`
-- 修改 Markdown prompt contract：
-  优先查看对应专题目录；`isolated-context-run*` 用 `integration-tests/isolated-context-run-subagent/` 与 `integration-tests/isolated-context-run-codex/`，`claude-p-watch` 的 watch 输出契约和状态说明用 `integration-tests/claude-p-watch/`
+- 修改 `ai-run` skill：
+  先跑集成测试 Markdown case（`integration-tests/ai-run/`），验证后端选择与命令骨架
+- 修改 `isolated-context-run-subagent`：
+  跑 `integration-tests/isolated-context-run-subagent/` 下的 Markdown case
 - 修改 recall orchestration / queue / fixture：
-  先跑 `npm run check:fixtures`，再按需要跑 `npm run recall:iitest`；需要真实宿主与 token 证据时再跑 `npm run iitest:token:recall`
+  先跑 `npm run check:fixtures`，再按需要跑 recall 相关测试
 - 需要完整仓库交付校验：
   按仓库默认顺序补齐 `npm run lint`、`npm run check`，必要时再跑 `npm run verify`
 

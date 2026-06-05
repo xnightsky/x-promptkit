@@ -40,80 +40,36 @@
 
 下面这些说明是根 README 补的最小教程,用来回答"我现在大概该用哪个 skill、从哪一份文档开始看"。
 
-### 1. 需要隔离执行,但还没决定走哪条路径
+### 1. 需要隔离执行
 
-先从 [`skills/isolated-context-run/SKILL.md`](./skills/isolated-context-run/SKILL.md) 和 [`skills/isolated-context-run/EXAMPLES.md`](./skills/isolated-context-run/EXAMPLES.md) 开始。
+先从 [`skills/isolated-context-run-subagent/SKILL.md`](./skills/isolated-context-run-subagent/SKILL.md) 开始。
 
-这个父层 skill 负责:
+这个 skill 只在当前宿主原生支持 subagent 时使用：
 
-- 比较当前环境里可用的隔离执行路径
-- 按 `subagent -> self-cli` 的默认优先级做选择
-- 解释为什么选中某条路径,或者为什么降级
-
-适合的请求形态:
-
-- "列出当前可用的隔离执行方式,并选默认方案"
-- "这个任务如果要隔离执行,应该走 subagent 还是当前宿主 CLI"
-- "显式用 `self-cli` 跑这个任务"
-
-### 2. 已经明确要走 Codex 宿主路径
-
-看 [`skills/isolated-context-run-codex/SKILL.md`](./skills/isolated-context-run-codex/SKILL.md),然后继续看 [`skills/isolated-context-run-codex/scripts/README.md`](./skills/isolated-context-run-codex/scripts/README.md);需要设计背景时再看 [`docs/isolated-context-run-codex/README.md`](./docs/isolated-context-run-codex/README.md)。
-
-这条子层适合"已经确定要留在 Codex 宿主链路里"的场景。它负责:
-
-- 把外部可见 runner 固定为 `isolated-context-run:codex`
-- 说明这是父层路由进来的,还是 `mode=codex-exec` 显式指定的
-- 把 probe、执行、trace、failure normalization 留给脚本层处理
-
-如果你要看 runtime 怎么实际准备 clean-room、怎么跑 `probe.mjs` / `run-exec.mjs`,不要只停在 `SKILL.md`,继续看 scripts README。
-
-### 3. 已经明确要走当前会话原生 subagent
-
-看 [`skills/isolated-context-run-subagent/SKILL.md`](./skills/isolated-context-run-subagent/SKILL.md)。
-
-这条子层只适合当前宿主本来就有原生 subagent 能力的场景。它的硬边界很重要:
-
-- 只在当前宿主会话里委派
+- 在当前宿主会话里委派
 - 不重新掉回外部 CLI
-- 如果原生 subagent 不可用,就报 `unavailable`,把 fallback 决策交回父层
+- 如果原生 subagent 不可用，就报 `unavailable`
 
-如果你其实还没确定该不该走 subagent,就不要先看这个子层,先回到父层 `isolated-context-run`。
+### 2. 想把任务压成一条外部 CLI 命令
 
-### 4. 想把任务压成一条外部 CLI 命令
+统一的非交互 AI CLI 执行 skill：
 
-这类 skill 的重点不是解释架构,而是稳定生成一条可执行命令。
+- [`skills/ai-run/SKILL.md`](./skills/ai-run/SKILL.md)
+  - 支持 4 个后端：**claude**（默认）、**codex**、**opencode**、**pi**
+  - 根据用户信号自动选择后端，构造命令并直接执行
+  - 各后端的命令模板、转义规则和返回模式见 `SKILL.md`
 
-- [`skills/claude-p/SKILL.md`](./skills/claude-p/SKILL.md)
-  - 用在你明确要一条 `claude -p` 命令时
-  - 默认命令骨架是 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"`
-  - `IS_SANDBOX=1` 和 `--dangerously-skip-permissions` 都属于默认命令骨架,不应被改写成其他权限参数组合
-- [`skills/claude-p-watch/SKILL.md`](./skills/claude-p-watch/SKILL.md)
-  - 用在你明确要一条 `claude -p` 命令并且要默认持续 watch 时
-  - 默认 watched 命令骨架是 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"`
-  - watch 先旁路发现一次外层运行中的 `claude -p` PID,再用内部 helper 按 PID 取最近 2-3 行摘要
-  - 宿主进程判活归 runtime / helper,不靠 prompt marker 充当存活证明
-  - Linux 下只会在 `/proc/<pid>/fd/1` 或 `/proc/<pid>/fd/2` 指向 regular file 时回传摘要,否则安全降级为空
-- [`skills/opencode-run/SKILL.md`](./skills/opencode-run/SKILL.md)
-  - 用在你明确要一条 `opencode run` 命令时
-  - 默认命令骨架是 `cd <workdir> && opencode run "<task>"`
-  - 可选 superpowers 前缀模式：用户明确要求时生成 `cd <workdir> && opencode run "use skill tool to load superpowers/<skill>; <task>"`
-  - 如果只说 "with superpowers" 但没点名 skill，默认前缀是 `superpowers/brainstorming`
+阅读方式：
 
-这几类命令型 skill 的阅读方式也不一样:
-
-- 先看 `SKILL.md`,确认它会不会自动加额外 flag、额外 stop condition 或额外实现建议
-- 再看 `EXAMPLES.md`,确认引号、转义和返回模式
-- 如果你只需要一条命令,通常不用再跳到别的文档
+- 先看 `SKILL.md`，确认后端选择逻辑、命令模板和禁止项
+- 再看 `EXAMPLES.md`，确认典型输入输出和反例
 
 ## 常用入口
 
 - 文档总入口:[`docs/README.md`](./docs/README.md)
 - 集成测试入口:[`integration-tests/README.md`](./integration-tests/README.md)
-- Codex runtime 入口:[`skills/isolated-context-run-codex/scripts/README.md`](./skills/isolated-context-run-codex/scripts/README.md)
-- Codex 专题设计入口:[`docs/isolated-context-run-codex/README.md`](./docs/isolated-context-run-codex/README.md)
-- 需要让隔离 Codex run 继续使用仓库 skill(例如 `claude-p-watch`)时,把对应 skill 作为精确 `skill_entries` allowlist 挂入 clean-room 的 `.agents/skills`
-- 不要把整个 repo `skills/` 默认暴露给子载体;只挂这次 run 明确需要的 skill
+- Codex bridge runtime 入口:[`runtime/codex-bridge/`](./runtime/codex-bridge/)
+- 需要让 AI run 使用额外 skill 时，在调用时通过 `skill_entries` 注入
 
 ## 开发与校验
 
@@ -137,9 +93,7 @@
 
 - 跑全部单元测试时,运行 `npm test`
 - 跑全部非 token 集成测试时,运行 `npm run iitest`
-- 修改 Codex runner 相关实现时,可按需运行 `npm run test:codex-unit`、`npm run test:codex-cli`、`npm run iitest:codex-harness`、`npm run iitest:token:codex`
-- 修改 `claude-p-watch` 监控 runtime 时,可按需运行 `npm run test:claude-p-watch-unit`、`npm run iitest:claude-p-watch-harness`、`npm run iitest:claude-p-watch`
-- 修改 `claude-p-watch` 的 watch 输出契约或状态文案时,优先查看 `integration-tests/claude-p-watch/`
+- 修改 `ai-run` skill 时,优先查看 `integration-tests/ai-run/`
 
 ## 仓库约定
 
