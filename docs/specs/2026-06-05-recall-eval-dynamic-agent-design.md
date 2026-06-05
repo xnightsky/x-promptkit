@@ -1,6 +1,8 @@
 # recall-eval: 从 carrier 到动态 agent 重构设计
 
-日期：2026-06-05 | 状态：已确认
+日期：2026-06-05 | 状态：已确认（部分被 2026-06-06 修订）
+
+> **修订记录（2026-06-06）**：`.recall/prompt-context.yaml` DSL 文件方案取消——该文件从未被运行时读取，且 `.recall/*.yaml` 会被 check-fixtures 当作召回契约 fixture 校验。上下文层声明改为内嵌进召回队列契约的 `context` 块；结构定义落地为独立 schema 文件（`skills/_shared/schemas/`、`skills/recall-eval/schemas/`）；Section 3 设想的 `PROMPT_CONTEXT_SCHEMA` JS 常量导出未实现，由 schema 文件替代；`SAMPLE-QUEUE.yaml` 迁至 `examples/queue.example.yaml`。详见 [2026-06-06-recall-context-layers-design.md](./2026-06-06-recall-context-layers-design.md)。
 
 ---
 
@@ -21,9 +23,9 @@ skills/
 └── recall-eval/
     ├── SKILL.md                   🔄 精简化：告诉 agent 什么时候调、怎么调 run-eval
     ├── EXAMPLES.md                🔄 精简化：调用示例
-    ├── SAMPLE-QUEUE.yaml          ✅ 保留
+    ├── SAMPLE-QUEUE.yaml          ✅ 保留（2026-06-06 修订：迁至 examples/queue.example.yaml）
     ├── .recall/                   ✅ 保留（fixtures）
-    │   └── prompt-context.yaml    🆕 recall-eval 的 DSL：驱动 prompt-context 引擎
+    │   └── prompt-context.yaml    ❌ 已取消（2026-06-06 修订：改为队列内嵌 context 块）
     └── scripts/
         ├── lib.mjs                ✅ 保留：校验/打分/格式化/YAML 加载
         ├── validate-schema.mjs    ✅ 保留
@@ -166,7 +168,7 @@ const result = await runRecallAgent({
 ### 内部流程
 
 1. `fs.readFileSync(sourceRef)` 读 SKILL.md 全文
-2. 读 `.recall/prompt-context.yaml` 构造 config 对象
+2. 读 `.recall/prompt-context.yaml` 构造 config 对象（2026-06-06 修订：改为接收用例生效的 `context` 声明，经 `normalizeContextLayers` 映射）
 3. `config.skills.items[0].content = SKILL.md 全文`
 4. `buildSystemPrompt(config)` → system prompt
 5. `system + "\n\n" + question` → `callModel(provider, fullPrompt, { maxRetries })` → { ok, answer }
@@ -209,7 +211,7 @@ const result = await runRecallAgent({
 | | 旧（carrier） | 新（model-agent） |
 |------|------|------|
 | 执行方式 | spawnSync 子进程 | HTTP fetch 调模型 |
-| clean-context | carrier-adapter 注入 | .recall/prompt-context.yaml DSL 驱动 |
+| clean-context | carrier-adapter 注入 | 钉死在 model-agent 代码（2026-06-06 修订：原设想的 DSL 驱动取消） |
 | 落盘 | 无 | 无 |
 | 输出 | 5 段报告 stdout | 不变 |
 
@@ -236,4 +238,4 @@ const result = await runRecallAgent({
 
 - token 消耗组件：`-token-ittest-` 或 `-token-itutil-` 中缀
 - 共享原语：`skills/_shared/` 下，无 token 标签
-- 配置文件：`prompt-context.yaml`（YAML DSL 驱动），`provider` 矩阵沿用 `.recall-replay.env.yaml`
+- 配置文件：~~`prompt-context.yaml`（YAML DSL 驱动）~~（2026-06-06 修订：取消，改为队列内嵌 `context` 块）；`provider` 矩阵沿用 `.recall-replay.env.yaml`

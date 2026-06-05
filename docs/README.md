@@ -1,6 +1,6 @@
 # docs
 
-当前文档按 3 组组织：
+当前文档按 4 组组织：
 
 - `agent-interrupt-interaction/`
   - Codex agent 中断、交互、审批与 supervisor 控制面调研
@@ -9,6 +9,8 @@
   - 用于路线判断、外部资料校准、工具链取舍
 - `guides/`
   - 偏面向读者的说明型文档
+- `specs/`
+  - 结构性改动前的最小设计说明（命名约定见 `AGENTS.md` 文档约定）
 
 ## 目录
 
@@ -21,6 +23,8 @@
 - [research/research-source-method.md](research/research-source-method.md)
 - [research/skill-dev-tool-options.md](research/skill-dev-tool-options.md)
 - [guides/how-to-get-ai.md](guides/how-to-get-ai.md)
+- [specs/2026-06-05-recall-eval-dynamic-agent-design.md](specs/2026-06-05-recall-eval-dynamic-agent-design.md)
+- [specs/2026-06-06-recall-context-layers-design.md](specs/2026-06-06-recall-context-layers-design.md)
 
 ## 约定
 
