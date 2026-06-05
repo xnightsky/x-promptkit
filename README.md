@@ -81,7 +81,7 @@
 - `npm run iitest`
 - `npm run verify`
 
-默认开发顺序:
+默认开发流程:
 
 1. 先判断改动会影响代码、文档、skill、fixture 还是脚本入口。
 2. 在实现过程中同步补注释,特别是非显然逻辑、协议边界、拒绝分支和输出骨架。
@@ -97,14 +97,7 @@
 
 ## 仓库约定
 
-- 仓库内容中不要写本机绝对路径,一律使用仓库内相对路径或占位符。
-- 不要只改实现不改文档;命令、输出格式、字段语义和开发流程变化都要同步更新说明。
-- 本仓库只有两类官方测试:单元测试与集成测试。
-- `npm test` 与所有 `test:*` 前缀脚本只属于单元测试。
-- `npm run iitest` 与所有 `iitest:*` 前缀脚本只属于集成测试。
-- `iitest:token:*` 只用于会消耗真实 AI token 的显式集成测试入口。
-- 纯 fake is unit。即使起了子进程,只要不消耗真实 AI token,且不验证整个环境或编排行为,仍按单元测试处理。
-- 任何真实 AI 调用、真实 token 消耗、workspace/clean-room 生命周期、artifact 持久化、carrier/harness 编排或真实宿主路径验证,都属于集成测试。
-- `*.token.test.mjs` 需要通过对应显式 `iitest:token:*` 脚本单独运行。
-- `integration-tests/` 下各种测试方式、入口和维护约束见 [`integration-tests/README.md`](./integration-tests/README.md)。
-- 对非显然逻辑、协议边界、拒绝分支和输出骨架要同步补注释或说明,不要只留下结论句。
+约束的唯一权威是 [`AGENTS.md`](./AGENTS.md)（规则红线、文档约定、测试边界、命名约定、开发要求），本 README 不再复刻正文——避免一条规则多处维护导致漂移。
+
+- 代理协作与开发约束:[`AGENTS.md`](./AGENTS.md)
+- 测试入口、执行协议与维护约束:[`integration-tests/README.md`](./integration-tests/README.md)
