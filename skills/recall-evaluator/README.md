@@ -40,8 +40,8 @@ Provider-matrix replay (token):
 - helper module: `replay-matrix.mjs`
 - offline coverage: `npm run test:recall-replay-unit` (also runs under the default `npm test`)
 - token-backed replay: `npm run iitest:token:recall-replay` (excluded from the default `npm run iitest`; self-skips unless a key-bearing provider is enabled)
-- matrix discovery walks up from the current working directory to the repo root (the directory containing `.git`) and reads the first of `.recall-replay.env.yaml` / `.recall-replay.env.yml` / `.recall-replay.env`; override the path with the `RECALL_REPLAY_MATRIX` environment variable
-- copy `.recall-replay.env.example.yaml` to the repo-root `.recall-replay.env.yaml` (git-ignored) and fill in real values
+- matrix discovery checks several locations in priority order — the current working directory, the repo root (the directory containing `.git`), the skill runtime directory (`skills/recall-evaluator/scripts`), and the home directory — and reads the first of `.recall-replay.env.yaml` / `.recall-replay.env.yml` / `.recall-replay.env` found in any of them; override the path with the `RECALL_REPLAY_MATRIX` environment variable
+- copy `.recall-replay.env.example.yaml` to any of those locations as `.recall-replay.env.yaml` (git-ignored) and fill in real values
 - secrets are referenced through `key_env` only; inline `key` values are allowed solely for the offline `echo` backend
 - supported `api` values: `openai-chat`, `anthropic-messages`, `gemini-generate`, `echo`
 - supported memory modes: `in-process` (keep recalled facts inside the ephemeral agent) and `upstream` (defer persistence to the shared recall store)
@@ -73,6 +73,6 @@ Test layers:
 - `npm run test:recall-unit`: pure function coverage for queue validation, carrier precedence, scoring, and report formatting
 - `npm run test:recall-bridge`: carrier adapter contract coverage without requiring a real host subagent
 - `npm run test:recall-cli`: black-box CLI coverage for `validate-schema`, `resolve-target`, and `run-eval`
-- `npm run test:recall-replay-unit`: offline coverage for the provider-matrix replay helper (matrix parsing, provider selection, protocol dispatch via injected fetch, and echo-backend scoring)
+- `npm run test:recall-replay-unit`: offline coverage for the provider-matrix replay helper (matrix discovery, parsing, provider selection, protocol dispatch via injected fetch, and echo-backend scoring)
 - `npm run iitest:token:recall-replay`: token-backed provider-matrix replay across enabled providers (self-skips without a configured provider matrix)
 - `integration-tests/recall-eval/`: token-backed integration assets for recall evaluation

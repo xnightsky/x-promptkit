@@ -10,15 +10,21 @@
 //   - 任何可复用的打分 / carrier 策略都应沉淀到上游共享 runtime，而不是这里。
 
 import { existsSync, readFileSync } from "node:fs"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { parse as parseYaml } from "yaml"
 import {
 	SUBAGENT_CARRIER,
 	DEFAULT_CLEAN_CONTEXT_POLICY,
 } from "./carrier-adapter.mjs"
 
-// 真实矩阵文件「默认放在使用方仓库根目录」，而不是技能安装目录。
-// 在仓库根按顺序命中下列文件名中的第一个。
+// 本脚本(replay-matrix.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
+// 当作候选目录之一，从而支持把 .recall-replay.env.yaml 放在技能安装目录旁边。
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
+
+// 真实矩阵文件可放在多个位置(cwd / 仓库根 / skill 目录 / home 目录),发现时
+// 会在每个候选目录里按下列文件名顺序命中第一个存在的文件。
 export const REPLAY_MATRIX_FILENAMES = Object.freeze([
 	".recall-replay.env.yaml",
 	".recall-replay.env.yml",
@@ -28,7 +34,7 @@ export const REPLAY_MATRIX_FILENAMES = Object.freeze([
 // 覆盖矩阵路径用的环境变量名。
 export const DEFAULT_REPLAY_MATRIX_ENV = "RECALL_REPLAY_MATRIX"
 
-// 仅用于文档 / 错误信息展示的「主文件名」(相对仓库根)。
+// 仅用于文档 / 错误信息展示的「主文件名」(相对某个候选目录)。
 export const DEFAULT_REPLAY_MATRIX_PATH = REPLAY_MATRIX_FILENAMES[0]
 
 export const SUPPORTED_REPLAY_APIS = Object.freeze([
@@ -65,28 +71,70 @@ export function findRepoRoot(startDir, options = {}) {
 	}
 }
 
+// 汇总发现 replay 矩阵文件的候选目录，按优先级排序:
+//   1) 当前工作目录 cwd;
+//   2) 从 cwd 向上找到的仓库根(含 `.git` 的目录);
+//   3) skill 运行时目录(本脚本所在目录);
+//   4) 用户 home 目录。
+// 返回值去重并保持顺序(例如 cwd 本身即仓库根时只保留一份)。
+// cwd / skillDir / homeDir / fileExists 均可注入，便于测试不触碰真实文件系统。
+export function replayMatrixSearchDirs(options = {}) {
+	const {
+		cwd = process.cwd(),
+		skillDir = SCRIPT_DIR,
+		homeDir = homedir(),
+		fileExists = (target) => existsSync(target),
+	} = options
+	const repoRoot = findRepoRoot(cwd, { fileExists })
+	const ordered = [cwd, repoRoot, skillDir, homeDir]
+	const seen = new Set()
+	const dirs = []
+	for (const dir of ordered) {
+		if (typeof dir !== "string" || dir.length === 0) {
+			continue
+		}
+		if (seen.has(dir)) {
+			continue
+		}
+		seen.add(dir)
+		dirs.push(dir)
+	}
+	return dirs
+}
+
 // 解析真实矩阵文件路径。优先级:
 //   1) RECALL_REPLAY_MATRIX 环境变量(显式指定，最高优先);
-//   2) 从 cwd 向上找到的仓库根下，按 REPLAY_MATRIX_FILENAMES 命中的第一个存在文件;
-//   3) 都不存在时回退到「仓库根 + 主文件名」，让后续读取报错时指向正确位置。
-// cwd / env / fileExists 均可注入，便于测试。
+//   2) 在 replayMatrixSearchDirs() 的候选目录(cwd / 仓库根 / skill 目录 /
+//      home 目录)中，按 REPLAY_MATRIX_FILENAMES 命中的第一个存在文件;
+//   3) 都不存在时回退到「仓库根 + 主文件名」，让后续读取报错时指向最符合直觉的位置。
+// cwd / env / fileExists / skillDir / homeDir 均可注入，便于测试。
 export function discoverReplayMatrixPath(options = {}) {
 	const {
 		cwd = process.cwd(),
 		env = process.env,
 		fileExists = (target) => existsSync(target),
+		skillDir = SCRIPT_DIR,
+		homeDir = homedir(),
 	} = options
 	const override = env[DEFAULT_REPLAY_MATRIX_ENV]
 	if (typeof override === "string" && override.length > 0) {
 		return override
 	}
-	const repoRoot = findRepoRoot(cwd, { fileExists })
-	for (const filename of REPLAY_MATRIX_FILENAMES) {
-		const candidate = join(repoRoot, filename)
-		if (fileExists(candidate)) {
-			return candidate
+	const searchDirs = replayMatrixSearchDirs({
+		cwd,
+		skillDir,
+		homeDir,
+		fileExists,
+	})
+	for (const dir of searchDirs) {
+		for (const filename of REPLAY_MATRIX_FILENAMES) {
+			const candidate = join(dir, filename)
+			if (fileExists(candidate)) {
+				return candidate
+			}
 		}
 	}
+	const repoRoot = findRepoRoot(cwd, { fileExists })
 	return join(repoRoot, REPLAY_MATRIX_FILENAMES[0])
 }
 
@@ -131,9 +179,13 @@ export function loadReplayMatrix(options = {}) {
 		cwd = process.cwd(),
 		env = process.env,
 		fileExists,
+		skillDir,
+		homeDir,
 		fileReader = (target) => readFileSync(target, "utf8"),
 	} = options
-	const resolved = path ?? discoverReplayMatrixPath({ cwd, env, fileExists })
+	const resolved =
+		path ??
+		discoverReplayMatrixPath({ cwd, env, fileExists, skillDir, homeDir })
 	const text = fileReader(resolved)
 	return { path: resolved, matrix: parseReplayMatrix(text) }
 }

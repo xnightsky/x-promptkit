@@ -1,9 +1,12 @@
 import test from "node:test"
 import assert from "node:assert/strict"
+import { join } from "node:path"
 
 import {
 	SUPPORTED_REPLAY_APIS,
 	SUPPORTED_MEMORY_MODES,
+	REPLAY_MATRIX_FILENAMES,
+	DEFAULT_REPLAY_MATRIX_ENV,
 	parseReplayMatrix,
 	loadReplayMatrix,
 	validateReplayMatrix,
@@ -13,13 +16,15 @@ import {
 	callReplayModel,
 	assembleEphemeralAgent,
 	buildReplayQueueFixture,
+	discoverReplayMatrixPath,
+	replayMatrixSearchDirs,
 } from "../skills/recall-evaluator/scripts/replay-matrix.mjs"
 
 // ───────────────────────────────────────────────────────────────────────────
 // 离线单元测试:provider 矩阵回放助手
 //
-// 本套件全程离线:用 echo 后端 + 注入的 fetch / fileReader 覆盖
-// 「矩阵解析 → 结构校验 → provider 选择 → 协议分发 → echo 打分」整条链路，
+// 本套件全程离线:用 echo 后端 + 注入的 fetch / fileReader / fileExists 覆盖
+// 「矩阵发现 → 解析 → 结构校验 → provider 选择 → 协议分发 → echo 打分」整条链路，
 // 不触发真实网络、不读写真实文件。每条用例采用 BDD(场景 / 给定 / 当 / 那么)注释。
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -201,6 +206,122 @@ test("loadReplayMatrix reads from an injected file reader", () => {
 		fileReader: () => SAMPLE_MATRIX,
 	})
 	assert.equal(path, "virtual.yaml")
+	assert.equal(matrix.providers.length, 3)
+})
+
+// 场景:RECALL_REPLAY_MATRIX 显式指定时直接采用，跳过目录发现
+//   给定 设置了 RECALL_REPLAY_MATRIX 环境变量
+//   当   调用 discoverReplayMatrixPath
+//   那么 直接返回该路径，不理会任何候选目录
+test("discoverReplayMatrixPath honours the RECALL_REPLAY_MATRIX override", () => {
+	const resolved = discoverReplayMatrixPath({
+		cwd: "/work/repo/sub",
+		env: { [DEFAULT_REPLAY_MATRIX_ENV]: "/custom/matrix.yaml" },
+		skillDir: "/opt/skill/scripts",
+		homeDir: "/home/dev",
+		fileExists: () => true,
+	})
+	assert.equal(resolved, "/custom/matrix.yaml")
+})
+
+// 场景:cwd 下存在矩阵文件
+//   给定 仅 cwd 下有 .recall-replay.env.yaml
+//   当   调用 discoverReplayMatrixPath
+//   那么 命中 cwd 下的文件
+test("discoverReplayMatrixPath discovers a matrix in the current working directory", () => {
+	const present = new Set(["/work/.recall-replay.env.yaml"])
+	const resolved = discoverReplayMatrixPath({
+		cwd: "/work",
+		env: {},
+		skillDir: "/opt/skill/scripts",
+		homeDir: "/home/dev",
+		fileExists: (target) => present.has(target),
+	})
+	assert.equal(resolved, "/work/.recall-replay.env.yaml")
+})
+
+// 场景:cwd / 仓库根都没有，但 skill 目录下有
+//   给定 仅 skill 目录下有 .recall-replay.env.yml
+//   当   调用 discoverReplayMatrixPath
+//   那么 命中 skill 目录下的文件
+test("discoverReplayMatrixPath discovers a matrix in the skill directory", () => {
+	const present = new Set(["/opt/skill/scripts/.recall-replay.env.yml"])
+	const resolved = discoverReplayMatrixPath({
+		cwd: "/work",
+		env: {},
+		skillDir: "/opt/skill/scripts",
+		homeDir: "/home/dev",
+		fileExists: (target) => present.has(target),
+	})
+	assert.equal(resolved, "/opt/skill/scripts/.recall-replay.env.yml")
+})
+
+// 场景:仅 home 目录下存在矩阵文件
+//   给定 仅 home 目录下有 .recall-replay.env
+//   当   调用 discoverReplayMatrixPath
+//   那么 命中 home 目录下的文件
+test("discoverReplayMatrixPath discovers a matrix in the home directory", () => {
+	const present = new Set(["/home/dev/.recall-replay.env"])
+	const resolved = discoverReplayMatrixPath({
+		cwd: "/work",
+		env: {},
+		skillDir: "/opt/skill/scripts",
+		homeDir: "/home/dev",
+		fileExists: (target) => present.has(target),
+	})
+	assert.equal(resolved, "/home/dev/.recall-replay.env")
+})
+
+// 场景:任何候选目录都没有矩阵文件
+//   给定 候选目录里都没有匹配文件(仅有 .git 标记仓库根)
+//   当   调用 discoverReplayMatrixPath
+//   那么 回退到「仓库根 + 主文件名」
+test("discoverReplayMatrixPath falls back to the repo-root primary filename", () => {
+	const present = new Set(["/work/repo/.git"])
+	const resolved = discoverReplayMatrixPath({
+		cwd: "/work/repo/sub",
+		env: {},
+		skillDir: "/opt/skill/scripts",
+		homeDir: "/home/dev",
+		fileExists: (target) => present.has(target),
+	})
+	assert.equal(resolved, join("/work/repo", REPLAY_MATRIX_FILENAMES[0]))
+})
+
+// 场景:候选目录顺序与去重
+//   给定 cwd 恰好就是仓库根
+//   当   调用 replayMatrixSearchDirs
+//   那么 返回 [cwd, skillDir, homeDir](仓库根与 cwd 去重)
+test("replayMatrixSearchDirs lists cwd, repo root, skill dir, and home dir without duplicates", () => {
+	const present = new Set(["/repo/.git"])
+	const dirs = replayMatrixSearchDirs({
+		cwd: "/repo",
+		skillDir: "/repo/skills/recall-evaluator/scripts",
+		homeDir: "/home/dev",
+		fileExists: (target) => present.has(target),
+	})
+	assert.deepEqual(dirs, [
+		"/repo",
+		"/repo/skills/recall-evaluator/scripts",
+		"/home/dev",
+	])
+})
+
+// 场景:loadReplayMatrix 透传 skillDir / homeDir 给发现逻辑
+//   给定 不传 path，但通过 fileExists 让 skill 目录命中、并注入 fileReader
+//   当   调用 loadReplayMatrix
+//   那么 解析路径为 skill 目录下的矩阵文件，且成功解析出 provider
+test("loadReplayMatrix forwards skillDir and homeDir to discovery", () => {
+	const present = new Set(["/opt/skill/scripts/.recall-replay.env.yaml"])
+	const { path, matrix } = loadReplayMatrix({
+		cwd: "/work",
+		env: {},
+		skillDir: "/opt/skill/scripts",
+		homeDir: "/home/dev",
+		fileExists: (target) => present.has(target),
+		fileReader: () => SAMPLE_MATRIX,
+	})
+	assert.equal(path, "/opt/skill/scripts/.recall-replay.env.yaml")
 	assert.equal(matrix.providers.length, 3)
 })
 
