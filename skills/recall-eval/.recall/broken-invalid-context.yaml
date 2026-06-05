@@ -1,0 +1,25 @@
+# 负例 fixture：context.global.enabled 为 true 却未给 path（全局提示词无跨平台默认路径）。
+version: 1
+source_ref: skills/recall-eval/SKILL.md
+fallback_answer: 未明确
+context:
+  global:
+    enabled: true
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: broken.invalid_context
+    question: global 层 enabled 时可以省略 path 吗？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - path
+    score_rule:
+      full: 明确答出 global 层 enabled 时必须显式给 path
+      partial: 只答出需要补字段但未点名 path
+      fail: 回答可以省略
+    tags: [broken]
+    source_scope: SKILL.md#context-rule

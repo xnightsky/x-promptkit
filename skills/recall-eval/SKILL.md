@@ -17,6 +17,7 @@ Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, c
 
 - Define how answer content from a recall queue should be validated and scored
 - Bind each recall yaml to an explicit prompt target through `source_ref`
+- Let each queue or case declare explicitly whether the repo prompt and the global prompt are loaded (`context` block)
 - Detect queue-definition gaps, especially missing `medium` or missing `carrier`
 - Require recall to be bound to an explicit carrier before evaluator runtime can execute
 - Recommend `isolated-context-run:subagent` as the normal default carrier value at the caller layer
@@ -65,6 +66,14 @@ Recommended convention:
 - keep integration orchestration under `integration-tests/`
 - treat example paths like `<memory-target>/.recall/queue.yaml` as layout examples, not implicit repository defaults
 
+`.recall/` naming contract (enforced by `npm run check` via `scripts/tooling/check-fixtures.mjs`):
+
+- every `.recall/*.yaml` is treated as a recall-contract fixture and validated against the queue schema
+- `queue.yaml` is the auto-discovery entrypoint for a target path
+- the `broken-*` filename prefix marks intentionally invalid negative fixtures; they must stay invalid and are consumed by unit tests only, never run as real queues
+- any other filename is a real, runnable queue referenced by explicit path only
+- never put non-recall yaml (engine configs, provider matrices) under `.recall/`
+
 This is only a convention. Any yaml path is acceptable if it matches the recall schema.
 
 ## Default Workflow
@@ -95,6 +104,10 @@ Do not force extra prose beyond that minimum.
 
 ## Case Contract
 
+The machine-readable structure authority is [schemas/recall-queue.schema.yaml](./schemas/recall-queue.schema.yaml)
+(the `context` block structure lives in `skills/_shared/schemas/prompt-context-layers.schema.yaml`).
+This section is the prose mirror; when they disagree, fix the docs to match the schema plus its unit tests.
+
 Top-level recall yaml should include:
 
 - `version`
@@ -121,6 +134,7 @@ Optional fields:
 - `expected.must_not_include`
 - `fallback_answer`
 - `source_ref` as a case-level override
+- `context` at queue level, and as a case-level whole-block override
 
 Do not infer missing required fields from nearby fields.
 
@@ -171,6 +185,37 @@ Refusal rules:
 - Do not do partial queue checking and then keep evaluating without a carrier.
 - When refusing, return the gap plus the recommended default carrier.
 
+## `context` Rule
+
+`context` declares explicitly which prompt layers are loaded into the recall surface:
+whether the repo prompt (项目提示词, e.g. `AGENTS.md`) and the global prompt (全局提示词)
+are present when the agent answers.
+
+```yaml
+context:
+  repo:
+    enabled: true            # explicit boolean required
+    path: AGENTS.md          # optional; defaults to AGENTS.md relative to the queue's repo root
+    max_bytes: 8192          # optional positive integer
+  global:
+    enabled: true
+    path: ~/.claude/CLAUDE.md  # required when enabled — no cross-platform default
+    max_bytes: 4096
+```
+
+Rules:
+
+- absent `context` = no repo layer, no global layer — the clean-context-v1 baseline
+- `enabled` must be an explicit boolean per layer; do not infer it
+- a case-level `context` overrides the queue-level one as a whole block; no deep merge
+- `global.enabled: true` requires an explicit `path`
+- `context` only selects which prompt layers are injected; it never relaxes the
+  no-tools / no-web / no-fresh-reads red line of the clean-context policy
+- `medium` and `context` are not cross-validated in v1; queue authors keep them
+  consistent (a `global-memory` case usually needs the global layer enabled)
+- structure authority: `skills/_shared/schemas/prompt-context-layers.schema.yaml`;
+  example: `skills/_shared/examples/context-layers.example.yaml`
+
 ## Live Clean-Context Policy
 
 Live recall must use a fixed clean-context policy unless the caller explicitly asks for a different policy:
@@ -182,6 +227,10 @@ Live recall must use a fixed clean-context policy unless the caller explicitly a
 - no fresh file inspection
 
 Normalize that policy as `clean-context-v1`.
+
+The `context` block does not weaken this policy: declared layers are injected into the
+prompt surface before the run, while the policy keeps forbidding tools, search, and
+fresh reads at answer time.
 
 If the carrier request or bridge contract supports structured fields, pass this policy explicitly instead of relying on ad hoc prompt prose.
 
@@ -287,6 +336,12 @@ Preferred layers:
 
 Use standalone yaml fixtures for schema and scoring helpers. Use `integration-tests` when the evaluation needs initialized workspace state, task execution, or prompt-based child-agent recall.
 
+Self-test isolation rule: self-test queues and unit tests must point their `context`
+layers at hand-written fixture prompts (e.g. `.recall/fake-repo-prompt.md`,
+`.recall/fake-global-prompt.md`, or temp-dir files), never at the real repo or global
+prompt — real prompt content changes must not move self-test results. Only real
+evaluation queues (whose evaluation target IS that prompt) reference the real files.
+
 Script entrypoints:
 
 - `node skills/recall-eval/scripts/validate-schema.mjs <yaml-path|target-path>`
@@ -315,5 +370,7 @@ Use these paths when they exist:
 - `<memory-target>/.recall/README.md` for memory-target queue field conventions when such a target exists
 - `skills/recall-eval/.recall/queue.yaml` for the target-local example queue
 - `integration-tests/recall-eval/` for initialized-workspace recall orchestration
-- [SAMPLE-QUEUE.yaml](./SAMPLE-QUEUE.yaml) for a minimal compatible fixture
+- [schemas/recall-queue.schema.yaml](./schemas/recall-queue.schema.yaml) for the machine-readable queue structure authority
+- [examples/queue.example.yaml](./examples/queue.example.yaml) for a minimal compatible fixture
+- `skills/_shared/README.md` for the shared-engine capability boundaries and the `context` declaration structure
 - [EXAMPLES.md](./EXAMPLES.md) for canonical response shapes

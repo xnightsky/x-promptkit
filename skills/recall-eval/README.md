@@ -22,6 +22,8 @@ npm run verify
 
 - `SKILL.md` — 技能契约与行为约束
 - `EXAMPLES.md` — 用例与输出样例
+- `schemas/` — 队列契约的结构权威（类 JSON Schema，校验代码直接消费）
+- `examples/` — 最小合法样例（`queue.example.yaml`；非队列的 context 声明样例在 `skills/_shared/examples/`）
 - `scripts/` — CLI 入口与运行时库
-- `.recall/` — 本地队列与评测资产
+- `.recall/` — 本地队列与评测资产（`broken-*` 前缀 = 故意非法的负例 fixture）
 - `.recall-replay.env.example.yaml` — provider 矩阵示例

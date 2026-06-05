@@ -235,3 +235,107 @@ test("resolveRecallInputPath discovers a target-local queue from a target direct
   assert.equal(resolved.discovery.originalInputPath, "skills/recall-eval");
   assert.equal(resolved.discovery.mode, "target_directory");
 });
+
+// 构造一个最小合法用例对象，供 context 相关测试做局部覆写。
+function makeValidCase(overrides = {}) {
+  return {
+    id: "case.context",
+    question: "context 怎么生效？",
+    medium: "skill-mechanism",
+    carrier: "isolated-context-run:subagent",
+    expected: { must_include: ["context"] },
+    score_rule: { full: "full", partial: "partial", fail: "fail" },
+    tags: ["unit"],
+    source_scope: "SKILL.md#context-rule",
+    ...overrides,
+  };
+}
+
+// 构造一个最小合法队列对象。
+function makeValidQueue(overrides = {}) {
+  return {
+    version: 1,
+    source_ref: "skills/recall-eval/SKILL.md",
+    fallback_answer: "未明确",
+    scoring: { "2": "full", "1": "partial", "0": "fail" },
+    cases: [makeValidCase()],
+    ...overrides,
+  };
+}
+
+// 场景：队列级 context 声明、用例未覆盖。预期：用例继承队列级声明。
+test("validateRecallData inherits the queue-level context declaration", () => {
+  const queueContext = { repo: { enabled: true }, global: { enabled: false } };
+  const report = validateRecallData(makeValidQueue({ context: queueContext }));
+
+  assert.deepEqual(report.caseReports[0].effectiveContext, queueContext);
+  assert.equal(report.isValid, true);
+});
+
+// 场景：用例级 context 覆盖队列级。预期：整块覆盖（不深合并），用例级声明原样生效。
+test("validateRecallData prefers the case-level context override as a whole block", () => {
+  const caseContext = { repo: { enabled: false } };
+  const report = validateRecallData(
+    makeValidQueue({
+      context: { repo: { enabled: true }, global: { enabled: false } },
+      cases: [makeValidCase({ context: caseContext })],
+    }),
+  );
+
+  assert.deepEqual(report.caseReports[0].effectiveContext, caseContext);
+});
+
+// 场景：队列与用例均未声明 context。预期：effectiveContext 为 null（clean-context 基线）。
+test("validateRecallData defaults effectiveContext to null", () => {
+  const report = validateRecallData(makeValidQueue());
+
+  assert.equal(report.caseReports[0].effectiveContext, null);
+});
+
+// 场景：队列级 context 的 global 启用却无 path。预期：归入队列级错误。
+test("validateRecallData reports an enabled global layer without path at queue level", () => {
+  const report = validateRecallData(makeValidQueue({ context: { global: { enabled: true } } }));
+
+  assert.equal(report.isValid, false);
+  assert.ok(report.queueErrors.some((error) => error.includes("missing `context.global.path`")));
+});
+
+// 场景：用例级 context 结构非法（缺 enabled）。预期：schema 错误按用例相对路径归入该用例。
+test("validateRecallData routes case-level context schema errors to the case", () => {
+  const report = validateRecallData(
+    makeValidQueue({ cases: [makeValidCase({ context: { repo: {} } })] }),
+  );
+
+  assert.deepEqual(report.caseReports[0].errors, ["missing `context.repo.enabled`"]);
+});
+
+// 场景：回答以「不做X」「不会X」的否定形态提到 must_not_include 词条。
+// 预期：识别为否定，不按命中禁止项计 0 分（live 自测中真实模型的高频措辞）。
+test("scoreAnswer treats 不做/不会 prefixes as negation for must_not_include", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: { must_include: ["整块覆盖"], must_not_include: ["深合并"] },
+        }),
+      ],
+    }),
+  );
+
+  const negated = scoreAnswer(report.caseReports[0], "用例级 context 是整块覆盖，不做深合并。");
+  assert.equal(negated.score, 2);
+  assert.deepEqual(negated.mustNotHits, []);
+
+  const negatedFuture = scoreAnswer(report.caseReports[0], "整块覆盖；不会深合并处理。");
+  assert.equal(negatedFuture.score, 2);
+
+  // 「没有X」「而非X」这类二字否定词同样要识别（deepseek live 实测措辞）
+  const negatedHave = scoreAnswer(report.caseReports[0], "是整块覆盖（whole-block override），没有深合并。");
+  assert.equal(negatedHave.score, 2);
+  const negatedRather = scoreAnswer(report.caseReports[0], "整块覆盖，而非深合并。");
+  assert.equal(negatedRather.score, 2);
+
+  // 非否定形态仍要按命中禁止项计 0 分
+  const overreach = scoreAnswer(report.caseReports[0], "整块覆盖后再做深合并。");
+  assert.equal(overreach.score, 0);
+});

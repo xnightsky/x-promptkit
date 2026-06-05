@@ -76,13 +76,13 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - 明确 `queue.yaml` 只是推荐命名
 - 只要 top-level 和 case 结构兼容，就接受任意 yaml 路径
 - 不把文件位置当成硬限制
-- 不因为文件放在 `skills/recall-eval/` 根目录就判定不可用
+- 不因为文件放在 `skills/recall-eval/examples/` 目录就判定不可用
 
 标准输出样例：
 
 ```md
 1. Queue
-- `skills/recall-eval/SAMPLE-QUEUE.yaml`
+- `skills/recall-eval/examples/queue.example.yaml`
 
 2. Carrier
 - `isolated-context-run:subagent`

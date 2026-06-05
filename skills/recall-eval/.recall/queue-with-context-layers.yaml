@@ -1,0 +1,59 @@
+# 正例 fixture：队列级 context 声明加载项目/全局提示词层，
+# 用例级 context 整块覆盖演示（覆盖语义同 source_ref，不做深合并）。
+#
+# 自测红线：自测队列的 context 层一律指向手写的 fixture 提示词
+# （fake-repo-prompt.md / fake-global-prompt.md），不依赖真实 AGENTS.md
+# 或用户机器上的全局提示词——真实提示词内容变化不应影响自测结果。
+version: 1
+source_ref: skills/recall-eval/SKILL.md
+fallback_answer: 未明确
+context:
+  repo:
+    enabled: true
+    # 指向手写 fixture，而不是省略 path 落到真实 AGENTS.md
+    path: skills/recall-eval/.recall/fake-repo-prompt.md
+  global:
+    enabled: true
+    path: skills/recall-eval/.recall/fake-global-prompt.md
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: context_layers.inherit_queue_context
+    # 子串打分下的正确写法：在问题里钉死作答词表，避免「不会加载/不加载」措辞漂移
+    question: 召回队列的 context 块缺省时，repo 层与 global 层是否加载？请用「加载」或「不加载」作答并简要说明。
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    expected:
+      must_include:
+        - 不加载
+      must_not_include:
+        - 默认加载
+    score_rule:
+      full: 明确答出缺省时 repo/global 两层都不加载
+      partial: 只答出其中一层的缺省行为
+      fail: 回答缺省会加载，或答非所问
+    tags: [selftest, context]
+    source_scope: SKILL.md#context-rule
+  - id: context_layers.case_override_disables_repo
+    question: 用例级 context 覆盖队列级时是整块覆盖还是深合并？
+    medium: skill-mechanism
+    carrier: isolated-context-run:subagent
+    # 用例级整块覆盖：本用例显式关掉 repo 层
+    context:
+      repo:
+        enabled: false
+      global:
+        enabled: false
+    expected:
+      must_include:
+        - 整块覆盖
+      must_not_include:
+        - 深合并
+    score_rule:
+      full: 明确答出用例级 context 整块覆盖队列级，不做深合并
+      partial: 答出覆盖但未说明不做深合并
+      fail: 回答深合并或答非所问
+    tags: [selftest, context]
+    source_scope: SKILL.md#context-rule

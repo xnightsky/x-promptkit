@@ -41,10 +41,34 @@ test("validate-schema passes for a target-local queue", () => {
 // 场景：对任意路径但 schema 合法的 YAML 做校验。预期：PASS。
 test("validate-schema accepts arbitrary yaml paths when schema matches", () => {
   const output = runScript("validate-schema.mjs", [
-    "skills/recall-eval/SAMPLE-QUEUE.yaml",
+    "skills/recall-eval/examples/queue.example.yaml",
   ]);
 
   assert.match(output, /PASS/);
+});
+
+// 场景：带 context 层声明（队列级 + 用例级覆盖）的队列。预期：PASS。
+test("validate-schema accepts queue-level and case-level context declarations", () => {
+  const output = runScript("validate-schema.mjs", [
+    "skills/recall-eval/.recall/queue-with-context-layers.yaml",
+  ]);
+
+  assert.match(output, /PASS/);
+});
+
+// 场景：context.global.enabled 为 true 却未给 path。预期：退出码 1 且点名缺失字段。
+test("validate-schema fails when an enabled global context layer has no path", () => {
+  assert.throws(
+    () =>
+      runScript("validate-schema.mjs", [
+        "skills/recall-eval/.recall/broken-invalid-context.yaml",
+      ]),
+    (error) => {
+      assert.equal(error.status, 1);
+      assert.match(error.stdout, /missing `context\.global\.path`/);
+      return true;
+    },
+  );
 });
 
 // 场景：用例缺少 medium。预期：退出码 1 且报错 missing `medium`。

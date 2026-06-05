@@ -1,0 +1,81 @@
+# 召回队列契约的结构权威（类 JSON Schema 子集，由 _shared/schema-validator.mjs 解释执行）。
+#
+# SKILL.md 的 Case Contract 是本文件的 prose 镜像；两者不一致时，
+# 以本文件 + 单元测试为准并同步修文档。
+#
+# schema 表达不了的跨字段语义留在 scripts/lib.mjs：
+#   - 每用例必须能解析出生效 source_ref（队列级继承 + 用例级覆盖）
+#   - context 块的 global.enabled 为 true 时必须给 path
+# `context` 块的结构权威在 _shared（外部 $ref，文件名经 registry 解析）。
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: recall queue
+type: object
+required: [version, fallback_answer, scoring, cases]
+properties:
+  version:
+    type: integer
+    minimum: 1
+  source_ref:
+    $ref: "#/$defs/non_empty_string"
+  fallback_answer:
+    $ref: "#/$defs/non_empty_string"
+  context:
+    $ref: "prompt-context-layers.schema.yaml"
+  scoring:
+    type: object
+    required: ["0", "1", "2"]
+    properties:
+      "0": { $ref: "#/$defs/non_empty_string" }
+      "1": { $ref: "#/$defs/non_empty_string" }
+      "2": { $ref: "#/$defs/non_empty_string" }
+  cases:
+    type: array
+    minItems: 1
+    items:
+      $ref: "#/$defs/case"
+$defs:
+  non_empty_string:
+    type: string
+    pattern: "\\S"
+  string_list:
+    type: array
+    items:
+      $ref: "#/$defs/non_empty_string"
+  case:
+    type: object
+    required: [id, question, medium, carrier, expected, score_rule, tags, source_scope]
+    properties:
+      id: { $ref: "#/$defs/non_empty_string" }
+      question: { $ref: "#/$defs/non_empty_string" }
+      medium: { $ref: "#/$defs/non_empty_string" }
+      carrier: { $ref: "#/$defs/non_empty_string" }
+      source_scope: { $ref: "#/$defs/non_empty_string" }
+      # 用例级覆盖（缺省继承队列级）
+      source_ref: { $ref: "#/$defs/non_empty_string" }
+      fallback_answer: { $ref: "#/$defs/non_empty_string" }
+      variants:
+        type: array
+      # 用例级整块覆盖队列级 context（不做深合并）
+      context:
+        $ref: "prompt-context-layers.schema.yaml"
+      expected:
+        type: object
+        required: [must_include]
+        properties:
+          must_include:
+            type: array
+            minItems: 1
+            items: { $ref: "#/$defs/non_empty_string" }
+          should_include: { $ref: "#/$defs/string_list" }
+          must_not_include: { $ref: "#/$defs/string_list" }
+      score_rule:
+        type: object
+        required: [full, partial, fail]
+        properties:
+          full: { $ref: "#/$defs/non_empty_string" }
+          partial: { $ref: "#/$defs/non_empty_string" }
+          fail: { $ref: "#/$defs/non_empty_string" }
+      tags:
+        type: array
+        minItems: 1
+        items: { $ref: "#/$defs/non_empty_string" }

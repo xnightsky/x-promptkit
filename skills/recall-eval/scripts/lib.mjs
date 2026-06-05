@@ -12,13 +12,13 @@
 //   │   · 显式 YAML 路径 → 直接使用                                       │
 //   │   · 目标文件/目录 → 发现其 .recall/queue.yaml                       │
 //   ├─ 校验层 ──────────────────────────────────────────────────────────┤
-//   │ validateRecallData / validateTopLevel / validateExpected             │
-//   │ validateScoreRule                                                   │
-//   │   · 顶层必填字段(version / fallback_answer / scoring / cases)      │
-//   │   · scoring 三档(0/1/2)必须覆盖                                    │
-//   │   · 每 case 必填：id / question / medium / carrier / expected      │
-//   │     must_include / score_rule(full/partial/fail) / tags /           │
-//   │     source_scope / source_ref                                      │
+//   │ validateRecallData                                                  │
+//   │   · shape 校验由独立 schema 文件驱动(结构权威)：                   │
+//   │     ../schemas/recall-queue.schema.yaml                             │
+//   │     + _shared/schemas/prompt-context-layers.schema.yaml(context 块)│
+//   │   · 代码只补 schema 表达不了的跨字段语义：                          │
+//   │     生效 source_ref(队列级继承+用例级覆盖)、context 的 global path │
+//   │   · 可选 context 块(队列级/用例级整块覆盖)：是否加载项目/全局提示词│
 //   ├─ 打分层 ──────────────────────────────────────────────────────────┤
 //   │ scoreAnswer / hasNonNegatedMatch                                    │
 //   │   · 命中 must_not_include → 0 分                                   │
@@ -39,7 +39,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import YAML from "yaml";
+import { validateContextSemantics } from "../../_shared/prompt-context.mjs";
+import { loadSchemaFile, validateAgainstSchema } from "../../_shared/schema-validator.mjs";
 
 // ── Carrier 与 clean-context 策略常量 ──
 
@@ -58,12 +61,14 @@ export const DEFAULT_CLEAN_CONTEXT_POLICY = Object.freeze({
 
 // ── 常量：队列 schema 约束 ──
 
-// 召回评测队列的必填顶层字段。
-const REQUIRED_TOP_LEVEL_FIELDS = ["version", "fallback_answer", "scoring", "cases"];
-// 评分表必须覆盖 0/1/2 三档。
-const REQUIRED_SCORE_KEYS = ["0", "1", "2"];
-// 每个用例的 score_rule 必须给出 full/partial/fail 三种说明。
-const REQUIRED_SCORE_RULE_KEYS = ["full", "partial", "fail"];
+// 队列契约的结构权威是独立 schema 文件（类 JSON Schema 子集）；
+// 本文件只消费 schema，并补 schema 表达不了的跨字段语义
+// （生效 source_ref 解析、context 的 global path 要求）。
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const QUEUE_SCHEMA_PATH = path.resolve(SCRIPT_DIR, "..", "schemas", "recall-queue.schema.yaml");
+// 队列 schema 通过外部 $ref 复用 _shared 维护的 context 层声明结构
+const LAYERS_SCHEMA_PATH = path.resolve(SCRIPT_DIR, "..", "..", "_shared", "schemas", "prompt-context-layers.schema.yaml");
+
 const YAML_FILE_PATTERN = /\.ya?ml$/i;
 
 // ── 内部工具函数 ──
@@ -165,96 +170,57 @@ export function loadRecallYaml(inputPath, cwd = process.cwd()) {
   };
 }
 
-// 校验队列顶层结构:必填字段、scoring 三档、cases 非空。
-function validateTopLevel(data, report) {
-  for (const field of REQUIRED_TOP_LEVEL_FIELDS) {
-    if (data?.[field] === undefined) {
-      report.queueErrors.push(`missing top-level field \`${field}\``);
-    }
-  }
-
-  if (data?.scoring && typeof data.scoring === "object" && !Array.isArray(data.scoring)) {
-    for (const key of REQUIRED_SCORE_KEYS) {
-      if (!isNonEmptyString(data.scoring[key])) {
-        report.queueErrors.push(`missing scoring key \`${key}\``);
-      }
-    }
-  } else if (data?.scoring !== undefined) {
-    report.queueErrors.push("top-level `scoring` must be an object");
-  }
-
-  if (!Array.isArray(data?.cases) || data.cases.length === 0) {
-    report.queueErrors.push("top-level `cases` must be a non-empty array");
-  }
-}
-
-// 校验单个用例的 expected 块,并归一化 must/should/must_not 列表。
-function validateExpected(caseValue, caseErrors) {
+// 归一化单个用例的 expected 块（shape 校验由 schema 负责，这里只做打分用的数据整形）。
+function normalizeExpected(caseValue) {
   const expected = caseValue?.expected;
   if (!expected || typeof expected !== "object" || Array.isArray(expected)) {
-    caseErrors.push("missing `expected`");
-    return {
-      mustInclude: [],
-      shouldInclude: [],
-      mustNotInclude: [],
-    };
-  }
-
-  const mustInclude = normalizeStringList(expected.must_include);
-  const shouldInclude = normalizeStringList(expected.should_include);
-  const mustNotInclude = normalizeStringList(expected.must_not_include);
-
-  if (mustInclude.length === 0) {
-    caseErrors.push("missing `expected.must_include`");
-  }
-
-  if (expected.should_include !== undefined && !Array.isArray(expected.should_include)) {
-    caseErrors.push("`expected.should_include` must be an array when present");
-  }
-
-  if (expected.must_not_include !== undefined && !Array.isArray(expected.must_not_include)) {
-    caseErrors.push("`expected.must_not_include` must be an array when present");
+    return { mustInclude: [], shouldInclude: [], mustNotInclude: [] };
   }
 
   return {
-    mustInclude,
-    shouldInclude,
-    mustNotInclude,
+    mustInclude: normalizeStringList(expected.must_include),
+    shouldInclude: normalizeStringList(expected.should_include),
+    mustNotInclude: normalizeStringList(expected.must_not_include),
   };
-}
-
-// 校验单个用例的 score_rule 块,必须包含 full/partial/fail。
-function validateScoreRule(caseValue, caseErrors) {
-  const scoreRule = caseValue?.score_rule;
-  if (scoreRule === undefined) {
-    caseErrors.push("missing `score_rule`");
-    return null;
-  }
-
-  if (typeof scoreRule !== "object" || Array.isArray(scoreRule)) {
-    caseErrors.push("`score_rule` must be an object");
-    return null;
-  }
-
-  for (const key of REQUIRED_SCORE_RULE_KEYS) {
-    if (!isNonEmptyString(scoreRule[key])) {
-      caseErrors.push(`missing \`score_rule.${key}\``);
-    }
-  }
-
-  return scoreRule;
 }
 
 // ── 校验层 ──
 
-// 校验整个队列数据，逐用例汇总错误，并解析每个用例生效的 source_ref（支持队列级继承与用例级覆盖）。
+// 校验整个队列数据，逐用例汇总错误，并解析每个用例生效的 source_ref / context
+// （均为：队列级继承 + 用例级整块覆盖）。
+//
+// shape 校验完全由 schema 文件驱动；错误按路径路由——
+// `cases[i].*` 的错误以「用例相对路径」重渲染后归入对应用例
+// （如 missing `medium`），其余归入队列级错误。
 export function validateRecallData(data) {
   const report = {
     queueErrors: [],
     caseReports: [],
   };
 
-  validateTopLevel(data, report);
+  const schemaErrors = validateAgainstSchema(data, loadSchemaFile(QUEUE_SCHEMA_PATH), {
+    registry: {
+      "prompt-context-layers.schema.yaml": loadSchemaFile(LAYERS_SCHEMA_PATH),
+    },
+  });
+
+  const caseErrorsByIndex = new Map();
+  for (const error of schemaErrors) {
+    const caseMatch = error.path.match(/^cases\[(\d+)\]\.(.+)$/);
+    if (caseMatch) {
+      const caseIndex = Number(caseMatch[1]);
+      if (!caseErrorsByIndex.has(caseIndex)) caseErrorsByIndex.set(caseIndex, []);
+      // 用 format 以用例相对路径重渲染消息（cases[0].medium → medium）
+      caseErrorsByIndex.get(caseIndex).push(error.format(caseMatch[2]));
+    } else {
+      report.queueErrors.push(error.message);
+    }
+  }
+
+  // 队列级 context 的跨字段语义（shape 已由 schema 的外部 $ref 覆盖）
+  if (data?.context !== undefined) {
+    report.queueErrors.push(...validateContextSemantics(data.context));
+  }
 
   if (!Array.isArray(data?.cases)) {
     return {
@@ -264,50 +230,38 @@ export function validateRecallData(data) {
   }
 
   const queueSourceRef = isNonEmptyString(data.source_ref) ? data.source_ref : null;
+  const queueContext = data.context !== undefined ? data.context : null;
 
   for (const [index, caseValue] of data.cases.entries()) {
-    const caseErrors = [];
+    const caseErrors = [...(caseErrorsByIndex.get(index) ?? [])];
     const caseId = isNonEmptyString(caseValue?.id) ? caseValue.id : `case-${index + 1}`;
     const effectiveSourceRef = isNonEmptyString(caseValue?.source_ref)
       ? caseValue.source_ref
       : queueSourceRef;
+    // context 与 source_ref 同语义：用例级整块覆盖队列级，不做深合并。
+    // 缺省为 null = 不加载任何 repo/global 提示词层（clean-context-v1 基线）。
+    const effectiveContext = caseValue?.context !== undefined ? caseValue.context : queueContext;
 
-    if (!isNonEmptyString(caseValue?.id)) {
-      caseErrors.push("missing `id`");
-    }
-
-    if (!isNonEmptyString(caseValue?.question)) {
-      caseErrors.push("missing `question`");
-    }
-
-    if (!isNonEmptyString(caseValue?.medium)) {
-      caseErrors.push("missing `medium`");
-    }
-
-    if (!isNonEmptyString(caseValue?.carrier)) {
-      caseErrors.push("missing `carrier`");
-    }
-
-    const expected = validateExpected(caseValue, caseErrors);
-    const scoreRule = validateScoreRule(caseValue, caseErrors);
-
-    if (!Array.isArray(caseValue?.tags) || normalizeStringList(caseValue.tags).length === 0) {
-      caseErrors.push("missing `tags`");
-    }
-
-    if (!isNonEmptyString(caseValue?.source_scope)) {
-      caseErrors.push("missing `source_scope`");
+    if (caseValue?.context !== undefined) {
+      caseErrors.push(...validateContextSemantics(caseValue.context));
     }
 
     if (!isNonEmptyString(effectiveSourceRef)) {
       caseErrors.push("missing effective `source_ref`");
     }
 
+    const expected = normalizeExpected(caseValue);
+    const scoreRule =
+      caseValue?.score_rule && typeof caseValue.score_rule === "object" && !Array.isArray(caseValue.score_rule)
+        ? caseValue.score_rule
+        : null;
+
     report.caseReports.push({
       index,
       id: caseId,
       caseValue,
       effectiveSourceRef,
+      effectiveContext,
       errors: caseErrors,
       expected,
       scoreRule,
@@ -387,6 +341,10 @@ function hasNonNegatedMatch(text, phrase) {
     }
 
     const prefix = normalizedText.slice(Math.max(0, index - 2), index);
+    // 否定前缀分两类：单字否定（紧邻词条，如「没深合并」）与二字否定词
+    // （如「没有深合并」「不做深合并」「而非深合并」）。后者是真实模型回答的
+    // 高频形态，漏判会把正确的否定表述误记为命中 must_not_include
+    // （live 自测中实际踩到过「不做」「没有」两例）。
     const isNegated =
       prefix.endsWith("不") ||
       prefix.endsWith("别") ||
@@ -394,7 +352,13 @@ function hasNonNegatedMatch(text, phrase) {
       prefix.endsWith("勿") ||
       prefix.endsWith("不能") ||
       prefix.endsWith("不要") ||
-      prefix.endsWith("不可");
+      prefix.endsWith("不可") ||
+      prefix.endsWith("不做") ||
+      prefix.endsWith("不会") ||
+      prefix.endsWith("不是") ||
+      prefix.endsWith("没有") ||
+      prefix.endsWith("并非") ||
+      prefix.endsWith("而非");
 
     if (!isNegated) {
       return true;

@@ -76,6 +76,8 @@ test("live recall evaluates all queue cases and scores full marks", async (t) =>
         sourceRef: caseReport.effectiveSourceRef,
         question: caseReport.caseValue.question,
         provider,
+        // 与 run-eval.mjs 的调用契约保持对齐：透传用例生效的 context 声明
+        context: caseReport.effectiveContext ?? undefined,
         maxRetries: 2,
       });
 

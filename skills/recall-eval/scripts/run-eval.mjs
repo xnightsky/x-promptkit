@@ -168,6 +168,8 @@ async function evaluateQueueTarget(yamlPath) {
         sourceRef: caseReport.effectiveSourceRef,
         question: caseReport.caseValue.question,
         provider,
+        // 用例生效的 context 声明：是否加载项目/全局提示词层（用例级 > 队列级）
+        context: caseReport.effectiveContext ?? undefined,
         maxRetries: 2,
         baseDir: sourceBaseDir,
       });
