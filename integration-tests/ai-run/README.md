@@ -1,0 +1,28 @@
+# AI Run Integration Tests
+
+Markdown case 协议（沿用 `claude-p-watch/` 的 `subagent.md` + `main-agent-assert.md` 模式）。
+
+## Case 列表
+
+| Case | 场景 | 覆盖点 |
+|------|------|--------|
+| case-01 | 无后端指定，默认 claude | 默认路由 + claude 命令骨架 |
+| case-02 | 显式指定 codex | codex 后端路由 + `codex exec --json` 骨架 |
+| case-03 | 显式指定 opencode | opencode 后端路由 + `opencode run` 骨架 |
+| case-04 | 显式指定 pi | pi 后端路由 + `pi -p` 骨架 |
+| case-05 | 同一任务切换后端 | 路由正确性 + 后端互不污染 |
+
+## 执行协议
+
+1. 读取 case 目录下的 `subagent.md`
+2. 提取 `## Input` 和 `## Execution Constraints`
+3. 用 `Input + Execution Constraints` 组成实际执行请求
+4. 在隔离 subagent 运行中执行该请求
+5. 读取返回的纯文本结果
+6. 对照 `main-agent-assert.md` 中的 `## Assert Must Include` / `## Assert Must Not Include` 做字面断言
+
+## 维护约束
+
+- `subagent.md` 只放会发给执行 agent 的输入与执行约束
+- 主代理专用的验证理由与推导放到 `main-agent-assert.md`，写在 `## Assert Notes`
+- 如果 case 运行依赖 `skill_entries`，只挂 `ai-run` skill 一个即可

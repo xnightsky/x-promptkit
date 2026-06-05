@@ -1,0 +1,7 @@
+interface:
+  display_name: "AI Run"
+  short_description: "统一非交互 AI CLI 执行：claude / codex / opencode / pi"
+  default_prompt: "Use $ai-run to select the right backend, construct the command, and execute it directly."
+
+policy:
+  allow_implicit_invocation: false
