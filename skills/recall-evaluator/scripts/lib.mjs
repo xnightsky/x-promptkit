@@ -1,14 +1,18 @@
 import fs from "node:fs";
-import { randomUUID } from "node:crypto";
 import path from "node:path";
 import YAML from "yaml";
-import { DEFAULT_CLEAN_CONTEXT_POLICY } from "./carrier-adapter.mjs";
 
+// 召回评测的纯函数库：负责解析/校验队列 YAML、解析目标路径、按规则打分以及格式化输出。
+// 注意：本文件已彻底移除 --live 的本地落盘能力（原 .tmp/recall-runs 运行产物），
+// 不再依赖 node:crypto 或 carrier-adapter 的上下文策略；--live 的“现场执行”逻辑仍保留在 run-eval.mjs 中。
+
+// 召回评测队列的必填顶层字段。
 const REQUIRED_TOP_LEVEL_FIELDS = ["version", "fallback_answer", "scoring", "cases"];
+// 评分表必须覆盖 0/1/2 三档。
 const REQUIRED_SCORE_KEYS = ["0", "1", "2"];
+// 每个用例的 score_rule 必须给出 full/partial/fail 三种说明。
 const REQUIRED_SCORE_RULE_KEYS = ["full", "partial", "fail"];
 const YAML_FILE_PATTERN = /\.ya?ml$/i;
-export const DEFAULT_LIVE_RUNS_DIR = "./.tmp/recall-runs";
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -22,6 +26,7 @@ function readFileUtf8(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+// 统一把路径分隔符转为正斜杠，保证跨平台输出一致。
 function normalizePathForOutput(filePath) {
   return String(filePath ?? "").replace(/\\/g, "/");
 }
@@ -30,6 +35,9 @@ export function resolveYamlPath(inputPath, cwd = process.cwd()) {
   return path.resolve(cwd, inputPath);
 }
 
+// 将用户传入的“目标路径”解析为真正的队列 YAML：
+// - 直接给出 .yaml/.yml 文件时按显式文件处理；
+// - 给出目录或普通文件时，向其所在目录下的 .recall/queue.yaml 发现队列。
 export function resolveRecallInputPath(inputPath, cwd = process.cwd()) {
   const absoluteInputPath = resolveYamlPath(inputPath, cwd);
 
@@ -81,6 +89,7 @@ export function resolveRecallInputPath(inputPath, cwd = process.cwd()) {
   };
 }
 
+// 读取并解析队列 YAML，返回原始文本、解析后的数据以及发现信息。
 export function loadRecallYaml(inputPath, cwd = process.cwd()) {
   const resolvedInput = resolveRecallInputPath(inputPath, cwd);
   const absolutePath = resolvedInput.absolutePath;
@@ -96,6 +105,7 @@ export function loadRecallYaml(inputPath, cwd = process.cwd()) {
   };
 }
 
+// 校验队列顶层结构：必填字段、scoring 三档、cases 非空。
 function validateTopLevel(data, report) {
   for (const field of REQUIRED_TOP_LEVEL_FIELDS) {
     if (data?.[field] === undefined) {
@@ -118,6 +128,7 @@ function validateTopLevel(data, report) {
   }
 }
 
+// 校验单个用例的 expected 块，并归一化 must/should/must_not 列表。
 function validateExpected(caseValue, caseErrors) {
   const expected = caseValue?.expected;
   if (!expected || typeof expected !== "object" || Array.isArray(expected)) {
@@ -152,6 +163,7 @@ function validateExpected(caseValue, caseErrors) {
   };
 }
 
+// 校验单个用例的 score_rule 块，必须包含 full/partial/fail。
 function validateScoreRule(caseValue, caseErrors) {
   const scoreRule = caseValue?.score_rule;
   if (scoreRule === undefined) {
@@ -173,6 +185,7 @@ function validateScoreRule(caseValue, caseErrors) {
   return scoreRule;
 }
 
+// 校验整个队列数据，逐用例汇总错误，并解析每个用例生效的 source_ref（支持队列级继承与用例级覆盖）。
 export function validateRecallData(data) {
   const report = {
     queueErrors: [],
@@ -248,6 +261,7 @@ export function validateRecallData(data) {
   };
 }
 
+// 把校验结果格式化为 PASS/FAIL 文本报告。
 export function formatValidationReport(yamlPath, report) {
   const lines = [];
 
@@ -274,6 +288,7 @@ export function formatValidationReport(yamlPath, report) {
   return lines.join("\n");
 }
 
+// 解析最终生效的 carrier：CLI 覆盖优先于队列/用例自带的 carrier。
 export function resolveEffectiveCarrier(caseReport, cliCarrier) {
   if (isNonEmptyString(cliCarrier)) {
     return cliCarrier;
@@ -290,6 +305,7 @@ function normalizeText(text) {
   return String(text ?? "").toLowerCase();
 }
 
+// 判断 phrase 是否以“非否定”的形式出现在 text 中，避免把“不能继续执行”误判为命中“继续执行”。
 function hasNonNegatedMatch(text, phrase) {
   const normalizedText = normalizeText(text);
   const normalizedPhrase = normalizeText(phrase);
@@ -321,6 +337,7 @@ function hasNonNegatedMatch(text, phrase) {
   return false;
 }
 
+// 依据 expected 与 score_rule 给答案打分：命中禁止项=0；must 全中=2；部分命中=1。
 export function scoreAnswer(caseReport, answerText) {
   const normalizedAnswer = normalizeText(answerText);
   const mustHits = caseReport.expected.mustInclude.filter((item) =>
@@ -358,6 +375,7 @@ export function scoreAnswer(caseReport, answerText) {
   };
 }
 
+// 读取直接传入的答案：优先 --answer，其次 --answer-file。
 export function readAnswerInput({ answer, answerFile }) {
   if (isNonEmptyString(answer)) {
     return answer;
@@ -370,83 +388,14 @@ export function readAnswerInput({ answer, answerFile }) {
   return null;
 }
 
+// 读取整队列答案文件（JSON：caseId -> answerText）。
 export function readAnswersFile(filePath) {
   const raw = readFileUtf8(filePath);
   return JSON.parse(raw);
 }
 
-export function createLiveRunId(now = new Date(), suffix = randomUUID()) {
-  const timestampPart = now.toISOString().replace(/[:.]/g, "-");
-  return `recall-run-${timestampPart}-${suffix}`;
-}
-
-export function resolveRunsDir(inputPath, cwd = process.cwd()) {
-  return path.resolve(cwd, isNonEmptyString(inputPath) ? inputPath : DEFAULT_LIVE_RUNS_DIR);
-}
-
-export function buildLiveRunArtifactRecord({
-  runId,
-  mode,
-  startedAt,
-  completedAt,
-  queuePath,
-  selectedCaseId,
-  carrierOverride,
-  contextPolicy = DEFAULT_CLEAN_CONTEXT_POLICY,
-  cases,
-}) {
-  return {
-    version: 1,
-    run_id: runId,
-    mode,
-    started_at: startedAt,
-    completed_at: completedAt,
-    queue_path: queuePath,
-    selected_case_id: selectedCaseId ?? null,
-    carrier_override: carrierOverride ?? null,
-    context_policy: contextPolicy ? { ...contextPolicy } : null,
-    cases: cases.map((item) => ({
-      case_id: item.caseId,
-      source_ref: item.sourceRef ?? null,
-      carrier: item.carrier ?? null,
-      question: item.question ?? null,
-      answer_text: item.answerText ?? null,
-      score: item.score ?? null,
-      rationale: item.rationale ?? null,
-      status: item.status,
-      timestamp: item.timestamp,
-      // Persist structured failure metadata so environment failure never looks like a bad recall score.
-      runtime_failure: item.runtimeFailure
-        ? {
-            kind: item.runtimeFailure.kind,
-            class: item.runtimeFailure.failureClass,
-            reason: item.runtimeFailure.reason,
-            retryable: item.runtimeFailure.retryable,
-            attempts: item.runtimeFailure.attempts,
-            retries_used: item.runtimeFailure.retriesUsed,
-            max_retries: item.runtimeFailure.maxRetries,
-          }
-        : null,
-    })),
-  };
-}
-
-export function persistLiveRunArtifact({ runsDir, runRecord, cwd = process.cwd() }) {
-  const resolvedRunsDir = resolveRunsDir(runsDir, cwd);
-  const runDirectory = path.join(resolvedRunsDir, runRecord.run_id);
-  const artifactPath = path.join(runDirectory, "result.json");
-
-  fs.mkdirSync(runDirectory, { recursive: true });
-  fs.writeFileSync(artifactPath, `${JSON.stringify(runRecord, null, 2)}\n`);
-
-  return {
-    runsDir: resolvedRunsDir,
-    runDirectory,
-    artifactPath,
-    relativeArtifactPath: normalizePathForOutput(path.relative(cwd, artifactPath)),
-  };
-}
-
+// 格式化单个队列目标的评测报告。
+// 说明：已移除原 “run artifact” 行，因为不再有本地落盘产物。
 export function formatRunEvalOutput({
   yamlPath,
   carrierLabel,
@@ -476,10 +425,11 @@ export function formatRunEvalOutput({
   lines.push(`- refused for missing carrier: ${summary.refusedForMissingCarrier}`);
   lines.push(`- queue fixes required: ${summary.queueFixesRequired}`);
   lines.push(`- runtime failures: ${summary.runtimeFailures ?? "none"}`);
-  lines.push(`- run artifact: ${summary.runArtifact ?? "none"}`);
   return lines.join("\n");
 }
 
+// 格式化多个队列目标的批量评测报告。
+// 说明：已移除原每个 target 摘要末尾的 “run artifact=...” 段。
 export function formatBatchRunEvalOutput({ mode, targets }) {
   const lines = [];
   lines.push("Batch Recall Eval");
@@ -490,7 +440,7 @@ export function formatBatchRunEvalOutput({ mode, targets }) {
 
   for (const target of targets) {
     lines.push(
-      `- \`${target.yamlPath}\`: directly evaluable=${target.summary.directlyEvaluable}; refused for missing carrier=${target.summary.refusedForMissingCarrier}; queue fixes required=${target.summary.queueFixesRequired}; runtime failures=${target.summary.runtimeFailures ?? "none"}; run artifact=${target.summary.runArtifact ?? "none"}`,
+      `- \`${target.yamlPath}\`: directly evaluable=${target.summary.directlyEvaluable}; refused for missing carrier=${target.summary.refusedForMissingCarrier}; queue fixes required=${target.summary.queueFixesRequired}; runtime failures=${target.summary.runtimeFailures ?? "none"}`,
     );
   }
 

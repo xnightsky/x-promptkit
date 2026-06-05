@@ -1,10 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+// 召回评测纯函数库（lib.mjs）的单元测试。
+// 风格：BDD（场景 / 预期）。
+// 重要：随着 --live 本地落盘能力被移除，buildLiveRunArtifactRecord 相关测试已删除，
+// 输出格式化测试也不再断言 run artifact 行/段。
+
 const cwd = process.cwd();
 
 import {
-  buildLiveRunArtifactRecord,
   formatBatchRunEvalOutput,
   formatRunEvalOutput,
   resolveRecallInputPath,
@@ -13,6 +17,7 @@ import {
   validateRecallData,
 } from "../skills/recall-evaluator/scripts/lib.mjs";
 
+// 场景：用例未提供 source_ref。预期：继承队列级 source_ref，无错误。
 test("validateRecallData inherits queue-level source_ref when case-level override is absent", () => {
   const report = validateRecallData({
     version: 1,
@@ -47,6 +52,7 @@ test("validateRecallData inherits queue-level source_ref when case-level overrid
   assert.equal(report.caseReports[0].errors.length, 0);
 });
 
+// 场景：用例自带 source_ref。预期：优先采用用例级覆盖值。
 test("validateRecallData prefers case-level source_ref override", () => {
   const report = validateRecallData({
     version: 1,
@@ -85,6 +91,7 @@ test("validateRecallData prefers case-level source_ref override", () => {
   assert.equal(report.caseReports[0].errors.length, 0);
 });
 
+// 场景：解析生效 carrier。预期：CLI 覆盖优先于队列 carrier，二者皆无时为 null。
 test("resolveEffectiveCarrier applies cli override before queue carrier", () => {
   const caseReport = {
     caseValue: {
@@ -100,6 +107,7 @@ test("resolveEffectiveCarrier applies cli override before queue carrier", () => 
   assert.equal(resolveEffectiveCarrier({ caseValue: {} }, null), null);
 });
 
+// 场景：仅命中 should_include。预期：score=1（部分），并列出缺失的 must 项。
 test("scoreAnswer returns partial score when only should_include matches", () => {
   const scored = scoreAnswer(
     {
@@ -122,6 +130,7 @@ test("scoreAnswer returns partial score when only should_include matches", () =>
   assert.deepEqual(scored.missingMust, ["拒绝执行", "medium"]);
 });
 
+// 场景：禁止项以否定形式出现（“不能继续执行”）。预期：不计为越界命中，score=2。
 test("scoreAnswer does not treat negated must_not_include text as an overreach hit", () => {
   const scored = scoreAnswer(
     {
@@ -143,6 +152,7 @@ test("scoreAnswer does not treat negated must_not_include text as an overreach h
   assert.deepEqual(scored.mustNotHits, []);
 });
 
+// 场景：格式化单目标报告。预期：始终包含 runtime failures 摘要行（不再包含 run artifact 行）。
 test("formatRunEvalOutput always includes the runtime failures summary line", () => {
   const output = formatRunEvalOutput({
     yamlPath: "skills/recall-eval/.recall/queue.yaml",
@@ -165,112 +175,15 @@ test("formatRunEvalOutput always includes the runtime failures summary line", ()
       refusedForMissingCarrier: "none",
       queueFixesRequired: "none",
       runtimeFailures: "`case-02` carrier unavailable in current environment",
-      runArtifact: "none",
     },
   });
 
   assert.match(output, /5\. Summary/);
   assert.match(output, /runtime failures: `case-02` carrier unavailable in current environment/);
-  assert.match(output, /run artifact: none/);
+  assert.doesNotMatch(output, /run artifact/);
 });
 
-test("buildLiveRunArtifactRecord keeps the persisted run schema stable", () => {
-  const record = buildLiveRunArtifactRecord({
-    runId: "run-123",
-    mode: "live",
-    startedAt: "2026-04-07T10:00:00.000Z",
-    completedAt: "2026-04-07T10:00:02.000Z",
-    queuePath: "skills/recall-eval/.recall/queue.yaml",
-    selectedCaseId: "case-01",
-    carrierOverride: "isolated-context-run:subagent",
-    cases: [
-      {
-        caseId: "case-01",
-        sourceRef: "skills/recall-eval/SKILL.md",
-        carrier: "isolated-context-run:subagent",
-        question: "缺少 medium 时是否拒绝执行？",
-        answerText: "必须拒绝执行。",
-        score: 2,
-        rationale: "full",
-        status: "scored",
-        timestamp: "2026-04-07T10:00:01.000Z",
-        runtimeFailure: null,
-      },
-    ],
-  });
-
-  assert.deepEqual(Object.keys(record), [
-    "version",
-    "run_id",
-    "mode",
-    "started_at",
-    "completed_at",
-    "queue_path",
-    "selected_case_id",
-    "carrier_override",
-    "context_policy",
-    "cases",
-  ]);
-  assert.deepEqual(Object.keys(record.cases[0]), [
-    "case_id",
-    "source_ref",
-    "carrier",
-    "question",
-    "answer_text",
-    "score",
-    "rationale",
-    "status",
-    "timestamp",
-    "runtime_failure",
-  ]);
-  assert.equal(record.context_policy.id, "clean-context-v1");
-  assert.equal(record.cases[0].runtime_failure, null);
-});
-
-test("buildLiveRunArtifactRecord persists structured runtime failure metadata", () => {
-  const record = buildLiveRunArtifactRecord({
-    runId: "run-456",
-    mode: "live",
-    startedAt: "2026-04-07T10:00:00.000Z",
-    completedAt: "2026-04-07T10:00:03.000Z",
-    queuePath: "skills/recall-eval/.recall/queue.yaml",
-    selectedCaseId: "case-02",
-    carrierOverride: null,
-    cases: [
-      {
-        caseId: "case-02",
-        sourceRef: "skills/recall-eval/SKILL.md",
-        carrier: "isolated-context-run:subagent",
-        question: "bridge 断流时怎么记账？",
-        answerText: null,
-        score: null,
-        rationale: "carrier execution failed",
-        status: "not_evaluated",
-        timestamp: "2026-04-07T10:00:02.000Z",
-        runtimeFailure: {
-          kind: "environment_failure",
-          failureClass: "bridge_stream_closed",
-          reason: "carrier execution failed: bridge down",
-          retryable: true,
-          attempts: 2,
-          retriesUsed: 1,
-          maxRetries: 1,
-        },
-      },
-    ],
-  });
-
-  assert.deepEqual(record.cases[0].runtime_failure, {
-    kind: "environment_failure",
-    class: "bridge_stream_closed",
-    reason: "carrier execution failed: bridge down",
-    retryable: true,
-    attempts: 2,
-    retries_used: 1,
-    max_retries: 1,
-  });
-});
-
+// 场景：格式化批量报告。预期：能区分各目标摘要与内嵌报告（不再包含 run artifact 段）。
 test("formatBatchRunEvalOutput distinguishes target summaries and embedded reports", () => {
   const output = formatBatchRunEvalOutput({
     mode: "live",
@@ -283,7 +196,6 @@ test("formatBatchRunEvalOutput distinguishes target summaries and embedded repor
           refusedForMissingCarrier: "none",
           queueFixesRequired: "none",
           runtimeFailures: "none",
-          runArtifact: ".tmp/recall-runs/run-a/result.json",
         },
       },
       {
@@ -294,7 +206,6 @@ test("formatBatchRunEvalOutput distinguishes target summaries and embedded repor
           refusedForMissingCarrier: "none",
           queueFixesRequired: "none",
           runtimeFailures: "none",
-          runArtifact: ".tmp/recall-runs/run-b/result.json",
         },
       },
     ],
@@ -304,9 +215,10 @@ test("formatBatchRunEvalOutput distinguishes target summaries and embedded repor
   assert.match(output, /- mode: `live`/);
   assert.match(output, /- `skills\/recall-eval\/.recall\/queue\.yaml`: directly evaluable=`case-a`/);
   assert.match(output, /## `\.recall\/queue\.yaml`/);
-  assert.match(output, /run artifact=.tmp\/recall-runs\/run-b\/result\.json/);
+  assert.doesNotMatch(output, /run artifact/);
 });
 
+// 场景：从目标文件发现仓库本地队列。预期：解析到 .recall/queue.yaml 且发现模式为 target_file。
 test("resolveRecallInputPath discovers a repo-local queue from a target file", () => {
   const resolved = resolveRecallInputPath("AGENTS.md", cwd);
 
@@ -315,6 +227,7 @@ test("resolveRecallInputPath discovers a repo-local queue from a target file", (
   assert.equal(resolved.discovery.mode, "target_file");
 });
 
+// 场景：从目标目录发现本地队列。预期：解析到该目录下的 .recall/queue.yaml 且模式为 target_directory。
 test("resolveRecallInputPath discovers a target-local queue from a target directory", () => {
   const resolved = resolveRecallInputPath("skills/recall-eval", cwd);
 

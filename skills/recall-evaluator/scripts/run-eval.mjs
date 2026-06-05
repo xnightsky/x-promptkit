@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 import {
-  buildLiveRunArtifactRecord,
-  createLiveRunId,
   formatBatchRunEvalOutput,
   formatRunEvalOutput,
   loadRecallYaml,
-  persistLiveRunArtifact,
   readAnswerInput,
   readAnswersFile,
   resolveEffectiveCarrier,
@@ -13,21 +10,23 @@ import {
   validateRecallData,
 } from "./lib.mjs";
 import {
-  DEFAULT_CLEAN_CONTEXT_POLICY,
   executeRecallViaCarrier,
   formatRuntimeFailureReason,
   isSupportedRecallCarrier,
 } from "./carrier-adapter.mjs";
 
+// 召回评测 CLI 入口。
+// 重要：--live 仅表示“通过 carrier 现场执行召回再打分”，本工具不再向本地磁盘落盘任何运行产物。
+// 因此原先的 --runs-dir 选项与 .tmp/recall-runs/result.json 落盘逻辑已整体删除。
 const VALUE_FLAGS = new Set([
   "--case",
   "--carrier",
-  "--runs-dir",
   "--answer",
   "--answer-file",
   "--answers-file",
 ]);
 
+// 极简参数解析：区分需要取值的 flag、布尔 flag 与位置参数。
 function parseRunEvalArgs(rawArgs) {
   const positionals = [];
   const values = {};
@@ -70,7 +69,6 @@ const yamlPaths = parsedArgs.positionals;
 const liveMode = parsedArgs.has("--live");
 const selectedCaseId = parsedArgs.valueFor("--case");
 const cliCarrier = parsedArgs.valueFor("--carrier");
-const runsDir = parsedArgs.valueFor("--runs-dir");
 const answer = parsedArgs.valueFor("--answer");
 const answerFile = parsedArgs.valueFor("--answer-file");
 const answersFile = parsedArgs.valueFor("--answers-file");
@@ -78,16 +76,18 @@ const batchMode = yamlPaths.length > 1;
 
 if (yamlPaths.length === 0) {
   console.log(
-    "Usage: node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path> | --live] [--carrier <carrier>] [--runs-dir <path>]",
+    "Usage: node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path> | --live] [--carrier <carrier>]",
   );
   process.exit(1);
 }
 
+// --live 走 carrier 现场执行，与直接传入答案互斥。
 if (liveMode && (answer !== null || answerFile !== null || answersFile !== null)) {
   console.log("--live cannot be combined with direct answer inputs");
   process.exit(1);
 }
 
+// 批量（多个队列目标）只在 --live 下有意义。
 if (batchMode && !liveMode) {
   console.log("multiple yaml targets require --live");
   process.exit(1);
@@ -98,6 +98,7 @@ if (batchMode && selectedCaseId !== null) {
   process.exit(1);
 }
 
+// 评测单个队列目标：完整性检查 -> 逐用例解析答案（直接答案/现场执行）-> 打分 -> 汇总。
 function evaluateQueueTarget(yamlPath) {
   let loadedQueue;
   try {
@@ -135,27 +136,6 @@ function evaluateQueueTarget(yamlPath) {
   const refusedForMissingCarrier = [];
   const queueFixesRequired = [];
   const runtimeFailures = [];
-  const persistedCases = [];
-  const startedAt = new Date().toISOString();
-
-  function pushPersistedCase(caseReport, effectiveCarrier, details) {
-    if (!liveMode) {
-      return;
-    }
-
-    persistedCases.push({
-      caseId: caseReport.id,
-      sourceRef: caseReport.effectiveSourceRef,
-      carrier: effectiveCarrier ?? null,
-      question: caseReport.caseValue?.question ?? null,
-      answerText: details.answerText ?? null,
-      score: details.score ?? null,
-      rationale: details.rationale ?? null,
-      status: details.status,
-      timestamp: new Date().toISOString(),
-      runtimeFailure: details.runtimeFailure ?? null,
-    });
-  }
 
   for (const caseReport of caseReports) {
     if (caseReport.errors.length === 0) {
@@ -180,10 +160,6 @@ function evaluateQueueTarget(yamlPath) {
         result: "refused | carrier required before recall",
       });
       refusedForMissingCarrier.push(`\`${caseReport.id}\``);
-      pushPersistedCase(caseReport, effectiveCarrier, {
-        status: "refused",
-        rationale: "carrier required before recall",
-      });
       continue;
     }
 
@@ -198,15 +174,12 @@ function evaluateQueueTarget(yamlPath) {
       if (refusalKind === "refused") {
         refusedForMissingCarrier.push(`\`${caseReport.id}\``);
       }
-      pushPersistedCase(caseReport, effectiveCarrier, {
-        status: refusalKind === "refused" ? "refused" : "not_evaluated",
-        rationale: caseReport.errors.join(", "),
-      });
       continue;
     }
 
     const answerText = answersByCase[caseReport.id];
     let resolvedAnswerText = answerText;
+    // 显式指定了不支持的 carrier 覆盖时，直接拒绝，不进入现场执行。
     if (
       typeof resolvedAnswerText !== "string" &&
       typeof cliCarrier === "string" &&
@@ -217,13 +190,10 @@ function evaluateQueueTarget(yamlPath) {
         result: `refused | unsupported carrier: \`${effectiveCarrier}\``,
       });
       runtimeFailures.push(`\`${caseReport.id}\` unsupported carrier: \`${effectiveCarrier}\``);
-      pushPersistedCase(caseReport, effectiveCarrier, {
-        status: "refused",
-        rationale: `unsupported carrier: \`${effectiveCarrier}\``,
-      });
       continue;
     }
 
+    // --live 且无直接答案：通过 carrier 现场执行获取答案；环境/执行失败与队列错误分开记账。
     if (typeof resolvedAnswerText !== "string" && liveMode) {
       const runtimeResult = executeRecallViaCarrier(caseReport, effectiveCarrier);
       if (!runtimeResult.ok) {
@@ -236,14 +206,6 @@ function evaluateQueueTarget(yamlPath) {
           result: resultText,
         });
         runtimeFailures.push(`\`${caseReport.id}\` ${formatRuntimeFailureReason(runtimeResult)}`);
-        pushPersistedCase(caseReport, effectiveCarrier, {
-          status: runtimeResult.kind === "unsupported_carrier" ? "refused" : "not_evaluated",
-          rationale:
-            runtimeResult.kind === "unsupported_carrier"
-              ? runtimeResult.reason
-              : formatRuntimeFailureReason(runtimeResult),
-          runtimeFailure: runtimeResult.kind === "unsupported_carrier" ? null : runtimeResult,
-        });
         continue;
       }
 
@@ -255,10 +217,6 @@ function evaluateQueueTarget(yamlPath) {
         id: caseReport.id,
         result: "not evaluated | missing answer input",
       });
-      pushPersistedCase(caseReport, effectiveCarrier, {
-        status: "not_evaluated",
-        rationale: "missing answer input",
-      });
       continue;
     }
 
@@ -268,32 +226,6 @@ function evaluateQueueTarget(yamlPath) {
       result: `score=${scored.score} | ${scored.rationale}`,
     });
     directlyEvaluable.push(`\`${caseReport.id}\``);
-    pushPersistedCase(caseReport, effectiveCarrier, {
-      answerText: resolvedAnswerText,
-      score: scored.score,
-      rationale: scored.rationale,
-      status: "scored",
-    });
-  }
-
-  let runArtifact = "none";
-  if (liveMode) {
-    // Only live runs produce persisted artifacts; score-only mode stays side-effect free.
-    const runRecord = buildLiveRunArtifactRecord({
-      runId: createLiveRunId(),
-      mode: "live",
-      startedAt,
-      completedAt: new Date().toISOString(),
-      queuePath: inputPath,
-      selectedCaseId,
-      carrierOverride: cliCarrier,
-      contextPolicy: DEFAULT_CLEAN_CONTEXT_POLICY,
-      cases: persistedCases,
-    });
-    runArtifact = persistLiveRunArtifact({
-      runsDir,
-      runRecord,
-    }).relativeArtifactPath;
   }
 
   const carrierLabel =
@@ -309,7 +241,6 @@ function evaluateQueueTarget(yamlPath) {
       refusedForMissingCarrier.length > 0 ? refusedForMissingCarrier.join(", ") : "none",
     queueFixesRequired: queueFixesRequired.length > 0 ? queueFixesRequired.join("; ") : "none",
     runtimeFailures: runtimeFailures.length > 0 ? runtimeFailures.join("; ") : "none",
-    runArtifact,
   };
 
   return {
