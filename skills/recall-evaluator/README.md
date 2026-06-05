@@ -10,8 +10,8 @@ Commands:
 - `npm run recall:validate -- <yaml-path|target-path>`
 - `npm run recall:resolve -- <yaml-path|target-path>`
 - `npm run recall:run -- <yaml-path|target-path> --case <id> --answer "<text>"`
-- `npm run recall:run -- <yaml-path|target-path> --case <id> --live [--runs-dir <path>]`
-- `npm run recall:run -- <yaml-path|target-path> [<yaml-path|target-path> ...] --live [--runs-dir <path>]`
+- `npm run recall:run -- <yaml-path|target-path> --case <id> --live`
+- `npm run recall:run -- <yaml-path|target-path> [<yaml-path|target-path> ...] --live`
 
 Development rules:
 
@@ -54,13 +54,11 @@ Runtime failure accounting:
 - the runner classifies runtime failures into `rate_limited`, `bridge_stream_closed`, `thread_limit`, or generic `environment_failure`
 - default retry budget is `2` for `rate_limited`, `1` for `bridge_stream_closed`, and `0` for `thread_limit` or generic `environment_failure`
 
-Live run persistence:
+Live recall (no local footprint):
 
-- `--live` always writes one run artifact to `./.tmp/recall-runs/<run-id>/result.json` by default.
-- `--runs-dir <path>` overrides the base output directory for that live invocation.
-- score-only mode (`--answer` / `--answer-file` / `--answers-file`) does not write run artifacts.
-- `result.json` is the v1 source of truth for replaying a live run. It stores top-level run metadata, `context_policy`, and per-case `answer_text`, `score`, `rationale`, `status`, and structured `runtime_failure`.
-- `runtime_failure` records `kind`, `class`, `reason`, `retryable`, `attempts`, `retries_used`, and `max_retries` when a live carrier path fails.
+- `--live` sources each answer by executing the recall through the carrier in-process; it writes nothing to disk and runs no clean-up step.
+- score-only mode (`--answer` / `--answer-file` / `--answers-file`) likewise has no local footprint.
+- runtime-failure accounting (`kind`, `class`, `reason`, `retryable`, `attempts`, `retries_used`, `max_retries`) is surfaced in the report's runtime-failures summary instead of a persisted artifact.
 - multiple yaml targets are supported only with `--live`; batch mode does not combine with `--case` or direct answer inputs.
 
 Target-local queue discovery:
