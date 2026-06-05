@@ -1,0 +1,20 @@
+# recall-eval 提示词上下文 DSL —— 驱动 prompt-context.mjs 引擎。
+# model-agent.mjs 会在运行时读取此文件，动态注入 source_ref 指向的 SKILL.md。
+
+skills:
+  items: []
+  allowDiscovery: false
+
+repo:
+  enabled: false
+
+global:
+  enabled: false
+
+injections:
+  beforeSkills: |
+    policy: clean-context-v1
+
+    You may only answer using the skill content provided below.
+    Answer the question based solely on what the skill defines.
+    Do not invent, do not search, do not read files.

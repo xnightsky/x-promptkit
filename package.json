@@ -15,14 +15,14 @@
     "test": "node scripts/tooling/run-tests.mjs",
     "iitest": "node scripts/tooling/run-integration-tests.mjs",
     "test:recall-unit": "node --test tests/recall-eval.lib.test.mjs",
-    "test:recall-bridge": "node --test tests/recall-eval.carrier-adapter.test.mjs",
     "test:recall-cli": "node --test tests/recall-eval.test.mjs",
     "test:recall-replay-unit": "node --test tests/recall-eval.replay.test.mjs",
     "iitest:ai-run": "node --test integration-tests/ai-run/",
     "iitest:token:recall-replay": "node --test integration-tests/recall-eval/recall-replay.token.test.mjs",
-    "recall:validate": "node skills/recall-evaluator/scripts/validate-schema.mjs",
-    "recall:resolve": "node skills/recall-evaluator/scripts/resolve-target.mjs",
-    "recall:run": "node skills/recall-evaluator/scripts/run-eval.mjs"
+    "iitest:token:recall-live": "node --test integration-tests/recall-eval/recall-live.token.ittest.mjs",
+    "recall:validate": "node skills/recall-eval/scripts/validate-schema.mjs",
+    "recall:resolve": "node skills/recall-eval/scripts/resolve-target.mjs",
+    "recall:run": "node skills/recall-eval/scripts/run-eval.mjs"
   },
   "dependencies": {
     "yaml": "^2.8.3"

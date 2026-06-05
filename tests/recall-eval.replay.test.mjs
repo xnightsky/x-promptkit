@@ -13,12 +13,12 @@ import {
 	selectEnabledProviders,
 	buildReplayMessages,
 	extractPolicyEcho,
-	callReplayModel,
 	assembleEphemeralAgent,
 	buildReplayQueueFixture,
 	discoverReplayMatrixPath,
 	replayMatrixSearchDirs,
-} from "../skills/recall-evaluator/scripts/replay-matrix.mjs"
+} from "../skills/recall-eval/scripts/replay-matrix.mjs"
+import { callModel } from "../skills/_shared/model-runner.mjs"
 
 // ───────────────────────────────────────────────────────────────────────────
 // 离线单元测试:provider 矩阵回放助手
@@ -49,13 +49,13 @@ providers:
     api: openai-chat
     base_url: https://api.openai.com/v1
     model: gpt-4o-mini
-    key_env: OPENAI_API_KEY
+    apikey: OPENAI_API_KEY
   - id: disabled-anthropic
     enabled: false
     api: anthropic-messages
     base_url: https://api.anthropic.com/v1
     model: claude-3-5-sonnet
-    key_env: ANTHROPIC_API_KEY
+    apikey: ANTHROPIC_API_KEY
 `
 
 // 场景:解析矩阵时为每个 provider 套用顶层 defaults
@@ -82,11 +82,11 @@ test("validateReplayMatrix accepts a well-formed matrix", () => {
 	assert.equal(ok, true)
 })
 
-// 场景:真实 provider 禁止使用内联 key
-//   给定 一个 openai-chat provider 直接写了内联 key
+// 场景:真实 provider 缺少 apikey 时校验失败
+//   给定 一个 openai-chat provider 既无 apikey 也无旧字段 key/key_env
 //   当   调用 validateReplayMatrix
-//   那么 校验失败，且错误信息提示应改用 key_env
-test("validateReplayMatrix rejects inline keys for real providers", () => {
+//   那么 校验失败，报 missing apikey
+test("validateReplayMatrix rejects providers without apikey", () => {
 	const matrix = parseReplayMatrix(`
 version: 1
 memory:
@@ -98,11 +98,10 @@ providers:
     api: openai-chat
     base_url: https://api.openai.com/v1
     model: gpt-4o-mini
-    key: sk-inline-secret
 `)
 	const { ok, errors } = validateReplayMatrix(matrix)
 	assert.equal(ok, false)
-	assert.ok(errors.some((e) => e.includes("key_env")))
+	assert.ok(errors.some((e) => e.includes("missing apikey")))
 })
 
 // 场景:按「启用标记 + key 可用性」筛选 provider
@@ -154,11 +153,11 @@ test("echo provider round-trips the policy and memory for scoring", async () => 
 	assert.doesNotMatch(result.answer, /forbidden-token/)
 })
 
-// 场景:openai-chat 通过注入的 fetch 分发
+// 场景:callModel 通过注入的 fetch 分发 openai-chat 协议
 //   给定 一个伪造的 fetch 与一个 openai-chat provider
-//   当   调用 callReplayModel
+//   当   调用 callModel
 //   那么 命中正确 endpoint，返回文本含必备事实且可抽出策略回显
-test("callReplayModel dispatches openai-chat through an injected fetch", async () => {
+test("callModel dispatches openai-chat through an injected fetch", async () => {
 	const calls = []
 	const fakeFetch = async (url, init) => {
 		calls.push({ url, init })
@@ -181,15 +180,12 @@ test("callReplayModel dispatches openai-chat through an injected fetch", async (
 		api: "openai-chat",
 		base_url: "https://api.openai.com/v1",
 		model: "gpt-4o-mini",
-		key_env: "OPENAI_API_KEY",
+		key: "sk-test",
+		timeout_ms: 60000,
 	}
 	const messages = buildReplayMessages(buildReplayQueueFixture().cases[0])
-	const text = await callReplayModel({
-		provider,
-		messages,
-		fetchImpl: fakeFetch,
-		env: { OPENAI_API_KEY: "sk-test" },
-	})
+	const prompt = messages.system + "\n\n---\n\n" + messages.user
+	const text = await callModel(provider, prompt, { maxRetries: 0, fetchImpl: fakeFetch })
 	assert.equal(calls.length, 1)
 	assert.equal(calls[0].url, "https://api.openai.com/v1/chat/completions")
 	assert.match(text, /8443/)
@@ -296,13 +292,13 @@ test("replayMatrixSearchDirs lists cwd, repo root, skill dir, and home dir witho
 	const present = new Set(["/repo/.git"])
 	const dirs = replayMatrixSearchDirs({
 		cwd: "/repo",
-		skillDir: "/repo/skills/recall-evaluator/scripts",
+		skillDir: "/repo/skills/recall-eval/scripts",
 		homeDir: "/home/dev",
 		fileExists: (target) => present.has(target),
 	})
 	assert.deepEqual(dirs, [
 		"/repo",
-		"/repo/skills/recall-evaluator/scripts",
+		"/repo/skills/recall-eval/scripts",
 		"/home/dev",
 	])
 })

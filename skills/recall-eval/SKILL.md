@@ -9,7 +9,7 @@ description: Use when this repository needs recall queue policy validation or ev
 
 Turn "did the recall answer the right thing" into a stable queue-driven evaluation contract.
 
-This skill defines the queue contract, carrier preconditions, clean-context policy, and output shape. The official minimal runner lives in `skills/recall-evaluator/scripts/` and is part of the supported path for this contract.
+This skill defines the queue contract, carrier preconditions, clean-context policy, and output shape. The official minimal runner lives in `skills/recall-eval/scripts/` and is part of the supported path for this contract.
 
 Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, carrier handling, and scoring output shape.
 
@@ -40,7 +40,7 @@ Runner responsibilities:
 
 - validate queue integrity before scoring
 - resolve effective carrier and refuse unresolved execution
-- persist live answers and runtime metadata under `./.tmp/recall-runs/`
+- surface live recall results inline in the report without persisting to disk
 - separate queue-definition failure, carrier/runtime failure, and content-score failure in the final report
 
 Do not treat `recall-eval` as "schema only" when these runner entrypoints are available in the repository.
@@ -272,6 +272,7 @@ Recommended format:
 - directly evaluable: ...
 - refused for missing carrier: ...
 - queue fixes required: ...
+- runtime failures: ...
 ```
 
 ## Validation Strategy
@@ -288,11 +289,11 @@ Use standalone yaml fixtures for schema and scoring helpers. Use `integration-te
 
 Script entrypoints:
 
-- `node skills/recall-evaluator/scripts/validate-schema.mjs <yaml-path|target-path>`
-- `node skills/recall-evaluator/scripts/resolve-target.mjs <yaml-path|target-path>`
-- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --answer "<text>"`
-- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --live`
-- `node skills/recall-evaluator/scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] --live`
+- `node skills/recall-eval/scripts/validate-schema.mjs <yaml-path|target-path>`
+- `node skills/recall-eval/scripts/resolve-target.mjs <yaml-path|target-path>`
+- `node skills/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --answer "<text>"`
+- `node skills/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --live`
+- `node skills/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] --live`
 
 These are evaluator runtime entrypoints that implement the contract defined here.
 
@@ -312,7 +313,6 @@ These are evaluator runtime entrypoints that implement the contract defined here
 Use these paths when they exist:
 
 - `<memory-target>/.recall/README.md` for memory-target queue field conventions when such a target exists
-- `.instruction/skills/ai/recall-eval/.recall/queue.yaml` for `recall-eval` self-test cases
 - `skills/recall-eval/.recall/queue.yaml` for the target-local example queue
 - `integration-tests/recall-eval/` for initialized-workspace recall orchestration
 - [SAMPLE-QUEUE.yaml](./SAMPLE-QUEUE.yaml) for a minimal compatible fixture

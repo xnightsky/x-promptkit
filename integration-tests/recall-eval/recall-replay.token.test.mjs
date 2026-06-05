@@ -7,7 +7,7 @@ import {
 	selectEnabledProviders,
 	assembleEphemeralAgent,
 	buildReplayQueueFixture,
-} from "../../skills/recall-evaluator/scripts/replay-matrix.mjs"
+} from "../../skills/recall-eval/scripts/replay-matrix.mjs"
 
 // ───────────────────────────────────────────────────────────────────────────
 // Token 套件:provider 矩阵回放(需要真实密钥)

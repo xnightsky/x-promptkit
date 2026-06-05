@@ -258,7 +258,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 期望产出：
 
 - 直接落到 `npm run recall:run` 或 `npm run recall:iitest`
-- live 模式会落盘答案与结果 artifact
+- live 模式结果内联在报告中，不落盘到本地
 - 输出里区分 queue 完整性、case 结果、runtime failures
 
 标准输出样例：
@@ -281,12 +281,11 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - refused for missing carrier: none
 - queue fixes required: none
 - runtime failures: none
-- run artifact: `.tmp/recall-runs/<run-id>/result.json`
 ```
 
 反例：
 
-- 让调用方自己补答案落盘逻辑
+- 让调用方自己去找运行时失败原因
 - live 跑完没有结果 artifact
 
 ---
@@ -329,7 +328,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - refused for missing carrier: none
 - queue fixes required: none
 - runtime failures: `recall_eval.reject_missing_medium` carrier execution failed: clean-context-v1 bridge unavailable
-- run artifact: `.tmp/recall-runs/<run-id>/result.json`
 ```
 
 反例：
@@ -423,7 +421,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - refused for missing carrier: none
 - queue fixes required: none
 - runtime failures: `recall_eval.reject_missing_medium` carrier execution failed: bridge stream closed
-- run artifact: `.tmp/recall-runs/<run-id>/result.json`
 ```
 
 反例：
@@ -476,7 +473,7 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 期望产出：
 
 - 使用 `validate-schema.mjs`
-- 运行入口位于 `skills/recall-evaluator/scripts/`
+- 运行入口位于 `skills/recall-eval/scripts/`
 - 输出 PASS 或 FAIL
 - 失败时逐条列出缺字段
 

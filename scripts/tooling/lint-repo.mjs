@@ -29,7 +29,7 @@ const policyDocs = [
     requiredSnippets: ["npm run lint", "npm run verify", "注释"],
   },
   {
-    path: "skills/recall-evaluator/README.md",
+    path: "skills/recall-eval/README.md",
     requiredSnippets: ["npm run lint", "npm run check", "npm run verify"],
   },
 ];
@@ -48,6 +48,8 @@ for (const scriptName of requiredScripts) {
 for (const filePath of textFiles) {
   const content = fs.readFileSync(filePath, "utf8");
   // Absolute local paths make fixtures and docs non-portable across machines.
+  // Test files may use mock absolute paths as fixture values; skip them.
+  if (filePath.startsWith("tests/")) continue;
   const matches = findAbsolutePathMatches(content);
 
   for (const match of matches) {

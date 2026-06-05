@@ -1,10 +1,62 @@
+// skills/recall-eval/scripts/lib.mjs
+//
+// recall-eval 技能的纯函数运行时库。
+//
+// 本模块是 recall-eval skill 契约的代码实现层，所有导出函数为纯逻辑、
+// 无副作用(除文件 I/O)，供 CLI 入口(run-eval / validate-schema / resolve-target)
+// 和测试套件共享。
+//
+// 模块功能分区：
+//   ┌─ 路径解析层 ──────────────────────────────────────────────────────┐
+//   │ resolveRecallInputPath / loadRecallYaml                             │
+//   │   · 显式 YAML 路径 → 直接使用                                       │
+//   │   · 目标文件/目录 → 发现其 .recall/queue.yaml                       │
+//   ├─ 校验层 ──────────────────────────────────────────────────────────┤
+//   │ validateRecallData / validateTopLevel / validateExpected             │
+//   │ validateScoreRule                                                   │
+//   │   · 顶层必填字段(version / fallback_answer / scoring / cases)      │
+//   │   · scoring 三档(0/1/2)必须覆盖                                    │
+//   │   · 每 case 必填：id / question / medium / carrier / expected      │
+//   │     must_include / score_rule(full/partial/fail) / tags /           │
+//   │     source_scope / source_ref                                      │
+//   ├─ 打分层 ──────────────────────────────────────────────────────────┤
+//   │ scoreAnswer / hasNonNegatedMatch                                    │
+//   │   · 命中 must_not_include → 0 分                                   │
+//   │   · 缺 must_include → 0 分                                         │
+//   │   · must 全中 + should 全中 → 2 分                                 │
+//   │   · must 全中 + should 不全 → 1 分                                 │
+//   │   · 否定前缀检测：避免把"不能继续执行"误判为命中"继续执行"         │
+//   ├─ carrier 解析层 ──────────────────────────────────────────────────┤
+//   │ resolveEffectiveCarrier                                             │
+//   │   · CLI --carrier > case.carrier，均无则返回 null                   │
+//   └─ 输出格式化层 ────────────────────────────────────────────────────┘
+//     formatValidationReport / formatRunEvalOutput / formatBatchRunEvalOutput
+//
+// 注意：本文件已彻底移除 --live 的本地落盘能力(原 .tmp/recall-runs 运行产物)，
+// 不再依赖 node:crypto 或 carrier-adapter 的上下文策略；--live 的"现场执行"
+// 逻辑仍保留在 run-eval.mjs 中。任何可复用的打分 / carrier 策略变更都应
+// 沉淀到此共享层，而不是 CLI 入口。
+
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 
-// 召回评测的纯函数库：负责解析/校验队列 YAML、解析目标路径、按规则打分以及格式化输出。
-// 注意：本文件已彻底移除 --live 的本地落盘能力（原 .tmp/recall-runs 运行产物），
-// 不再依赖 node:crypto 或 carrier-adapter 的上下文策略；--live 的“现场执行”逻辑仍保留在 run-eval.mjs 中。
+// ── Carrier 与 clean-context 策略常量 ──
+
+// 唯一支持的 recall 执行载体标识。
+export const SUBAGENT_CARRIER = "isolated-context-run:subagent";
+
+// 固定 clean-context 策略：live recall 必须以「仅凭记忆、无工具、无搜索、
+// 无仓库读取」的方式作答，Object.freeze 保证运行时不可篡改。
+export const DEFAULT_CLEAN_CONTEXT_POLICY = Object.freeze({
+  id: "clean-context-v1",
+  answer_basis: "memory-only",
+  tools: "forbidden",
+  web_search: "forbidden",
+  repo_read: "forbidden",
+});
+
+// ── 常量：队列 schema 约束 ──
 
 // 召回评测队列的必填顶层字段。
 const REQUIRED_TOP_LEVEL_FIELDS = ["version", "fallback_answer", "scoring", "cases"];
@@ -14,30 +66,38 @@ const REQUIRED_SCORE_KEYS = ["0", "1", "2"];
 const REQUIRED_SCORE_RULE_KEYS = ["full", "partial", "fail"];
 const YAML_FILE_PATTERN = /\.ya?ml$/i;
 
+// ── 内部工具函数 ──
+
+// 判定 value 是否为非空字符串(去首尾空白后非零长度)。
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// 字符串数组归一化：过滤空字符串，非数组值返回空数组。
 function normalizeStringList(value) {
   return Array.isArray(value) ? value.filter(isNonEmptyString) : [];
 }
 
+// 同步读取 UTF-8 文件。
 function readFileUtf8(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
+
+// ── 路径解析 ──
 
 // 统一把路径分隔符转为正斜杠，保证跨平台输出一致。
 function normalizePathForOutput(filePath) {
   return String(filePath ?? "").replace(/\\/g, "/");
 }
 
+// 将相对路径解析为绝对路径。
 export function resolveYamlPath(inputPath, cwd = process.cwd()) {
   return path.resolve(cwd, inputPath);
 }
 
-// 将用户传入的“目标路径”解析为真正的队列 YAML：
-// - 直接给出 .yaml/.yml 文件时按显式文件处理；
-// - 给出目录或普通文件时，向其所在目录下的 .recall/queue.yaml 发现队列。
+// 将用户传入的"目标路径"解析为真正的队列 YAML:
+// - 直接给出 .yaml/.yml 文件时按显式文件处理;
+// - 给出目录或普通文件时,向其所在目录下的 .recall/queue.yaml 发现队列。
 export function resolveRecallInputPath(inputPath, cwd = process.cwd()) {
   const absoluteInputPath = resolveYamlPath(inputPath, cwd);
 
@@ -89,7 +149,7 @@ export function resolveRecallInputPath(inputPath, cwd = process.cwd()) {
   };
 }
 
-// 读取并解析队列 YAML，返回原始文本、解析后的数据以及发现信息。
+// 读取并解析队列 YAML,返回原始文本、解析后的数据以及发现信息。
 export function loadRecallYaml(inputPath, cwd = process.cwd()) {
   const resolvedInput = resolveRecallInputPath(inputPath, cwd);
   const absolutePath = resolvedInput.absolutePath;
@@ -105,7 +165,7 @@ export function loadRecallYaml(inputPath, cwd = process.cwd()) {
   };
 }
 
-// 校验队列顶层结构：必填字段、scoring 三档、cases 非空。
+// 校验队列顶层结构:必填字段、scoring 三档、cases 非空。
 function validateTopLevel(data, report) {
   for (const field of REQUIRED_TOP_LEVEL_FIELDS) {
     if (data?.[field] === undefined) {
@@ -128,7 +188,7 @@ function validateTopLevel(data, report) {
   }
 }
 
-// 校验单个用例的 expected 块，并归一化 must/should/must_not 列表。
+// 校验单个用例的 expected 块,并归一化 must/should/must_not 列表。
 function validateExpected(caseValue, caseErrors) {
   const expected = caseValue?.expected;
   if (!expected || typeof expected !== "object" || Array.isArray(expected)) {
@@ -163,7 +223,7 @@ function validateExpected(caseValue, caseErrors) {
   };
 }
 
-// 校验单个用例的 score_rule 块，必须包含 full/partial/fail。
+// 校验单个用例的 score_rule 块,必须包含 full/partial/fail。
 function validateScoreRule(caseValue, caseErrors) {
   const scoreRule = caseValue?.score_rule;
   if (scoreRule === undefined) {
@@ -184,6 +244,8 @@ function validateScoreRule(caseValue, caseErrors) {
 
   return scoreRule;
 }
+
+// ── 校验层 ──
 
 // 校验整个队列数据，逐用例汇总错误，并解析每个用例生效的 source_ref（支持队列级继承与用例级覆盖）。
 export function validateRecallData(data) {
@@ -261,6 +323,8 @@ export function validateRecallData(data) {
   };
 }
 
+// ── 输出格式化 ──
+
 // 把校验结果格式化为 PASS/FAIL 文本报告。
 export function formatValidationReport(yamlPath, report) {
   const lines = [];
@@ -288,6 +352,8 @@ export function formatValidationReport(yamlPath, report) {
   return lines.join("\n");
 }
 
+// ── Carrier 解析 ──
+
 // 解析最终生效的 carrier：CLI 覆盖优先于队列/用例自带的 carrier。
 export function resolveEffectiveCarrier(caseReport, cliCarrier) {
   if (isNonEmptyString(cliCarrier)) {
@@ -301,11 +367,14 @@ export function resolveEffectiveCarrier(caseReport, cliCarrier) {
   return null;
 }
 
+// ── 打分引擎 ──
+
+// 将输入文本转为小写，用于大小写不敏感匹配。
 function normalizeText(text) {
   return String(text ?? "").toLowerCase();
 }
 
-// 判断 phrase 是否以“非否定”的形式出现在 text 中，避免把“不能继续执行”误判为命中“继续执行”。
+// 判断 phrase 是否以"非否定"的形式出现在 text 中,避免把"不能继续执行"误判为命中"继续执行"。
 function hasNonNegatedMatch(text, phrase) {
   const normalizedText = normalizeText(text);
   const normalizedPhrase = normalizeText(phrase);
@@ -337,7 +406,7 @@ function hasNonNegatedMatch(text, phrase) {
   return false;
 }
 
-// 依据 expected 与 score_rule 给答案打分：命中禁止项=0；must 全中=2；部分命中=1。
+// 依据 expected 与 score_rule 给答案打分:命中禁止项=0;must 全中=2;部分命中=1。
 export function scoreAnswer(caseReport, answerText) {
   const normalizedAnswer = normalizeText(answerText);
   const mustHits = caseReport.expected.mustInclude.filter((item) =>
@@ -375,6 +444,8 @@ export function scoreAnswer(caseReport, answerText) {
   };
 }
 
+// ── 答案输入 ──
+
 // 读取直接传入的答案：优先 --answer，其次 --answer-file。
 export function readAnswerInput({ answer, answerFile }) {
   if (isNonEmptyString(answer)) {
@@ -388,14 +459,14 @@ export function readAnswerInput({ answer, answerFile }) {
   return null;
 }
 
-// 读取整队列答案文件（JSON：caseId -> answerText）。
+// 读取整队列答案文件(JSON:caseId -> answerText)。
 export function readAnswersFile(filePath) {
   const raw = readFileUtf8(filePath);
   return JSON.parse(raw);
 }
 
 // 格式化单个队列目标的评测报告。
-// 说明：已移除原 “run artifact” 行，因为不再有本地落盘产物。
+// 说明:已移除原 "run artifact" 行,因为不再有本地落盘产物。
 export function formatRunEvalOutput({
   yamlPath,
   carrierLabel,
@@ -429,7 +500,7 @@ export function formatRunEvalOutput({
 }
 
 // 格式化多个队列目标的批量评测报告。
-// 说明：已移除原每个 target 摘要末尾的 “run artifact=...” 段。
+// 说明:已移除原每个 target 摘要末尾的 "run artifact=..." 段。
 export function formatBatchRunEvalOutput({ mode, targets }) {
   const lines = [];
   lines.push("Batch Recall Eval");

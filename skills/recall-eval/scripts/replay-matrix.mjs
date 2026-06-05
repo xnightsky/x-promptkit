@@ -1,11 +1,11 @@
-// skills/recall-evaluator/scripts/replay-matrix.mjs
+// skills/recall-eval/scripts/replay-matrix.mjs
 //
-// recall-evaluator 技能的「provider 矩阵」回放(replay)助手。
+// recall-eval 技能的「provider 矩阵」回放(replay)助手。
 //
 // 本模块把一份 ".env" 风格的 provider 矩阵(用 YAML 声明)转换成一个
 // 临时的、进程内的 recall agent 运行。它刻意做到对本地零依赖:
 //   - 运行过程不向磁盘写任何文件，结束后直接丢弃引用，无需任何清理步骤;
-//   - clean-context 策略统一从上游 carrier-adapter 读取，保证「回放路径」与
+//   - clean-context 策略统一从 lib.mjs 读取，保证「回放路径」与
 //     「真实 recall 路径」始终对齐;
 //   - 任何可复用的打分 / carrier 策略都应沉淀到上游共享 runtime，而不是这里。
 
@@ -17,7 +17,8 @@ import { parse as parseYaml } from "yaml"
 import {
 	SUBAGENT_CARRIER,
 	DEFAULT_CLEAN_CONTEXT_POLICY,
-} from "./carrier-adapter.mjs"
+} from "./lib.mjs"
+import { callModel } from "../../_shared/model-runner.mjs"
 
 // 本脚本(replay-matrix.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
 // 当作候选目录之一，从而支持把 .recall-replay.env.yaml 放在技能安装目录旁边。
@@ -221,20 +222,20 @@ export function validateReplayMatrix(matrix) {
 			errors.push(`provider ${label} is missing a model`)
 		}
 		const usesInlineKey =
-			typeof provider?.key === "string" && provider.key.length > 0
+			typeof provider?.apikey === "string" && provider.apikey.length > 0
+		const hasLegacyKeyEnv = typeof provider?.key_env === "string" && provider.key_env.length > 0
 		if (usesInlineKey && provider?.api !== "echo") {
-			errors.push(
-				`provider ${label} must use key_env instead of an inline key`,
-			)
+			// apikey 支持 inline key，不再报错；仅旧字段 key 仍提示
 		}
-		if (provider?.api !== "echo" && !provider?.key_env && !usesInlineKey) {
-			errors.push(`provider ${label} is missing key_env`)
+		const hasKey = usesInlineKey || hasLegacyKeyEnv || (typeof provider?.key === "string" && provider.key.length > 0)
+		if (provider?.api !== "echo" && !hasKey) {
+			errors.push(`provider ${label} is missing apikey`)
 		}
 	}
 	return { ok: errors.length === 0, errors }
 }
 
-// 选出「已启用且可达」的 provider。真实 provider 需要其 key_env(或 echo 的内联
+// 选出「已启用且可达」的 provider。真实 provider 需要其 apikey(或 echo 的内联
 // key)存在，这正是 token 套件在没有任何凭据时能自动跳过的原因。
 export function selectEnabledProviders(matrix, options = {}) {
 	const { env = process.env } = options
@@ -246,11 +247,16 @@ export function selectEnabledProviders(matrix, options = {}) {
 		if (provider?.api === "echo") {
 			return true
 		}
-		const keyEnv = provider?.key_env
-		if (keyEnv && typeof env[keyEnv] === "string" && env[keyEnv].length > 0) {
-			return true
+		const rawKey = provider?.apikey || provider?.key_env || provider?.key
+		if (typeof rawKey === "string" && rawKey.length > 0) {
+			// apikey 支持 env 名或 inline key
+			const envValue = env[rawKey]
+			if (envValue && envValue.length > 0) return true
+			// inline key: 以 sk- 开头或长度超过 30 视为直接 key 值
+			if (rawKey.startsWith("sk-") || rawKey.length > 30) return true
+			// 否则是无法解析的 env 名，不可达
 		}
-		return typeof provider?.key === "string" && provider.key.length > 0
+		return false
 	})
 }
 
@@ -284,50 +290,6 @@ export function extractPolicyEcho(text) {
 	return match ? match[1] : null
 }
 
-// 向某个 provider 发起一次请求。echo 后端离线短路;真实后端走可注入的 fetch 实现。
-export async function callReplayModel(options = {}) {
-	const {
-		provider,
-		messages,
-		fetchImpl = globalThis.fetch,
-		env = process.env,
-	} = options
-	if (!provider || typeof provider !== "object") {
-		throw new Error("callReplayModel requires a provider")
-	}
-	const api = provider.api ?? "echo"
-	if (api === "echo") {
-		return [
-			`policy: ${messages.policy?.id ?? DEFAULT_CLEAN_CONTEXT_POLICY.id}`,
-			messages.system,
-			messages.user,
-		].join("\n")
-	}
-	if (typeof fetchImpl !== "function") {
-		throw new Error("callReplayModel requires a fetch implementation")
-	}
-	const key = (provider.key_env && env[provider.key_env]) || provider.key || ""
-	const timeoutMs = provider.timeout_ms ?? DEFAULT_DEFAULTS.timeout_ms
-	const controller = new AbortController()
-	const timer = setTimeout(() => controller.abort(), timeoutMs)
-	try {
-		const request = buildProviderRequest({ provider, messages, key })
-		const response = await fetchImpl(request.url, {
-			method: "POST",
-			headers: request.headers,
-			body: JSON.stringify(request.body),
-			signal: controller.signal,
-		})
-		if (!response.ok) {
-			throw new Error(`provider responded with status ${response.status}`)
-		}
-		const payload = await response.json()
-		return extractProviderText(api, payload)
-	} finally {
-		clearTimeout(timer)
-	}
-}
-
 // 组装一个临时的进程内 agent。它不持有任何持久状态;run() 回答单个 recall case，
 // 调用方用完直接丢弃引用即可(无需清理)。
 export function assembleEphemeralAgent(options = {}) {
@@ -352,12 +314,8 @@ export function assembleEphemeralAgent(options = {}) {
 		provider: provider.id,
 		async run(caseReport) {
 			const messages = buildReplayMessages(caseReport, { policy })
-			const answer = await callReplayModel({
-				provider,
-				messages,
-				fetchImpl,
-				env,
-			})
+			const prompt = messages.system + "\n\n---\n\n" + messages.user
+			const answer = await callModel(provider, prompt, { maxRetries: 0, fetchImpl })
 			return {
 				caseId: caseReport?.id,
 				provider: provider.id,
@@ -393,85 +351,8 @@ export function buildReplayQueueFixture() {
 				tags: ["replay", "selftest"],
 				source_scope: "skill",
 				source_ref:
-					"skills/recall-evaluator/README.md#live-recall-defaults",
+					"skills/recall-eval/README.md#live-recall-defaults",
 			},
 		],
 	}
-}
-
-// 按 api 类型构造底层 HTTP 请求(url / headers / body)。
-function buildProviderRequest({ provider, messages, key }) {
-	const api = provider.api
-	const model = provider.model
-	const base = (provider.base_url ?? "").replace(/\/+$/, "")
-	const temperature = provider.temperature ?? DEFAULT_DEFAULTS.temperature
-	const maxTokens = provider.max_tokens ?? DEFAULT_DEFAULTS.max_tokens
-	if (api === "openai-chat") {
-		return {
-			url: `${base}/chat/completions`,
-			headers: {
-				"content-type": "application/json",
-				authorization: `Bearer ${key}`,
-			},
-			body: {
-				model,
-				temperature,
-				max_tokens: maxTokens,
-				messages: [
-					{ role: "system", content: messages.system },
-					{ role: "user", content: messages.user },
-				],
-			},
-		}
-	}
-	if (api === "anthropic-messages") {
-		return {
-			url: `${base}/messages`,
-			headers: {
-				"content-type": "application/json",
-				"x-api-key": key,
-				"anthropic-version": provider.anthropic_version ?? "2023-06-01",
-			},
-			body: {
-				model,
-				max_tokens: maxTokens,
-				temperature,
-				system: messages.system,
-				messages: [{ role: "user", content: messages.user }],
-			},
-		}
-	}
-	if (api === "gemini-generate") {
-		return {
-			url: `${base}/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
-			headers: { "content-type": "application/json" },
-			body: {
-				system_instruction: { parts: [{ text: messages.system }] },
-				contents: [{ role: "user", parts: [{ text: messages.user }] }],
-				generationConfig: {
-					temperature,
-					maxOutputTokens: maxTokens,
-				},
-			},
-		}
-	}
-	throw new Error(`unsupported api "${api}"`)
-}
-
-// 从不同 api 的响应体里抽取纯文本答案。
-function extractProviderText(api, payload) {
-	if (api === "openai-chat") {
-		return payload?.choices?.[0]?.message?.content ?? ""
-	}
-	if (api === "anthropic-messages") {
-		const blocks = Array.isArray(payload?.content) ? payload.content : []
-		return blocks.map((block) => block?.text ?? "").join("")
-	}
-	if (api === "gemini-generate") {
-		const parts = payload?.candidates?.[0]?.content?.parts
-		return Array.isArray(parts)
-			? parts.map((part) => part?.text ?? "").join("")
-			: ""
-	}
-	return ""
 }

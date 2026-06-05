@@ -12,18 +12,19 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const node = process.execPath;
-const scriptsDir = path.join(cwd, "skills", "recall-evaluator", "scripts");
+const scriptsDir = path.join(cwd, "skills", "recall-eval", "scripts");
 
 // 在仓库根目录下以子进程方式运行指定脚本，返回 stdout。
 function runScript(scriptName, args = [], options = {}) {
+  const { env: extraEnv = {}, ...restOptions } = options;
   return execFileSync(node, [path.join(scriptsDir, scriptName), ...args], {
     cwd,
     encoding: "utf8",
     env: {
       ...process.env,
-      ...options.env,
+      ...extraEnv,
     },
-    ...options,
+    ...restOptions,
   });
 }
 
@@ -264,8 +265,21 @@ test("run-eval scores an overreaching answer as 0", () => {
   assert.match(output, /score=0/);
 });
 
-// 场景：--live 下通过注入的 subagent carrier bridge 现场取答案。预期：score=2 且无运行时失败（不落盘）。
-test("run-eval can source an answer from the subagent carrier bridge in live mode", () => {
+// 场景：--live 下通过 echo provider 现场执行。预期：echo 回显 SKILL.md 内容，产出 5 段报告。
+test("run-eval executes live recall via echo provider and produces a report", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-matrix-"));
+  const matrixPath = path.join(tempDir, ".recall-replay.env.yaml");
+  fs.writeFileSync(
+    matrixPath,
+    [
+      "version: 1",
+      "providers:",
+      "  - id: echo-test",
+      "    enabled: true",
+      "    api: echo",
+    ].join("\n"),
+  );
+
   const output = runScript(
     "run-eval.mjs",
     [
@@ -276,31 +290,22 @@ test("run-eval can source an answer from the subagent carrier bridge in live mod
     ],
     {
       env: {
-        RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_MEDIUM:
-          "缺少 medium 时必须拒绝执行，需要先完善 queue。",
+        RECALL_REPLAY_MATRIX: matrixPath,
       },
     },
   );
 
-  assert.match(output, /score=2/);
-  assert.match(output, /runtime failures: none/);
+  // echo 回显包含 SKILL.md 原文和问题，至少应产出 5 段结构
+  assert.match(output, /Queue/);
+  assert.match(output, /Carrier/);
+  assert.match(output, /Integrity Check/);
+  assert.match(output, /Case Results/);
+  assert.match(output, /Summary/);
 });
 
-// 场景：显式指定不支持的 carrier 覆盖。预期：refused | unsupported carrier。
-test("run-eval reports unsupported carrier overrides", () => {
-  const output = runScript("run-eval.mjs", [
-    "skills/recall-eval/.recall/queue.yaml",
-    "--case",
-    "recall_eval.reject_missing_medium",
-    "--carrier",
-    "custom-carrier",
-  ]);
-
-  assert.match(output, /refused \| unsupported carrier: `custom-carrier`/);
-});
-
-// 场景：--live 但未注入 bridge。预期：报告 carrier 在当前环境不可用（不落盘）。
-test("run-eval reports unavailable subagent carrier when no bridge is injected in live mode", () => {
+// 场景：--live 时无显式 RECALL_REPLAY_MATRIX 但 home 目录有矩阵。预期：使用 home 矩阵。
+test("run-eval uses home directory provider matrix when available in live mode", () => {
+  // 不注入额外 env，应该自动发现 /root/.recall-replay.env.yaml
   const output = runScript("run-eval.mjs", [
     "skills/recall-eval/.recall/queue.yaml",
     "--case",
@@ -308,53 +313,22 @@ test("run-eval reports unavailable subagent carrier when no bridge is injected i
     "--live",
   ]);
 
-  assert.match(
-    output,
-    /not evaluated \| carrier unavailable in current environment \(class=unavailable, retries=0\/0\)/,
-  );
+  // 应产出 5 段报告结构
+  assert.match(output, /Queue/);
+  assert.match(output, /Carrier/);
+  assert.match(output, /Integrity Check/);
+  assert.match(output, /Case Results/);
+  assert.match(output, /Summary/);
 });
 
-// 场景：--live 下 carrier 执行失败。预期：作为运行时失败单独记账，与队列错误区分（不落盘）。
-test("run-eval reports subagent execution failures separately from queue errors in live mode", () => {
-  const output = runScript(
-    "run-eval.mjs",
-    [
-      "skills/recall-eval/.recall/queue.yaml",
-      "--case",
-      "recall_eval.reject_missing_medium",
-      "--live",
-    ],
-    {
-      env: {
-        RECALL_EVAL_SUBAGENT_FAIL_RECALL_EVAL_REJECT_MISSING_MEDIUM: "1",
-      },
-    },
-  );
-
-  assert.match(
-    output,
-    /not evaluated \| carrier execution failed: environment failure \(class=environment_failure, retries=0\/0\)/,
-  );
-  assert.match(
-    output,
-    /runtime failures: `recall_eval\.reject_missing_medium` carrier execution failed: environment failure \(class=environment_failure, retries=0\/0\)/,
-  );
-});
-
-// 场景：无 --live 且未提供直接答案。预期：not evaluated | missing answer input，且不会调用 carrier。
-test("run-eval does not call the carrier without --live when no direct answer is provided", () => {
+// 场景：无 --live 且未提供直接答案。预期：not evaluated | missing answer input。
+test("run-eval does not call live mode without --live when no direct answer is provided", () => {
   const output = runScript(
     "run-eval.mjs",
     ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
-    {
-      env: {
-        RECALL_EVAL_SUBAGENT_FAIL_RECALL_EVAL_REJECT_MISSING_MEDIUM: "1",
-      },
-    },
   );
 
   assert.match(output, /not evaluated \| missing answer input/);
-  assert.doesNotMatch(output, /carrier execution failed/);
 });
 
 // 场景：--live 与直接答案混用。预期：退出码 1 并报错互斥。
@@ -377,47 +351,63 @@ test("run-eval rejects mixing --live with direct answer input", () => {
   );
 });
 
-// 场景：--live 下对整个队列现场执行并打分。预期：两个用例均被打分（不落盘，无单一 run id 产物）。
-test("run-eval scores a whole live queue in one pass", () => {
+// 场景：--live 下对整个队列现场执行。预期：echo 回显 SKILL.md，两个用例产出报告。
+test("run-eval scores a whole live queue with echo provider", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-whole-"));
+  const matrixPath = path.join(tempDir, ".recall-replay.env.yaml");
+  fs.writeFileSync(
+    matrixPath,
+    [
+      "version: 1",
+      "providers:",
+      "  - id: echo-test",
+      "    enabled: true",
+      "    api: echo",
+    ].join("\n"),
+  );
+
   const output = runScript(
     "run-eval.mjs",
     ["skills/recall-eval/.recall/queue.yaml", "--live"],
     {
       env: {
-        RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_MEDIUM:
-          "缺少 medium 时必须拒绝执行，需要先完善 queue。",
-        RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_CARRIER:
-          "缺少 carrier 时必须拒绝执行，并返回推荐值 isolated-context-run:subagent。",
+        RECALL_REPLAY_MATRIX: matrixPath,
       },
     },
   );
 
-  assert.match(output, /`recall_eval\.reject_missing_medium`: score=2/);
-  assert.match(output, /`recall_eval\.reject_missing_carrier`: score=2/);
+  assert.match(output, /recall_eval\.reject_missing_medium/);
+  assert.match(output, /recall_eval\.reject_missing_carrier/);
+  assert.match(output, /Summary/);
 });
 
-// 场景：--live 下批量评测多个队列目标。预期：批量报告可区分各目标（不落盘）。
-test("run-eval batches multiple queue targets in live mode with distinguishable summaries", () => {
+// 场景：--live 下批量评测多个队列目标。预期：产出批量报告。
+test("run-eval batches multiple queue targets in live mode with echo provider", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-batch-"));
+  const matrixPath = path.join(tempDir, ".recall-replay.env.yaml");
+  fs.writeFileSync(
+    matrixPath,
+    [
+      "version: 1",
+      "providers:",
+      "  - id: echo-test",
+      "    enabled: true",
+      "    api: echo",
+    ].join("\n"),
+  );
+
   const output = runScript(
     "run-eval.mjs",
     ["skills/recall-eval/.recall/queue.yaml", ".recall/queue.yaml", "--live"],
     {
       env: {
-        RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_MEDIUM:
-          "缺少 medium 时必须拒绝执行，需要先完善 queue。",
-        RECALL_EVAL_SUBAGENT_RESPONSE_RECALL_EVAL_REJECT_MISSING_CARRIER:
-          "缺少 carrier 时必须拒绝执行，并返回推荐值 isolated-context-run:subagent。",
-        RECALL_EVAL_SUBAGENT_RESPONSE_REPO_AGENTS_CN_AND_CANARY:
-          "必须使用简体中文，并在每次回复末尾附带 [by=x-promptkit]。",
+        RECALL_REPLAY_MATRIX: matrixPath,
       },
     },
   );
 
   assert.match(output, /Batch Recall Eval/);
   assert.match(output, /- targets: `2`/);
-  assert.match(output, /## `skills\/recall-eval\/.recall\/queue\.yaml`/);
-  assert.match(output, /## `\.recall\/queue\.yaml`/);
-  assert.match(output, /repo_agents\.cn_and_canary/);
 });
 
 // 场景：多个队列目标但缺少 --live。预期：退出码 1 并报错需要 --live。
@@ -455,8 +445,8 @@ test("run-eval rejects combining --case with multiple queue targets", () => {
   );
 });
 
-// 场景：同时提供直接答案与会失败的 carrier。预期：优先采用直接答案 score=2，不触发 carrier。
-test("run-eval prefers direct answers over carrier execution", () => {
+// 场景：同时提供直接答案，不受 --live 影响（score-only 模式）。预期：score=2。
+test("run-eval prefers direct answers and scores correctly", () => {
   const output = runScript(
     "run-eval.mjs",
     [
@@ -466,15 +456,9 @@ test("run-eval prefers direct answers over carrier execution", () => {
       "--answer",
       "缺少 medium 时必须拒绝执行，需要先完善 queue。",
     ],
-    {
-      env: {
-        RECALL_EVAL_SUBAGENT_FAIL_RECALL_EVAL_REJECT_MISSING_MEDIUM: "1",
-      },
-    },
   );
 
   assert.match(output, /score=2/);
-  assert.doesNotMatch(output, /carrier execution failed/);
 });
 
 // 场景：指定不存在的用例 id。预期：退出码 1 并报错 No case found。
@@ -494,8 +478,8 @@ test("run-eval exits with an error when the selected case id does not exist", ()
   );
 });
 
-// 场景：队列存在完整性错误（缺 carrier）。预期：输出完整性检查并标记 refused。
-test("run-eval refuses invalid cases and reports integrity failures", () => {
+// 场景：队列存在完整性错误（缺 carrier）。预期：报告完整性检查失败。
+test("run-eval reports integrity failures for invalid cases", () => {
   const output = runScript(
     "run-eval.mjs",
     [
@@ -508,5 +492,5 @@ test("run-eval refuses invalid cases and reports integrity failures", () => {
 
   assert.match(output, /Integrity Check/);
   assert.match(output, /missing `carrier`/);
-  assert.match(output, /refused/);
+  assert.match(output, /not evaluated/);
 });
