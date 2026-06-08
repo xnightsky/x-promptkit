@@ -60,6 +60,17 @@ $defs:
             minItems: 1
             items: { $ref: "#/$defs/non_empty_string" }
           must_not_run: { $ref: "#/$defs/string_list" }
+      # skill-trigger 候选技能目录（缺省从 source_ref 构造）
+      available_skills:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required: [path]
+          properties:
+            path: { $ref: "#/$defs/non_empty_string" }
+            name: { $ref: "#/$defs/non_empty_string" }
+            desc: { $ref: "#/$defs/non_empty_string" }
       # 用例级覆盖（缺省继承队列级）
       source_ref: { $ref: "#/$defs/non_empty_string" }
       fallback_answer: { $ref: "#/$defs/non_empty_string" }

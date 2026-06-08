@@ -51,9 +51,11 @@ function truncate(text, maxBytes) {
  *
  * @param {object} config
  * @param {object} config.skills
- * @param {Array<{name:string, content?:string, path?:string}>} config.skills.items
- * @param {boolean} config.skills.allowDiscovery
- * @param {string[]} config.skills.discoveryPool
+ * @param {Array<{name:string, content?:string, path?:string}>} config.skills.items - 内联加载的 skill 列表
+ * @param {boolean} config.skills.allowDiscovery - 是否启用发现池
+ * @param {Array<string|{name:string, desc?:string, path?:string}>} config.skills.discoveryPool
+ *   - 字符串形式：仅 skill 名称
+ *   - 对象形式：{name, desc?, path?} — skill-trigger 模式推荐，模型可通过 cat path 读取详情
  * @param {object} config.repo - { enabled, content?, path?, maxBytes? }
  * @param {object} config.global - { enabled, content?, path?, maxBytes? }
  * @param {object} config.injections - { beforeSkills?, afterSkills? }
@@ -110,8 +112,18 @@ export function buildSystemPrompt(config = {}) {
 
   // ── Skill discovery pool ──
   if (config.skills?.allowDiscovery && config.skills?.discoveryPool?.length) {
-    const names = config.skills.discoveryPool.join(", ");
-    parts.push(`\nAvailable skills (output LOAD_SKILL <name> to load): ${names}`);
+    const names = config.skills.discoveryPool
+      .map((item) => {
+        if (typeof item === "object") {
+          const parts = [item.name]
+          if (item.desc) parts.push(`- ${item.desc}`)
+          if (item.path) parts.push(`(${item.path})`)
+          return parts.join(" ")
+        }
+        return item
+      })
+      .join(", ");
+    parts.push(`\nAvailable skills (cat the path to read full docs): ${names}`);
   }
 
   return parts.join("\n\n---\n\n");

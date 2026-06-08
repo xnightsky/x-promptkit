@@ -97,7 +97,9 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
       // skill-trigger 模式：白名单 shell 自主执行
       if (caseReport.caseValue?.medium === "skill-trigger") {
         const triggerResult = await runSkillTriggerAgent({
-          sourceRef: caseReport.effectiveSourceRef,
+          availableSkills: Array.isArray(caseReport.caseValue?.available_skills)
+            ? caseReport.caseValue.available_skills
+            : [{ name: caseReport.effectiveSourceRef || "skill", path: caseReport.effectiveSourceRef }],
           question: caseReport.caseValue.question,
           provider,
           baseDir: sourceBaseDir,

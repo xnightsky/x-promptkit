@@ -101,20 +101,20 @@ cases:
 
 ### schema 扩展
 
-`schemas/recall-queue.schema.yaml` 新增 `trigger` 字段（仅 `medium: skill-trigger` 生效）：
+`schemas/recall-queue.schema.yaml` 新增 `available_skills` 字段：
 
 ```yaml
-trigger:
-  type: object
-  required: [must_run]
-  properties:
-    must_run:
-      type: array
-      items: { type: string }
-    must_not_run:
-      type: array
-      items: { type: string }
+available_skills:          # skill-trigger 候选技能目录
+  type: array
+  items:
+    required: [path]
+    properties:
+      path: string          # SKILL.md 路径（必填）
+      name: string          # 可选覆盖 frontmatter name
+      desc: string          # 可选覆盖 frontmatter description
 ```
+
+`name` / `desc` 未显式指定时自动从 `SKILL.md` 的 YAML frontmatter 读取。
 
 ## 自举测试
 

@@ -47,6 +47,8 @@ cases:
       must_not_run:
         - "rm"
         - "curl"
+    available_skills:
+      - path: skills-def/recall-eval/SKILL.md
     expected:
       must_include:
         - "recall_eval"

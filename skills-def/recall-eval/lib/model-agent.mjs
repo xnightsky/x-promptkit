@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { isAbsolute, resolve } from "node:path";
 import { createClient } from "../../_shared/model-client.mjs";
-import { normalizeContextLayers } from "../../_shared/prompt-context.mjs";
+import { buildSystemPrompt, normalizeContextLayers } from "../../_shared/prompt-context.mjs";
 
 /**
  * 运行一次 recall agent：读 sourceRef 指向的 prompt 文本 → 拼 prompt → 调模型。
@@ -80,6 +80,27 @@ const DEFAULT_WHITELIST = [
   "wc", "find", "git log", "git diff", "git status",
 ]
 
+// 从 SKILL.md 的 YAML frontmatter 解析 name / description
+function readSkillMeta(skillPath, baseDir) {
+  const fullPath = isAbsolute(skillPath) ? skillPath : resolve(baseDir, skillPath)
+  try {
+    const text = readFileSync(fullPath, "utf8")
+    const m = text.match(/^---\s*\n([\s\S]*?)\n---/)
+    if (!m) return {}
+    // 极简 YAML 解析器：name: xxx / description: yyy（首行匹配）
+    const meta = {}
+    for (const line of m[1].split("\n")) {
+      const nm = line.match(/^name:\s*(.+)$/)
+      if (nm) { meta.name = nm[1].trim(); continue }
+      const dm = line.match(/^description:\s*(.+)$/)
+      if (dm) { meta.description = dm[1].trim(); continue }
+    }
+    return meta
+  } catch {
+    return {}
+  }
+}
+
 function isShellAllowed(command) {
   const trimmed = command.trim()
   if (!trimmed) return false
@@ -104,37 +125,63 @@ function parseToolCalls(text) {
 }
 
 /**
- * 技能触发模式 agent：给模型 skill 内容 + 场景，让其自主决定执行命令。
+ * 技能触发模式 agent：给定候选技能目录，模型自主选择并执行。
  *
+ * @param {object} opts
+ * @param {Array<{name:string, desc?:string, path:string}>} opts.availableSkills - 候选技能目录
+ * @param {string} opts.question
+ * @param {object} opts.provider
+ * @param {string} [opts.baseDir]
+ * @param {number} [opts.maxSteps=5]
+ * @param {number} [opts.timeoutMs=30000]
  * @returns {Promise<{ok: boolean, toolCalls?: Array, finalAnswer?: string, reason?: string}>}
  */
 export async function runSkillTriggerAgent({
-  sourceRef, question, provider, baseDir = process.cwd(),
+  availableSkills = [], question, provider, baseDir = process.cwd(),
   maxSteps = 5, timeoutMs = 30000,
 }) {
-  const sourcePath = isAbsolute(sourceRef) ? sourceRef : resolve(baseDir, sourceRef)
+  // 解析候选技能目录：自动读 SKILL.md frontmatter（name/description），显式覆盖优先
+  const resolvedSkills = availableSkills.map((s) => {
+    const meta = readSkillMeta(s.path, baseDir)
+    return {
+      name: s.name || meta.name || s.path,
+      desc: s.desc || meta.description || "",
+      path: s.path,
+    }
+  })
 
-  const systemPrompt = [
-    "policy: skill-trigger-v1",
-    "",
-    "",
-    "You have access to a read-only shell to inspect files and run commands.",
-    `Skill file: ${sourceRef}`,
-    "",
-    "<tool_call>",
-    '{"command": "<your command here>"}',
-    "</tool_call>",
-    "",
-    `Allowed commands: ${DEFAULT_WHITELIST.join(", ")}`,
-    "Pipes, redirects, and shell metacharacters are forbidden.",
-    "Do NOT read files except via tool_call. Do NOT invent answers.",
-    "After you have gathered enough information from tool outputs, give your final answer.",
-  ].join("\n")
+  // 用 buildSystemPrompt 构造 system prompt，包含候选技能目录
+  const rawPrompt = buildSystemPrompt({
+    skills: {
+      allowDiscovery: true,
+      discoveryPool: resolvedSkills,
+    },
+    injections: {
+      beforeSkills: [
+        "policy: skill-trigger-v1",
+        "",
+        "You are evaluating which skill to trigger. Pick the best skill from the list,",
+        "then cat its path to read the full documentation, and follow its instructions.",
+      ].join("\n"),
+      afterSkills: [
+        "",
+        `Allowed commands: ${DEFAULT_WHITELIST.join(", ")}`,
+        "To run a command, output:",
+        "<tool_call>",
+        '{"command": "<your command here>"}',
+        "</tool_call>",
+        "Pipes, redirects, and shell metacharacters (except 2>/dev/null, 2>&1) are forbidden.",
+        "After you have gathered enough information, give your final answer.",
+      ].join("\n"),
+    },
+    cwd: baseDir,
+  })
 
   const toolCalls = []
   const messages = [{ role: "user", content: question }]
 
-  // 用 model-client 创建 client（直接调 callModel，手动做多轮）
+  // 用 model-client 创建 client
+  const systemPrompt = rawPrompt
   const callWithPrompt = async (prompt) => {
     const client = createClient({ provider, maxRetries: 0 })
     const fullPrompt = systemPrompt + "\n\n" + prompt
