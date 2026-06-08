@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 import { loadEnabledProviders } from "../../skills-def/recall-eval/lib/replay-engine.mjs";
 import { runRecallAgent } from "../../skills-def/recall-eval/lib/model-agent.mjs";
 import { loadRecallYaml, validateRecallData, scoreAnswer } from "../../skills-def/recall-eval/lib/lib.mjs";
+import { dirname } from "node:path";
 
 // ── Self-skip gate ──
 // 筛掉 echo，只保留启用且带 key 的真实 provider；一个都没有则跳过整个套件。
@@ -59,7 +60,7 @@ test("live recall evaluates all queue cases and scores full marks", async (t) =>
     return;
   }
 
-  const report = validateRecallData(loaded.data);
+  const report = validateRecallData(loaded.data, dirname(loaded.absolutePath));
   if (!report.isValid) {
     const errors = [
       ...report.queueErrors,
