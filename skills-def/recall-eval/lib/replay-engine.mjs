@@ -182,6 +182,7 @@ export function parseReplayMatrix(text) {
 			api: p.api,
 			base_url: p.baseUrl,
 			model: model.id,
+			models: models.map((m) => m.id),  // 保留完整 model 列表，用于歧义检测
 			apikey: p.apiKey,
 			headers: model.headers ?? p.headers,
 			timeout_ms: p.timeoutMs,
@@ -189,9 +190,22 @@ export function parseReplayMatrix(text) {
 			max_tokens: p.maxTokens,
 		}
 	})
-	// v2: run.models → 内部 run.matrix（值=provider key，首 model 隐含）
+	// v2: run.models → 内部 run.matrix
+	// 支持 "provider" 或 "provider/model" 语法，指定非首 model
 	const runModels = rawRun.models
-	rawRun = { matrix: Array.isArray(runModels) ? [...runModels] : [] }
+	if (Array.isArray(runModels) && runModels.length > 0) {
+		const matrix = []
+		const modelOverrides = {}
+		for (const m of runModels) {
+			const slash = m.indexOf("/")
+			const pid = slash >= 0 ? m.slice(0, slash) : m
+			matrix.push(pid)
+			if (slash >= 0) modelOverrides[pid] = m.slice(slash + 1)
+		}
+		rawRun = { matrix, _modelOverrides: Object.keys(modelOverrides).length > 0 ? modelOverrides : undefined }
+	} else {
+		rawRun = { matrix: [] }
+	}
 	// 过滤 undefined，避免覆盖 DEFAULT_DEFAULTS
 	const cleanDefaults = {}
 	for (const [k, v] of Object.entries(rawDefaults)) {

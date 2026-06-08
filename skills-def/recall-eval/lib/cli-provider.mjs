@@ -78,9 +78,17 @@ export function resolveProviders(matrix, opts = {}) {
 	}
 
 	let candidates
+	const extraOverrides = {}  // --provider 中的 / 语法提取的 model
 	if (providerFilter.length > 0) {
 		candidates = providerFilter
-			.map((id) => allProviders.find((p) => p.id === id))
+			.map((raw) => {
+				const slash = raw.indexOf("/")
+				if (slash < 0) return allProviders.find((p) => p.id === raw)
+				const pid = raw.slice(0, slash)
+				const mid = raw.slice(slash + 1)
+				extraOverrides[pid] = mid
+				return allProviders.find((p) => p.id === pid)
+			})
 			.filter(Boolean)
 		if (candidates.length === 0) {
 			const avail = allProviders.map((p) => p.id).join(", ")
@@ -97,19 +105,29 @@ export function resolveProviders(matrix, opts = {}) {
 		throw new Error("no token-bearing providers are enabled")
 	}
 
-	// 展开 model：--model 指定时逐个覆盖，否则用 provider 默认 model
+	// 展开 model：--model > --provider 的 / > run.models 的 / > 拒绝歧义
+	const overrides = { ...(matrix.run?._modelOverrides ?? {}), ...extraOverrides }
 	const targets = []
 	for (const provider of candidates) {
-		const models = modelFilter.length > 0 ? modelFilter : [provider.model]
-		for (const modelId of models) {
-			const label = modelFilter.length > 0
-				? `${provider.id}/${modelId}`
-				: provider.id
-			targets.push({
-				provider: modelFilter.length > 0 ? { ...provider, model: modelId } : provider,
-				model: modelId,
-				label,
-			})
+		const hasMultiple = Array.isArray(provider.models) && provider.models.length > 1
+		const overrideModel = overrides[provider.id]
+
+		if (modelFilter.length > 0) {
+			// --model 显式指定，逐个
+			for (const modelId of modelFilter) {
+				targets.push({ provider: { ...provider, model: modelId }, model: modelId, label: `${provider.id}/${modelId}` })
+			}
+		} else if (overrideModel) {
+			// run.models 用了 / 语法
+			targets.push({ provider: { ...provider, model: overrideModel }, model: overrideModel, label: `${provider.id}/${overrideModel}` })
+		} else if (hasMultiple) {
+			// 多 model provider 未指定 → 拒绝
+			const list = provider.models.join(", ")
+			throw new Error(
+				`provider '${provider.id}' has multiple models (${list}). Use '${provider.id}/<model>' or --model to select one.`,
+			)
+		} else {
+			targets.push({ provider, model: provider.model, label: provider.id })
 		}
 	}
 	return targets
