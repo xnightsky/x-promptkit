@@ -2,6 +2,29 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.8.0
+
+recall-eval 具名字段裁决（`expected.decision`）：双极累加 + knockout 否决。
+
+### Added
+
+- recall-eval：`expected.decision` 块——具名维度逐条打分（命中 +weight / 答错 -weight / 缺席 0）累加、不封顶；`knockout` 维度未命中即整题 FAIL；维度名作者自定义，结构权威落 schema。
+- schema-validator：支持 `minProperties` 与 `additionalProperties` 子 schema（约束开放 key 的值形状）。
+- fixtures：`.recall/selftest-decision.yaml`（三向自测）、`fake-routing-prompt.md`、`broken-decision-bad-weight.yaml`；`examples/queue.example.yaml` 增 decision 示例 case。
+- 设计文档 `docs/specs/2026-06-09-named-decision-adjudication-design.md`。
+- recall-eval 与 recall-author 的 SKILL.md 各补 decision 契约/写作小节。
+- `_shared/*.mjs` 全量补 BDD 注释；prompt-context 输出模板上移至文件顶部（带缩进与全部段类型）。
+- 单测 +9（decision 打分各分支 + schema 违规拦截）。
+
+### Changed
+
+- `scoreAnswer`：含 decision 块的用例额外返回 decision 累加分（与内容分并列，v1 不并入单一 headline）；无 decision 块逐字节零回归。
+- `evaluate-queue` 报告并列展示 decision 累加分 / FAIL 与逐维度命中。
+
+### Removed
+
+- `.recall/broken-missing-carrier.yaml`：与「carrier 可选」测试相矛盾的陈旧负例，改名为合法 fixture `queue-no-carrier.yaml`（修复 `npm run check` 长期失败）。
+
 ## v0.7.0
 
 recall-author 百科 skill、_shared 内联、source_ref 相对路径、install 全局化。
