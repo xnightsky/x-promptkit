@@ -2,6 +2,31 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.7.0
+
+recall-author 百科 skill、_shared 内联、source_ref 相对路径、install 全局化。
+
+### Added
+
+- recall-author：面向队列编写者的人读百科（字段一览、写作规则、常见反例、场景速查、解答流程）。
+- recall-author/.recall/queue.yaml 自验队列（3 case：必填字段、carrier 可选、context 缺省）。
+- recall-eval : sync-shared 脚本（`npm run recall:sync-shared`），把 _shared/ 模块内联到 lib/_shared/。
+- `validateRecallData` 支持 `yamlDir` 参数，source_ref 相对路径 → 绝对路径。
+
+### Changed
+
+- _shared/ 模块（schema-validator、prompt-context、model-client、model-runner）+ schema yaml 内联到 recall-eval/lib/_shared/，安装后自包含。
+- 全部 .recall/*.yaml source_ref 从 `skills-def/.../SKILL.md` → `../SKILL.md`。
+- SKILL.md ×2 文档路径从 `skills-def/` 改为 skill 目录相对路径。
+- carrier 全篇从必填改为可选（缺省 `"direct"`）。
+- INSTALL.md：+recall-author、本地安装统一加 `-g`、全局优先推荐。
+- skills-lock.json：+recall-author 条目。
+- evaluate-queue.mjs、validate-schema.mjs：传 yamlDir 给 validateRecallData。
+
+### Removed
+
+- 文档中 carrier 必填的错误表述（与 v0.6.0 schema 对齐）。
+
 ## v0.6.0
 
 provider 矩阵 v2、skill-trigger 模式、carrier 下线。
