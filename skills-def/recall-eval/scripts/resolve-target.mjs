@@ -8,7 +8,7 @@
 // 同时展示每个 case 的校验错误(如有)。
 //
 // 用法：
-//   node skills-def/recall-eval/scripts/resolve-target.mjs <yaml-path|target-path> [--case <id>]
+//   node scripts/resolve-target.mjs <yaml-path|target-path> [--case <id>]
 
 import { loadRecallYaml, validateRecallData } from "../lib/lib.mjs";
 
@@ -20,7 +20,7 @@ const selectedCaseId = caseFlagIndex >= 0 ? args[caseFlagIndex + 1] : null;
 
 if (!yamlPath) {
   console.log(
-    "Usage: node skills-def/recall-eval/scripts/resolve-target.mjs <yaml-path|target-path> [--case <id>]",
+    "Usage: node scripts/resolve-target.mjs <yaml-path|target-path> [--case <id>]",
   );
   process.exit(1);
 }

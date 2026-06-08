@@ -16,7 +16,7 @@ import {
   validateRecallData,
 } from "./lib.mjs";
 import { dirname } from "node:path";
-import { findRepoRoot } from "../../_shared/model-client.mjs";
+import { findRepoRoot } from "./_shared/model-client.mjs";
 import { runRecallAgent, runSkillTriggerAgent } from "./model-agent.mjs";
 
 /**
@@ -49,9 +49,10 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
     throw new Error(`queue load failed: ${error.message}`);
   }
 
-  const { path: inputPath, data } = loadedQueue;
-  const sourceBaseDir = findRepoRoot(dirname(inputPath));
-  const report = validateRecallData(data);
+  const { path: inputPath, absolutePath, data } = loadedQueue;
+  const sourceBaseDir = findRepoRoot(dirname(absolutePath));
+  const yamlDir = dirname(absolutePath);
+  const report = validateRecallData(data, yamlDir);
 
   let caseReports = report.caseReports;
   if (selectedCaseId) {

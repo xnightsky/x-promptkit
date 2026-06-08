@@ -2,7 +2,7 @@
 # skills-def/_shared/examples/context-layers.example.yaml）。
 # 结构权威：../schemas/recall-queue.schema.yaml；本文件由单元测试保证持续合法。
 version: 1
-source_ref: skills-def/recall-eval/SKILL.md
+source_ref: ../SKILL.md
 fallback_answer: 未明确
 # context 块（可选）：显式声明是否加载项目提示词(repo)/全局提示词(global)。
 # 缺省等价于两层都不加载；结构权威见 skills-def/_shared/schemas/prompt-context-layers.schema.yaml。
@@ -46,7 +46,7 @@ cases:
         - "rm"
         - "curl"
     available_skills:
-      - path: skills-def/recall-eval/SKILL.md
+      - path: ../SKILL.md
     expected:
       must_include:
         - "recall_eval"

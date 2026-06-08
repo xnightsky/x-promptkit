@@ -9,7 +9,7 @@ description: Use when this repository needs recall queue policy validation or ev
 
 Turn "did the recall answer the right thing" into a stable queue-driven evaluation contract.
 
-This skill defines the queue contract, carrier preconditions, clean-context policy, and output shape. The official minimal runner lives in `skills-def/recall-eval/scripts/` and is part of the supported path for this contract.
+This skill defines the queue contract, carrier preconditions, clean-context policy, and output shape. The official minimal runner lives in `scripts/` and is part of the supported path for this contract.
 
 Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, carrier handling, and scoring output shape.
 
@@ -104,7 +104,7 @@ Do not force extra prose beyond that minimum.
 ## Case Contract
 
 The machine-readable structure authority is [schemas/recall-queue.schema.yaml](./schemas/recall-queue.schema.yaml)
-(the `context` block structure lives in `skills-def/_shared/schemas/prompt-context-layers.schema.yaml`).
+(the `context` block structure lives in `lib/_shared/schemas/prompt-context-layers.schema.yaml`).
 This section is the prose mirror; when they disagree, fix the docs to match the schema plus its unit tests.
 
 Top-level recall yaml should include:
@@ -212,8 +212,8 @@ Rules:
   no-tools / no-web / no-fresh-reads red line of the clean-context policy
 - `medium` and `context` are not cross-validated in v1; queue authors keep them
   consistent (a `global-memory` case usually needs the global layer enabled)
-- structure authority: `skills-def/_shared/schemas/prompt-context-layers.schema.yaml`;
-  example: `skills-def/_shared/examples/context-layers.example.yaml`
+- structure authority: `lib/_shared/schemas/prompt-context-layers.schema.yaml`;
+  example: `../_shared/examples/context-layers.example.yaml`
 
 ## Live Clean-Context Policy
 
@@ -341,11 +341,11 @@ evaluation queues (whose evaluation target IS that prompt) reference the real fi
 
 Script entrypoints:
 
-- `node skills-def/recall-eval/scripts/validate-schema.mjs <yaml-path|target-path>`
-- `node skills-def/recall-eval/scripts/resolve-target.mjs <yaml-path|target-path>`
-- `node skills-def/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --answer "<text>"`
-- `node skills-def/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> --case <id> --live`
-- `node skills-def/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] --live`
+- `node scripts/validate-schema.mjs <yaml-path|target-path>`
+- `node scripts/resolve-target.mjs <yaml-path|target-path>`
+- `node scripts/run-eval.mjs <yaml-path|target-path> --case <id> --answer "<text>"`
+- `node scripts/run-eval.mjs <yaml-path|target-path> --case <id> --live`
+- `node scripts/run-eval.mjs <yaml-path|target-path> [<yaml-path|target-path> ...] --live`
 
 These are evaluator runtime entrypoints that implement the contract defined here.
 
@@ -365,9 +365,10 @@ These are evaluator runtime entrypoints that implement the contract defined here
 Use these paths when they exist:
 
 - `<memory-target>/.recall/README.md` for memory-target queue field conventions when such a target exists
-- `skills-def/recall-eval/.recall/queue.yaml` for the target-local example queue
+- `.recall/queue.yaml` for the target-local example queue
 - `integration-tests/recall-eval/` for initialized-workspace recall orchestration
 - [schemas/recall-queue.schema.yaml](./schemas/recall-queue.schema.yaml) for the machine-readable queue structure authority
 - [examples/queue.example.yaml](./examples/queue.example.yaml) for a minimal compatible fixture
-- `skills-def/_shared/README.md` for the shared-engine capability boundaries and the `context` declaration structure
+- `../_shared/README.md` for the shared-engine capability boundaries and the `context` declaration structure
 - [EXAMPLES.md](./EXAMPLES.md) for canonical response shapes
+- `../recall-author/SKILL.md` for queue authoring guide (writer-side)

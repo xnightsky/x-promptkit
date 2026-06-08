@@ -11,14 +11,15 @@
 // 退出码 0 = 校验通过，1 = 校验失败或解析错误。
 //
 // 用法：
-//   node skills-def/recall-eval/scripts/validate-schema.mjs <yaml-path|target-path>
+//   node scripts/validate-schema.mjs <yaml-path|target-path>
 
 import { formatValidationReport, loadRecallYaml, validateRecallData } from "../lib/lib.mjs";
+import { dirname } from "node:path";
 
 const yamlPath = process.argv[2];
 
 if (!yamlPath) {
-  console.log("Usage: node skills-def/recall-eval/scripts/validate-schema.mjs <yaml-path|target-path>");
+  console.log("Usage: node scripts/validate-schema.mjs <yaml-path|target-path>");
   process.exit(1);
 }
 
@@ -31,8 +32,8 @@ try {
   process.exit(1);
 }
 
-const { path: inputPath, data } = loadedQueue;
-const report = validateRecallData(data);
+const { path: inputPath, absolutePath, data } = loadedQueue;
+const report = validateRecallData(data, dirname(absolutePath));
 
 console.log(formatValidationReport(inputPath, report));
 process.exit(report.isValid ? 0 : 1);

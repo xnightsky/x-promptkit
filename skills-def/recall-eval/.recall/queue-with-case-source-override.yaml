@@ -6,7 +6,7 @@ scoring:
   "0": 回答错误、臆答、遗漏关键限制或答非所问
 cases:
   - id: override-by-case
-    source_ref: skills-def/recall-eval/SKILL.md#default-priority
+    source_ref: ../SKILL.md#default-priority
     question: recall-eval 的默认优先级是什么？
     medium: skill-mechanism
     expected:

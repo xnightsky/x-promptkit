@@ -40,8 +40,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
-import { validateContextSemantics } from "../../_shared/prompt-context.mjs";
-import { loadSchemaFile, validateAgainstSchema } from "../../_shared/schema-validator.mjs";
+import { validateContextSemantics } from "./_shared/prompt-context.mjs";
+import { loadSchemaFile, validateAgainstSchema } from "./_shared/schema-validator.mjs";
 
 // ── Carrier 与 clean-context 策略常量 ──
 
@@ -65,7 +65,7 @@ export const DEFAULT_CLEAN_CONTEXT_POLICY = Object.freeze({
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const QUEUE_SCHEMA_PATH = path.resolve(SCRIPT_DIR, "..", "schemas", "recall-queue.schema.yaml");
 // 队列 schema 通过外部 $ref 复用 _shared 维护的 context 层声明结构
-const LAYERS_SCHEMA_PATH = path.resolve(SCRIPT_DIR, "..", "..", "_shared", "schemas", "prompt-context-layers.schema.yaml");
+const LAYERS_SCHEMA_PATH = path.resolve(SCRIPT_DIR, "_shared", "schemas", "prompt-context-layers.schema.yaml");
 
 const YAML_FILE_PATTERN = /\.ya?ml$/i;
 
@@ -191,7 +191,10 @@ function normalizeExpected(caseValue) {
 // shape 校验完全由 schema 文件驱动；错误按路径路由——
 // `cases[i].*` 的错误以「用例相对路径」重渲染后归入对应用例
 // （如 missing `medium`），其余归入队列级错误。
-export function validateRecallData(data) {
+//
+// @param {object} data — 解析后的 YAML 数据
+// @param {string} [yamlDir] — 队列文件所在目录；传入时 source_ref 相对路径
+export function validateRecallData(data, yamlDir) {
   const report = {
     queueErrors: [],
     caseReports: [],
@@ -234,9 +237,14 @@ export function validateRecallData(data) {
   for (const [index, caseValue] of data.cases.entries()) {
     const caseErrors = [...(caseErrorsByIndex.get(index) ?? [])];
     const caseId = isNonEmptyString(caseValue?.id) ? caseValue.id : `case-${index + 1}`;
-    const effectiveSourceRef = isNonEmptyString(caseValue?.source_ref)
+    let effectiveSourceRef = isNonEmptyString(caseValue?.source_ref)
       ? caseValue.source_ref
       : queueSourceRef;
+    // source_ref 相对路径 → 以队列文件目录为基准解析为绝对路径
+    // 使 .recall/queue.yaml 可以用 ../SKILL.md 指向同 skill 的 SKILL.md
+    if (isNonEmptyString(effectiveSourceRef) && yamlDir && !path.isAbsolute(effectiveSourceRef)) {
+      effectiveSourceRef = path.resolve(yamlDir, effectiveSourceRef);
+    }
     // context 与 source_ref 同语义：用例级整块覆盖队列级，不做深合并。
     // 缺省为 null = 不加载任何 repo/global 提示词层（clean-context-v1 基线）。
     const effectiveContext = caseValue?.context !== undefined ? caseValue.context : queueContext;

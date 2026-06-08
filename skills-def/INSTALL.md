@@ -10,7 +10,7 @@
 
 ```bash
 cd x-promptkit
-npx skills add . --skill <name> -y
+npx skills add . --skill <name> -g -y
 ```
 
 ### 远程安装（从 GitHub 拉取）
@@ -25,21 +25,23 @@ npx skills add xnightsky/x-promptkit --skill <name> -y
 
 ```bash
 # 默认
-npx skills add . --skill recall-eval -y
+npx skills add . --skill recall-eval -g -y
 
 # 仅安装到 claude-code
-# npx skills add . --skill recall-eval -a claude-code -y
+# npx skills add . --skill recall-eval -g -a claude-code -y
 
 # 追加其他平台（示例：pi）
-# npx skills add . --skill recall-eval -a claude-code -a pi -y
+# npx skills add . --skill recall-eval -g -a claude-code -a pi -y
 ```
 
 ### 安装模式与位置
 
+本仓库推荐全局安装（`-g`），因为 skill 装到其他项目里使用，不是在本仓库内用。
+
 | 参数 | 效果 |
 |------|------|
+| `-g` | 安装到 `~/.skills/<name>/`，全机可用（**推荐**） |
 | 默认 | symlink 到当前项目 `.<agent>/skills/<name>/` |
-| `-g` | 安装到 `~/.skills/<name>/`，全机可用 |
 | `--copy` | 复制文件而非 symlink |
 
 默认为 symlink。repo 与 global 同时存在同名 skill 时 repo 版本优先。
@@ -63,18 +65,28 @@ npx skills add . --skill recall-eval -y
 ### recall-eval
 
 ```bash
-# 本地安装
-npx skills add . --skill recall-eval -y
+# 本地全局安装
+npx skills add . --skill recall-eval -g -y
 
 # 远程全局安装
 npx skills add xnightsky/x-promptkit --skill recall-eval -g -y
 
 # 安装到所有平台（不推荐，按需取消注释）
-# npx skills add . --skill recall-eval -a '*' -y
+# npx skills add . --skill recall-eval -g -a '*' -y
+```
+
+### recall-author
+
+```bash
+# 本地全局安装
+npx skills add . --skill recall-author -g -y
+
+# 远程全局安装
+npx skills add xnightsky/x-promptkit --skill recall-author -g -y
 ```
 
 ### ai-run
 
 ```bash
-npx skills add . --skill ai-run -y
+npx skills add . --skill ai-run -g -y
 ```

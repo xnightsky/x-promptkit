@@ -17,8 +17,8 @@ import { parse as parseYaml } from "yaml"
 import {
 	DEFAULT_CLEAN_CONTEXT_POLICY,
 } from "./lib.mjs"
-import { callModel } from "../../_shared/model-runner.mjs"
-import { expandHomePath } from "../../_shared/model-client.mjs"
+import { callModel } from "./_shared/model-runner.mjs"
+import { expandHomePath } from "./_shared/model-client.mjs"
 
 // 本脚本(replay-engine.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
 // 当作候选目录之一，从而支持把 .recall-replay.env.yaml 放在技能安装目录旁边。

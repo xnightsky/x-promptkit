@@ -1,0 +1,62 @@
+version: 1
+source_ref: ../SKILL.md
+fallback_answer: 未明确
+context:
+  repo:
+    enabled: false
+  global:
+    enabled: false
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: recall_author.required_fields
+    question: 编写 recall queue 时，case 的必填字段有哪些？请用「是必填」或「不是必填」逐一列出 medium / carrier / expected.must_include / score_rule / source_scope。
+    medium: skill-mechanism
+    expected:
+      must_include:
+        - medium
+        - must_include
+        - score_rule
+        - source_scope
+      must_not_include:
+        - carrier 是必填
+    score_rule:
+      full: 明确列出必填字段（medium / must_include / score_rule / source_scope），且标明 carrier 可选
+      partial: 列出必填字段但漏一项，或未区分 carrier 可选
+      fail: 把 carrier 列为必填，或答非所问
+    tags: [selftest, redline]
+    source_scope: SKILL.md#最小合法队列
+
+  - id: recall_author.carrier_optional
+    question: recall queue 的 carrier 字段在 v0.6.0 后是必填还是可选？缺省值是什么？
+    medium: skill-mechanism
+    expected:
+      must_include:
+        - 可选我
+        - direct
+      must_not_include:
+        - 必填
+        - 必须
+    score_rule:
+      full: 明确答出 carrier 可选、缺省 direct
+      partial: 答出可选但未说明缺省值
+      fail: 回答 carrier 必填或答非所问
+    tags: [selftest, redline]
+    source_scope: SKILL.md#五条铁律
+
+  - id: recall_author.context_layers
+    question: 召回队列的 context 块缺省时，repo 层与 global 层是否加载？请用「加载」或「不加载」作答。
+    medium: skill-mechanism
+    expected:
+      must_include:
+        - 不加载
+      must_not_include:
+        - 加载
+    score_rule:
+      full: 明确答出缺省时两层都不加载
+      partial: 只答出一层行为
+      fail: 回答会加载或答非所问
+    tags: [selftest, context]
+    source_scope: SKILL.md#context-层声明

@@ -9,8 +9,8 @@
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { isAbsolute, resolve } from "node:path";
-import { createClient } from "../../_shared/model-client.mjs";
-import { buildSystemPrompt, normalizeContextLayers } from "../../_shared/prompt-context.mjs";
+import { createClient } from "./_shared/model-client.mjs";
+import { buildSystemPrompt, normalizeContextLayers } from "./_shared/prompt-context.mjs";
 
 /**
  * 运行一次 recall agent：读 sourceRef 指向的 prompt 文本 → 拼 prompt → 调模型。

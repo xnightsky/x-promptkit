@@ -199,7 +199,7 @@ test("resolve-target discovers a target-local queue from a target directory", ()
   const output = runScript("resolve-target.mjs", ["skills-def/recall-eval"]);
 
   assert.match(output, /Queue: skills-def\/recall-eval\/.recall\/queue\.yaml/);
-  assert.match(output, /Queue source_ref: skills-def\/recall-eval\/SKILL\.md/);
+  assert.match(output, /Queue source_ref: \.\.\/SKILL\.md/);
 });
 
 // 场景：通过 answers-file 对整个队列打分。预期：两个用例均 score=2 且进入 directly evaluable。

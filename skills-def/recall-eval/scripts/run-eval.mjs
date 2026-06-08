@@ -4,14 +4,14 @@
 // 召回评测 CLI 入口。
 //
 // 用法：
-//   node skills-def/recall-eval/scripts/run-eval.mjs <yaml-path|target-path>
+//   node scripts/run-eval.mjs <yaml-path|target-path>
 //     [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path> | --live]
-//   node skills-def/recall-eval/scripts/run-eval.mjs <path1> <path2> ...  --live
+//   node scripts/run-eval.mjs <path1> <path2> ...  --live
 //
 // 核心逻辑见 evaluate-queue.mjs，本文件只做 CLI 解析 + 格式化输出。
 
 import { formatBatchRunEvalOutput, formatRunEvalOutput } from "../lib/lib.mjs";
-import { loadProviders } from "../../_shared/model-client.mjs";
+import { loadProviders } from "../lib/_shared/model-client.mjs";
 import { evaluateQueueTarget } from "../lib/evaluate-queue.mjs";
 
 // ── CLI 参数解析 ──
@@ -46,7 +46,7 @@ const answersFile = args.valueFor("--answers-file");
 const batchMode = yamlPaths.length > 1;
 
 if (yamlPaths.length === 0) {
-  console.log("Usage: node skills-def/recall-eval/scripts/run-eval.mjs <yaml-path|target-path> [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path> | --live]");
+  console.log("Usage: node scripts/run-eval.mjs <yaml-path|target-path> [--case <id>] [--answer <text> | --answer-file <path> | --answers-file <json-path> | --live]");
   process.exit(1);
 }
 if (liveMode && (answer !== null || answerFile !== null || answersFile !== null)) {

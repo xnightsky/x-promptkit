@@ -20,6 +20,7 @@
     "iitest:ai-run": "node --test integration-tests/ai-run/",
     "iitest:token:recall-replay": "node integration-tests/recall-eval/recall-replay.token.ittest.mjs",
     "iitest:token:recall-live": "node --test integration-tests/recall-eval/recall-live.token.ittest.mjs",
+    "recall:sync-shared": "node skills-def/recall-eval/scripts/sync-shared.mjs",
     "recall:validate": "node skills-def/recall-eval/scripts/validate-schema.mjs",
     "recall:resolve": "node skills-def/recall-eval/scripts/resolve-target.mjs",
     "recall:run": "node skills-def/recall-eval/scripts/run-eval.mjs"

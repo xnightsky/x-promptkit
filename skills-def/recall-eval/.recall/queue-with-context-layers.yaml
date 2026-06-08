@@ -5,16 +5,16 @@
 # （fake-repo-prompt.md / fake-global-prompt.md），不依赖真实 AGENTS.md
 # 或用户机器上的全局提示词——真实提示词内容变化不应影响自测结果。
 version: 1
-source_ref: skills-def/recall-eval/SKILL.md
+source_ref: ../SKILL.md
 fallback_answer: 未明确
 context:
   repo:
     enabled: true
     # 指向手写 fixture，而不是省略 path 落到真实 AGENTS.md
-    path: skills-def/recall-eval/.recall/fake-repo-prompt.md
+    path: fake-repo-prompt.md
   global:
     enabled: true
-    path: skills-def/recall-eval/.recall/fake-global-prompt.md
+    path: fake-global-prompt.md
 scoring:
   "2": 回答正确且关键边界完整
   "1": 方向正确但缺关键限制或表述偏弱
