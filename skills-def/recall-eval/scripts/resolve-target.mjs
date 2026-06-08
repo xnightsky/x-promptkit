@@ -10,7 +10,7 @@
 // 用法：
 //   node skills-def/recall-eval/scripts/resolve-target.mjs <yaml-path|target-path> [--case <id>]
 
-import { loadRecallYaml, validateRecallData } from "./lib.mjs";
+import { loadRecallYaml, validateRecallData } from "../lib/lib.mjs";
 
 // 解析 CLI 参数：位置参数 0 为路径，--case 后跟 case id。
 const args = process.argv.slice(2);

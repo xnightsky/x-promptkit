@@ -1,93 +1,77 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 
+import { parseProviderArgs, resolveProviders, showProviderHelp } from "../../skills-def/recall-eval/lib/cli-provider.mjs"
 import {
-	loadReplayMatrix,
-	validateReplayMatrix,
-	selectEnabledProviders,
-	assembleEphemeralAgent,
-	buildReplayQueueFixture,
-} from "../../skills-def/recall-eval/scripts/replay-matrix.mjs"
+  loadReplayMatrix,
+  validateReplayMatrix,
+} from "../../skills-def/recall-eval/lib/replay-engine.mjs"
+import { evaluateQueueTarget } from "../../skills-def/recall-eval/lib/evaluate-queue.mjs"
 
 // ───────────────────────────────────────────────────────────────────────────
-// Token 套件:provider 矩阵回放(需要真实密钥)
+// Token 套件：端到端 recall-eval（需要真实密钥）
 //
-// 本套件刻意被排除在默认回归(`npm run iitest`)之外，只有显式执行
-// `npm run iitest:token:recall-replay` 才会运行;即便运行，也会在「矩阵里没有
-// 任何可达且带 key 的真实 provider」时自动跳过(self-skip)。
+// 用法：
+//   npm run iitest:token:recall-replay -- --provider <id> --model <a> --model <b> --verbose
 //
-// 整个 agent 完全在进程内组装:读取矩阵 → 对每个启用的 provider 跑内置 recall
-// fixture → 断言 clean-context 策略被回显 → 退出。全程不写磁盘、无需清理。
-//
-// 用例采用 BDD(场景 / 给定 / 当 / 那么)注释。
+// 本套件不进入默认回归。
 // ───────────────────────────────────────────────────────────────────────────
 
-// 按 expected 给一条回答打分:命中禁止词→0;缺必备词→0;否则命中应含词→2，未命中→1。
-function scoreAnswer(expected, answer) {
-	const text = String(answer ?? "")
-	const includesAll = (list) =>
-		(list ?? []).every((needle) => text.includes(needle))
-	const includesNone = (list) =>
-		(list ?? []).every((needle) => !text.includes(needle))
-	if (!includesNone(expected.must_not_include)) {
-		return 0
-	}
-	if (!includesAll(expected.must_include)) {
-		return 0
-	}
-	return includesAll(expected.should_include) ? 2 : 1
-}
+const cliOpts = parseProviderArgs(process.argv.slice(2))
+if (cliOpts.help) { showProviderHelp(); process.exit(0) }
 
-// 场景:provider 矩阵回放遵守 clean-context 策略
-//   给定 一份可发现的 provider 矩阵(否则自动跳过)
-//         且其中至少有一个启用、带 key 的真实(非 echo)provider(否则自动跳过)
-//   当   用临时 agent 对内置 recall fixture 逐个 case 运行
-//   那么 每个 provider 都回显 clean-context 策略 id，且对每个 case 打满分(2)
-test("provider-matrix replay honours the clean-context policy", async (t) => {
-	// 给定:尝试按「仓库根发现规则」加载矩阵;加载不到则视为未配置，直接跳过。
-	let loaded
-	try {
-		loaded = loadReplayMatrix()
-	} catch (error) {
-		t.skip(`no provider matrix available: ${error.message}`)
-		return
-	}
+test("recall-eval live replay with real queue", async (t) => {
+  // 1. 加载 provider matrix
+  let loaded
+  try {
+    loaded = loadReplayMatrix()
+  } catch (error) {
+    t.skip(`no provider matrix available: ${error.message}`)
+    return
+  }
 
-	// 给定:矩阵结构必须合法。
-	const { matrix } = loaded
-	const { ok, errors } = validateReplayMatrix(matrix)
-	assert.ok(ok, `invalid provider matrix: ${errors.join("; ")}`)
+  const { matrix } = loaded
+  const { ok, errors } = validateReplayMatrix(matrix)
+  assert.ok(ok, `invalid provider matrix: ${errors.join("; ")}`)
 
-	// 给定:筛掉 echo，只保留启用且带 key 的真实 provider;一个都没有则跳过。
-	const providers = selectEnabledProviders(matrix).filter(
-		(provider) => provider.api !== "echo",
-	)
-	if (providers.length === 0) {
-		t.skip("no token-bearing providers are enabled")
-		return
-	}
+  // 2. 解析 provider targets
+  let targets
+  try {
+    targets = resolveProviders(matrix, cliOpts)
+  } catch (error) {
+    t.skip(error.message)
+    return
+  }
 
-	const fixture = buildReplayQueueFixture()
-	for (const provider of providers) {
-		await t.test(`provider ${provider.id}`, async () => {
-			// 当:用该 provider 组装临时 agent 并逐个 case 运行。
-			const agent = assembleEphemeralAgent({ matrix, provider })
-			for (const caseReport of fixture.cases) {
-				const result = await agent.run(caseReport)
-				// 那么:provider 必须回显 clean-context 策略 id。
-				assert.equal(
-					result.policyEcho,
-					matrix.context_policy.id,
-					"provider did not echo the clean-context policy id",
-				)
-				// 那么:回答必须命中必备事实并避开禁止词(满分 2)。
-				const score = scoreAnswer(caseReport.expected, result.answer)
-				assert.equal(
-					score,
-					2,
-					`provider ${provider.id} scored ${score} on ${caseReport.id}`,
-				)
-			}
-		})
-	}
+  // 3. skill 自带的 selftest queue
+  const queuePath = "skills-def/recall-eval/.recall/queue.yaml"
+
+  // 4. 每个 provider 跑全链路
+  for (const { provider, label } of targets) {
+    await t.test(label, async () => {
+      const result = await evaluateQueueTarget(queuePath, {
+        provider,
+        liveMode: true,
+      })
+
+      // 完整性检查
+      const failures = result.integrityItems.filter(i => i.status === "fail")
+      assert.equal(failures.length, 0,
+        `integrity failures: ${failures.map(i => `${i.id}: ${i.reason}`).join("; ")}`)
+
+      // 队列不需要修复
+      assert.equal(result.summary.queueFixesRequired, "none",
+        `queue fixes required: ${result.summary.queueFixesRequired}`)
+
+      // 无运行时失败
+      assert.equal(result.summary.runtimeFailures, "none",
+        `runtime failures: ${result.summary.runtimeFailures}`)
+
+      // 每个 case 满分
+      for (const item of result.caseItems) {
+        assert.ok(item.result.startsWith("score=2"),
+          `${label} ${item.id}: ${item.result}`)
+      }
+    })
+  }
 })

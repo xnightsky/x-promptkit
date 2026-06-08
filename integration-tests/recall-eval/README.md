@@ -13,12 +13,27 @@ Naming: token-burning integration tests use the `*.token.ittest.mjs` suffix — 
 
 ## Provider-matrix replay
 
-The replay suite turns a `.env`-style provider matrix into an ephemeral, in-process recall agent. It has zero local footprint — nothing is written to disk and no clean-up step runs — and pulls the clean-context policy from `lib.mjs` so the replay path and the live recall path stay aligned.
+The replay suite tests the clean-context policy echo across enabled providers. It uses a hardcoded recall fixture (no external `.recall/` queue needed).
 
-- helper module: `skills-def/recall-eval/scripts/replay-matrix.mjs`
-- matrix discovery walks up from the current working directory to the repo root (the directory containing `.git`) and reads the first of `.recall-replay.env.yaml` / `.recall-replay.env.yml` / `.recall-replay.env`; override with `RECALL_REPLAY_MATRIX`
-- copy `skills-def/recall-eval/.recall-replay.env.example.yaml` to the repo-root `.recall-replay.env.yaml` (git-ignored) and fill in real values
-- run with `npm run iitest:token:recall-replay` (excluded from the default `npm run iitest`)
+**Shared CLI** (`skills-def/recall-eval/lib/cli-provider.mjs`):
+```
+--provider <id>  选择 provider，覆盖 run.models（多次按序执行）
+--model <id>     覆盖 provider 的 model（多次逐个测试）
+--verbose        打印 provider / model 发现详情
+--help, -h       帮助
+```
+
+**Usage**:
+```bash
+# 按 run.models 默认跑
+npm run iitest:token:recall-replay
+
+# 指定 provider（覆盖 run.models）
+npm run iitest:token:recall-replay -- --provider kimi-code
+
+# 指定 provider + 多个 model
+npm run iitest:token:recall-replay -- --provider kimi-code --model kimi-for-coding --model kimi-k2.6 --verbose
+```
 
 ## Execution Policy
 

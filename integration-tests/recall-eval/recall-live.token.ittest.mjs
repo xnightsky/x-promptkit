@@ -15,8 +15,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { loadProviders } from "../../skills-def/_shared/model-client.mjs";
-import { runRecallAgent } from "../../skills-def/recall-eval/scripts/model-agent.mjs";
-import { loadRecallYaml, validateRecallData, scoreAnswer } from "../../skills-def/recall-eval/scripts/lib.mjs";
+import { runRecallAgent } from "../../skills-def/recall-eval/lib/model-agent.mjs";
+import { loadRecallYaml, validateRecallData, scoreAnswer } from "../../skills-def/recall-eval/lib/lib.mjs";
 
 // ── Self-skip gate ──
 // 筛掉 echo，只保留启用且带 key 的真实 provider；一个都没有则跳过整个套件。

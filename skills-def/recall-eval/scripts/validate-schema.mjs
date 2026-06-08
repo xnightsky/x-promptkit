@@ -13,7 +13,7 @@
 // 用法：
 //   node skills-def/recall-eval/scripts/validate-schema.mjs <yaml-path|target-path>
 
-import { formatValidationReport, loadRecallYaml, validateRecallData } from "./lib.mjs";
+import { formatValidationReport, loadRecallYaml, validateRecallData } from "../lib/lib.mjs";
 
 const yamlPath = process.argv[2];
 

@@ -19,7 +19,7 @@ import {
 	buildReplayQueueFixture,
 	discoverReplayMatrixPath,
 	replayMatrixSearchDirs,
-} from "../skills-def/recall-eval/scripts/replay-matrix.mjs"
+} from "../skills-def/recall-eval/lib/replay-engine.mjs"
 import { callModel } from "../skills-def/_shared/model-runner.mjs"
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -37,11 +37,11 @@ import { callModel } from "../skills-def/_shared/model-runner.mjs"
 // ───────────────────────────────────────────────────────────────────────────
 
 const SAMPLE_MATRIX = `
-version: 1
+version: 2
 defaults:
   api: echo
   temperature: 0
-  max_tokens: 256
+  maxTokens: 256
 memory:
   mode: in-process
   namespace: recall-replay
@@ -49,21 +49,23 @@ context_policy:
   id: clean-context-v1
   assert_echo: true
 providers:
-  - id: echo-local
+  echo-local:
     enabled: true
     api: echo
-  - id: openai-prod
+  openai-prod:
     enabled: true
     api: openai-chat
-    base_url: https://api.openai.com/v1
-    model: gpt-4o-mini
-    apikey: OPENAI_API_KEY
-  - id: disabled-anthropic
+    baseUrl: https://api.openai.com/v1
+    apiKey: OPENAI_API_KEY
+    models:
+      - id: gpt-4o-mini
+  disabled-anthropic:
     enabled: false
     api: anthropic-messages
-    base_url: https://api.anthropic.com/v1
-    model: claude-3-5-sonnet
-    apikey: ANTHROPIC_API_KEY
+    baseUrl: https://api.anthropic.com/v1
+    apiKey: ANTHROPIC_API_KEY
+    models:
+      - id: claude-3-5-sonnet
 `
 
 // 为发现类用例在系统临时目录搭一棵真实目录树。路径全部用 path.join 构造，
@@ -98,7 +100,7 @@ function makeSandbox(t) {
 //   那么 每个 provider 都继承 defaults(如 temperature / max_tokens)
 test("parseReplayMatrix applies defaults to providers", () => {
 	const matrix = parseReplayMatrix(SAMPLE_MATRIX)
-	assert.equal(matrix.version, 1)
+	assert.equal(matrix.version, 2)
 	assert.equal(matrix.providers.length, 3)
 	const echo = matrix.providers.find((p) => p.id === "echo-local")
 	assert.equal(echo.temperature, 0)
@@ -119,23 +121,24 @@ test("validateReplayMatrix accepts a well-formed matrix", () => {
 // 场景:真实 provider 缺少 apikey 时校验失败
 //   给定 一个 openai-chat provider 既无 apikey 也无旧字段 key/key_env
 //   当   调用 validateReplayMatrix
-//   那么 校验失败，报 missing apikey
-test("validateReplayMatrix rejects providers without apikey", () => {
+//   那么 校验失败，报 missing apiKey
+test("validateReplayMatrix rejects providers without apiKey", () => {
 	const matrix = parseReplayMatrix(`
-version: 1
+version: 2
 memory:
   mode: in-process
 context_policy:
   id: clean-context-v1
 providers:
-  - id: bad
+  bad:
     api: openai-chat
-    base_url: https://api.openai.com/v1
-    model: gpt-4o-mini
+    baseUrl: https://api.openai.com/v1
+    models:
+      - id: gpt-4o-mini
 `)
 	const { ok, errors } = validateReplayMatrix(matrix)
 	assert.equal(ok, false)
-	assert.ok(errors.some((e) => e.includes("missing apikey")))
+	assert.ok(errors.some((e) => e.includes("missing apiKey")))
 })
 
 // 场景:按「启用标记 + key 可用性」筛选 provider

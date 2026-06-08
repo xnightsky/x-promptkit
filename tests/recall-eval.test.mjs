@@ -296,9 +296,9 @@ test("run-eval executes live recall via echo provider and produces a report", ()
   fs.writeFileSync(
     matrixPath,
     [
-      "version: 1",
+      "version: 2",
       "providers:",
-      "  - id: echo-test",
+      "  echo-test:",
       "    enabled: true",
       "    api: echo",
     ].join("\n"),
@@ -345,9 +345,9 @@ function makeLiveSandbox() {
 }
 
 const ECHO_MATRIX = [
-  "version: 1",
+  "version: 2",
   "providers:",
-  "  - id: echo-home",
+  "  echo-home:",
   "    enabled: true",
   "    api: echo",
 ].join("\n");
@@ -429,9 +429,9 @@ test("run-eval scores a whole live queue with echo provider", () => {
   fs.writeFileSync(
     matrixPath,
     [
-      "version: 1",
+      "version: 2",
       "providers:",
-      "  - id: echo-test",
+      "  echo-test:",
       "    enabled: true",
       "    api: echo",
     ].join("\n"),
@@ -459,9 +459,9 @@ test("run-eval batches multiple queue targets in live mode with echo provider", 
   fs.writeFileSync(
     matrixPath,
     [
-      "version: 1",
+      "version: 2",
       "providers:",
-      "  - id: echo-test",
+      "  echo-test:",
       "    enabled: true",
       "    api: echo",
     ].join("\n"),

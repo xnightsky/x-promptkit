@@ -32,7 +32,7 @@ skills-def/
         ├── resolve-target.mjs     ✅ 保留
         ├── model-agent.mjs        🆕 内联 SKILL.md → 调 prompt-context + model-runner → 返回回答
         ├── run-eval.mjs           🔄 重构：编排层
-        ├── replay-matrix.mjs      🔄 重构：callReplayModel 切到 _shared/model-runner
+        ├── replay-engine.mjs      🔄 重构：callReplayModel 切到 _shared/model-runner
         └── carrier-adapter.mjs    ❌ 删除
 
 skills-def/recall-evaluator/           ❌ 整个目录删除，资产归入 recall-eval/
@@ -230,7 +230,7 @@ const result = await runRecallAgent({
 | `lib.mjs` / `validate-schema.mjs` / `resolve-target.mjs` | 逻辑与 carrier 无关 |
 | `.recall/*.yaml` / `SAMPLE-QUEUE.yaml` | 队列契约不变 |
 | `integration-tests/recall-eval/` | 保留，导入路径调整 |
-| `replay-matrix.mjs` | 保留，callReplayModel 切到 `_shared/model-runner` |
+| `replay-engine.mjs` | 保留，callReplayModel 切到 `_shared/model-runner` |
 
 ---
 

@@ -119,11 +119,47 @@ export function loadProviders(options = {}) {
     return { active: [], skipped: [], noEnvFile: false, parseError: true };
   }
 
-  const rawProviders = Array.isArray(cfg.providers) ? cfg.providers : [];
-  const defaults = { ...DEFAULT_DEFAULTS, ...(cfg.defaults ?? {}) };
-  const matrix = Array.isArray(cfg.run?.matrix) && cfg.run.matrix.length > 0
-    ? cfg.run.matrix
-    : rawProviders.filter(p => p.enabled !== false).map(p => p.id).filter(Boolean);
+  const version = cfg.version ?? 1
+  if (version < 2) {
+    return { active: [], skipped: [], noEnvFile: false, parseError: true, reason: `unsupported version ${version}, v2 required` };
+  }
+
+  // ── v2 归一化：camelCase → snake_case，map → array ──
+  const rawDefaults = cfg.defaults ?? {}
+  const cleanDefaults = {
+    api: rawDefaults.api,
+    temperature: rawDefaults.temperature,
+    max_tokens: rawDefaults.maxTokens,
+    timeout_ms: rawDefaults.timeoutMs,
+  }
+  // 过滤 undefined，避免覆盖 DEFAULT_DEFAULTS
+  const defaults = { ...DEFAULT_DEFAULTS }
+  for (const [k, v] of Object.entries(cleanDefaults)) {
+    if (v !== undefined && v !== null) defaults[k] = v
+  }
+
+  const cfgProviderMap = cfg.providers ?? {}
+  const rawProviders = Object.entries(cfgProviderMap).map(([id, p]) => {
+    const models = Array.isArray(p.models) ? p.models : []
+    const model = models[0] ?? {}
+    return {
+      id,
+      enabled: p.enabled !== false,
+      api: p.api ?? defaults.api,
+      base_url: p.baseUrl ?? "",
+      model: model.id ?? "",
+      apikey: p.apiKey ?? "",
+      headers: model.headers ?? p.headers,
+      timeout_ms: p.timeoutMs ?? defaults.timeout_ms,
+      temperature: p.temperature ?? defaults.temperature,
+      max_tokens: p.maxTokens ?? defaults.max_tokens,
+    }
+  })
+
+  const runModels = cfg.run?.models
+  const matrix = Array.isArray(runModels) && runModels.length > 0
+    ? runModels
+    : rawProviders.filter(p => p.enabled !== false).map(p => p.id).filter(Boolean)
 
   const providerMap = {};
   for (const p of rawProviders) {
@@ -155,10 +191,12 @@ export function loadProviders(options = {}) {
       api: p.api ?? defaults.api,
       base_url: p.base_url ?? "",
       model: p.model ?? "",
-      key: key ?? "",
+      apikey: key ?? "",
       timeout_ms: p.timeout_ms ?? defaults.timeout_ms,
       temperature: p.temperature ?? defaults.temperature,
       max_tokens: p.max_tokens ?? defaults.max_tokens,
+      // 透传自定义 headers（伪装头等）
+      ...(p.headers && typeof p.headers === "object" ? { headers: p.headers } : {}),
     });
   }
 

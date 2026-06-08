@@ -1,4 +1,4 @@
-// skills-def/recall-eval/scripts/replay-matrix.mjs
+// skills-def/recall-eval/scripts/replay-engine.mjs
 //
 // recall-eval 技能的「provider 矩阵」回放(replay)助手。
 //
@@ -21,7 +21,7 @@ import {
 import { callModel } from "../../_shared/model-runner.mjs"
 import { expandHomePath } from "../../_shared/model-client.mjs"
 
-// 本脚本(replay-matrix.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
+// 本脚本(replay-engine.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
 // 当作候选目录之一，从而支持把 .recall-replay.env.yaml 放在技能安装目录旁边。
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 
@@ -142,8 +142,9 @@ export function discoverReplayMatrixPath(options = {}) {
 	return join(repoRoot, REPLAY_MATRIX_FILENAMES[0])
 }
 
-// 把一份 provider 矩阵 YAML 文本解析为规范化的矩阵对象。每个 provider 都会
-// 继承顶层 defaults，因此调用方拿到的永远是解析后的最终值。
+// 把一份 provider 矩阵 YAML 文本解析为规范化的矩阵对象。
+// 支持 v2（map 式，camelCase，对齐 pi models.json）。
+// v2 内部归一化到 v1 结构，下游代码无感知。
 export function parseReplayMatrix(text) {
 	if (typeof text !== "string" || text.trim() === "") {
 		throw new Error("replay matrix source is empty")
@@ -152,7 +153,60 @@ export function parseReplayMatrix(text) {
 	if (!raw || typeof raw !== "object") {
 		throw new Error("replay matrix must be a YAML mapping")
 	}
-	const defaults = { ...DEFAULT_DEFAULTS, ...(raw.defaults ?? {}) }
+	const version = raw.version ?? 1
+	if (version < 2) {
+		throw new Error(
+			`unsupported replay matrix version ${version}. Please migrate to v2 (map-style providers, camelCase fields). See .recall-replay.env.example.yaml for the current format.`,
+		)
+	}
+
+	// ── 归一化：v2 → v1 内部格式 ──
+	let rawDefaults = raw.defaults ?? {}
+	let rawRun = raw.run ?? {}
+
+	// v2: camelCase defaults → snake_case
+	rawDefaults = {
+		api: rawDefaults.api,
+		temperature: rawDefaults.temperature,
+		max_tokens: rawDefaults.maxTokens,
+		timeout_ms: rawDefaults.timeoutMs,
+	}
+	// v2: providers map → v1 array
+	const providerMap = raw.providers ?? {}
+	const rawProviders = Object.entries(providerMap).map(([key, p]) => {
+		const models = Array.isArray(p.models) ? p.models : []
+		const model = models[0] ?? {}
+		return {
+			id: key,
+			enabled: p.enabled,
+			api: p.api,
+			base_url: p.baseUrl,
+			model: model.id,
+			apikey: p.apiKey,
+			headers: model.headers ?? p.headers,
+			timeout_ms: p.timeoutMs,
+			temperature: p.temperature,
+			max_tokens: p.maxTokens,
+		}
+	})
+	// v2: run.models → 内部 run.matrix（值=provider key，首 model 隐含）
+	const runModels = rawRun.models
+	rawRun = { matrix: Array.isArray(runModels) ? [...runModels] : [] }
+	// 过滤 undefined，避免覆盖 DEFAULT_DEFAULTS
+	const cleanDefaults = {}
+	for (const [k, v] of Object.entries(rawDefaults)) {
+		if (v !== undefined && v !== null) cleanDefaults[k] = v
+	}
+	const defaults = { ...DEFAULT_DEFAULTS, ...cleanDefaults }
+
+	// 同样过滤 provider 字段中的 undefined
+	const providers = rawProviders.map((provider) => {
+		const clean = {}
+		for (const [k, v] of Object.entries(provider)) {
+			if (v !== undefined) clean[k] = v
+		}
+		return { ...defaults, ...clean }
+	})
 	const memory = {
 		mode: "in-process",
 		namespace: "recall-replay",
@@ -164,14 +218,13 @@ export function parseReplayMatrix(text) {
 		assert_echo: true,
 		...(raw.context_policy ?? {}),
 	}
-	const providers = Array.isArray(raw.providers) ? raw.providers : []
 	return {
 		version: raw.version ?? 1,
 		defaults,
 		memory,
 		context_policy: contextPolicy,
-		run: raw.run ?? {},
-		providers: providers.map((provider) => ({ ...defaults, ...provider })),
+		run: rawRun,
+		providers,
 	}
 }
 
@@ -194,7 +247,7 @@ export function loadReplayMatrix(options = {}) {
 	return { path: resolved, matrix: parseReplayMatrix(text) }
 }
 
-// 结构化校验。返回 { ok, errors } 而非抛错，便于调用方一次性暴露所有问题。
+// 结构化校验（v2 归一化后的内部格式）。返回 { ok, errors }。
 export function validateReplayMatrix(matrix) {
 	const errors = []
 	if (!matrix || typeof matrix !== "object") {
@@ -213,8 +266,8 @@ export function validateReplayMatrix(matrix) {
 	if (!Array.isArray(matrix.providers) || matrix.providers.length === 0) {
 		errors.push("providers must be a non-empty array")
 	}
-	for (const [index, provider] of (matrix.providers ?? []).entries()) {
-		const label = provider?.id ?? `#${index}`
+	for (const provider of matrix.providers ?? []) {
+		const label = provider?.id ?? "(unknown)"
 		if (!provider?.id) {
 			errors.push(`provider ${label} is missing an id`)
 		}
@@ -224,15 +277,11 @@ export function validateReplayMatrix(matrix) {
 		if (!provider?.model && provider?.api !== "echo") {
 			errors.push(`provider ${label} is missing a model`)
 		}
-		const usesInlineKey =
-			typeof provider?.apikey === "string" && provider.apikey.length > 0
-		const hasLegacyKeyEnv = typeof provider?.key_env === "string" && provider.key_env.length > 0
-		if (usesInlineKey && provider?.api !== "echo") {
-			// apikey 支持 inline key，不再报错；仅旧字段 key 仍提示
-		}
-		const hasKey = usesInlineKey || hasLegacyKeyEnv || (typeof provider?.key === "string" && provider.key.length > 0)
-		if (provider?.api !== "echo" && !hasKey) {
-			errors.push(`provider ${label} is missing apikey`)
+		if (provider?.api !== "echo") {
+			const key = typeof provider?.apikey === "string" ? provider.apikey.trim() : ""
+			if (!key) {
+				errors.push(`provider ${label} is missing apiKey`)
+			}
 		}
 	}
 	return { ok: errors.length === 0, errors }
@@ -240,11 +289,20 @@ export function validateReplayMatrix(matrix) {
 
 // 选出「已启用且可达」的 provider。真实 provider 需要其 apikey(或 echo 的内联
 // key)存在，这正是 token 套件在没有任何凭据时能自动跳过的原因。
+// 如果 run.matrix 非空，仅考虑其中列出的 provider id（否则所有 enabled 都参选）。
 export function selectEnabledProviders(matrix, options = {}) {
-	const { env = process.env } = options
+	const { env = process.env, skipMatrix = false } = options
 	const providers = Array.isArray(matrix?.providers) ? matrix.providers : []
+	// run.matrix 非空时只考虑声明的 id；为空/未设置时所有 enabled 都参选
+	// skipMatrix=true 时跳过此限制（--provider 覆盖场景）
+	const runMatrix = !skipMatrix && Array.isArray(matrix?.run?.matrix) && matrix.run.matrix.length > 0
+		? new Set(matrix.run.matrix)
+		: null
 	return providers.filter((provider) => {
 		if (provider?.enabled === false) {
+			return false
+		}
+		if (runMatrix && !runMatrix.has(provider.id)) {
 			return false
 		}
 		if (provider?.api === "echo") {
@@ -299,9 +357,8 @@ export function extractPolicyEcho(text) {
 	return match ? match[1] : null
 }
 
-// 把 provider 的 apikey(env 变量名或 inline key)物化为实际 key 值。
-// callModel 只读取 provider.key;若不在这里解析,带 `apikey: SOME_ENV_NAME`
-// 的 provider 会以 `Bearer undefined` 发请求,稳定得到 401。
+// 把 provider 的 apiKey(env 变量名或 inline key)物化为实际值。
+// callModel 只认 provider.apikey；不在这里解析的话会以 `Bearer undefined` 发请求。
 // 解析顺序与 selectEnabledProviders 的可达性判断保持一致:
 // 优先同名环境变量,取不到则把字段值本身当 inline key。
 export function resolveProviderKey(provider, env = process.env) {
@@ -328,8 +385,13 @@ export function assembleEphemeralAgent(options = {}) {
 		...DEFAULT_CLEAN_CONTEXT_POLICY,
 		...(matrix?.context_policy ?? {}),
 	}
-	// callModel 只认 provider.key,这里先把 apikey/key_env 物化为实际 key 值
-	const effectiveProvider = { ...provider, key: resolveProviderKey(provider, env) }
+	// callModel 只认 provider.apikey，这里把 apikey/key_env 物化为实际值
+	// 同时透传 headers（伪装头等）给 model-runner
+	const effectiveProvider = {
+		...provider,
+		apikey: resolveProviderKey(provider, env),
+		...(provider.headers ? { headers: provider.headers } : {}),
+	}
 	return {
 		id: `recall-replay:${provider.id}`,
 		carrier: SUBAGENT_CARRIER,

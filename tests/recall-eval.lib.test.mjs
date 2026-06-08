@@ -15,7 +15,7 @@ import {
   resolveEffectiveCarrier,
   scoreAnswer,
   validateRecallData,
-} from "../skills-def/recall-eval/scripts/lib.mjs";
+} from "../skills-def/recall-eval/lib/lib.mjs";
 
 // 场景：用例未提供 source_ref。预期：继承队列级 source_ref，无错误。
 test("validateRecallData inherits queue-level source_ref when case-level override is absent", () => {

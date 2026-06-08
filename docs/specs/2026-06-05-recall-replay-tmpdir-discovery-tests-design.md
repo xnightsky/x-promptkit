@@ -5,7 +5,7 @@
 
 ## 背景
 
-`skills-def/recall-eval/scripts/replay-matrix.mjs` 的矩阵文件发现机制（`discoverReplayMatrixPath` / `replayMatrixSearchDirs` / `findRepoRoot`）运行时本身跨平台：路径拼接全部走 `node:path`，home 目录来自 `os.homedir()`。
+`skills-def/recall-eval/scripts/replay-engine.mjs` 的矩阵文件发现机制（`discoverReplayMatrixPath` / `replayMatrixSearchDirs` / `findRepoRoot`）运行时本身跨平台：路径拼接全部走 `node:path`，home 目录来自 `os.homedir()`。
 
 但 `tests/recall-eval.replay.test.mjs` 中 5 个发现类用例在 Windows 上失败：
 
@@ -48,7 +48,7 @@
 |---|---|
 | `tests/recall-eval.replay.test.mjs` | 重写 6 个用例（5 个发现类 + `replayMatrixSearchDirs` 顺序用例）为 tmpdir 沙箱；更新文件头注释（发现类用例改为沙箱真实 FS 验证，解析/打分类保持纯离线）；其余 10 个纯逻辑用例不动 |
 | `skills-def/recall-eval/.recall-replay.env.example.yaml` | 注释补一句 Windows home 路径示例（`%USERPROFILE%\.recall-replay.env.yaml`） |
-| `skills-def/recall-eval/scripts/replay-matrix.mjs` | 零改动 |
+| `skills-def/recall-eval/scripts/replay-engine.mjs` | 零改动 |
 
 ## 不做什么
 
@@ -66,7 +66,7 @@
 
 原设计为"生产代码零改动"；执行期发现并经用户指示后，追加两项同根因（平台/宿主状态假设）的修复：
 
-1. **`~` 前缀展开（生产代码改动）**：`RECALL_REPLAY_MATRIX` 写 `~/...` 时，shell 之外无人展开 `~`，Windows 上会被当成字面目录名导致 override 静默失效。新增 `skills-def/_shared/model-client.mjs` 的 `expandHomePath`（只处理 `~`、`~/`、`~\` 前缀；`~user` 形式刻意不支持），并在 `model-client.mjs` 与 `skills-def/recall-eval/scripts/replay-matrix.mjs` 两处 override 消费点统一应用。
+1. **`~` 前缀展开（生产代码改动）**：`RECALL_REPLAY_MATRIX` 写 `~/...` 时，shell 之外无人展开 `~`，Windows 上会被当成字面目录名导致 override 静默失效。新增 `skills-def/_shared/model-client.mjs` 的 `expandHomePath`（只处理 `~`、`~/`、`~\` 前缀；`~user` 形式刻意不支持），并在 `model-client.mjs` 与 `skills-def/recall-eval/scripts/replay-engine.mjs` 两处 override 消费点统一应用。
 2. **宿主依赖的 live 用例改沙箱**：`tests/recall-eval.test.mjs` 中 "uses home directory provider matrix" 用例原本假设宿主机 home（注释写死 `/root/`）已放好矩阵文件，在任何未预置的机器上必挂。改为临时 cwd（自带 `.git` 收敛仓库根）+ 通过 `HOME` / `USERPROFILE` 注入临时 home（`os.homedir()` 在 POSIX 读 HOME、Windows 读 USERPROFILE），并新增 `~/` override 的端到端用例。
 
 追加验收：`npm run test:recall-cli` 全绿；`~` 用例分别在单测（`discoverReplayMatrixPath`）与 CLI 端到端各覆盖一次。

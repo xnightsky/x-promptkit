@@ -97,10 +97,12 @@ export async function callModel(provider, prompt, options = {}) {
     try {
       // 把注入的 fetch 作为闭包变量传给协议适配器
       const fetcher = async (url, init) => _fetch(url, { ...init, signal: controller.signal });
+      // 用户自定义 headers（可选），会合并到协议默认 headers 之上
+      const extraHeaders = provider.headers && typeof provider.headers === "object" ? provider.headers : {};
       if (provider.api === "anthropic-messages") {
         const res = await fetcher(`${provider.base_url.replace(/\/$/, "")}/v1/messages`, {
           method: "POST",
-          headers: { "x-api-key": provider.key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+          headers: { "x-api-key": provider.apikey, "anthropic-version": "2023-06-01", "content-type": "application/json", ...extraHeaders },
           body: JSON.stringify({ model: provider.model, max_tokens: provider.max_tokens ?? 512, temperature: provider.temperature ?? 0, messages: [{ role: "user", content: prompt }] }),
         });
         if (res.status === 429) throw Object.assign(new Error("rate_limited"), { code: "RATE_LIMITED" });
@@ -113,7 +115,7 @@ export async function callModel(provider, prompt, options = {}) {
       if (provider.api === "openai-chat") {
         const res = await fetcher(`${provider.base_url.replace(/\/$/, "")}/chat/completions`, {
           method: "POST",
-          headers: { authorization: `Bearer ${provider.key}`, "content-type": "application/json" },
+          headers: { authorization: `Bearer ${provider.apikey}`, "content-type": "application/json", ...extraHeaders },
           body: JSON.stringify({ model: provider.model, temperature: provider.temperature ?? 0, messages: [{ role: "user", content: prompt }] }),
         });
         if (res.status === 429) throw Object.assign(new Error("rate_limited"), { code: "RATE_LIMITED" });
