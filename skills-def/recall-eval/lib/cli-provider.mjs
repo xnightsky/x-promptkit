@@ -8,7 +8,7 @@
 //
 //   const opts = parseProviderArgs(process.argv.slice(2))
 //   if (opts.help) { showProviderHelp(); process.exit(0) }
-//   const matrix = parseReplayMatrix(...)
+//   const matrix = parseProviderConfig(...)
 //   const targets = resolveProviders(matrix, opts)
 //   // targets = [{ provider, model, label }, ...]
 
@@ -56,7 +56,7 @@ Options:
 /**
  * 根据 matrix 和 CLI 参数解析出要运行的目标列表。
  *
- * @param {object} matrix          - parseReplayMatrix 产出的规范化矩阵
+ * @param {object} matrix          - parseProviderConfig 产出的规范化矩阵
  * @param {object} opts
  * @param {string[]} opts.providerFilter - --provider 值列表
  * @param {string[]} opts.modelFilter    - --model 值列表

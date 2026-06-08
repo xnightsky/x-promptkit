@@ -11,7 +11,7 @@
 // 核心逻辑见 evaluate-queue.mjs，本文件只做 CLI 解析 + 格式化输出。
 
 import { formatBatchRunEvalOutput, formatRunEvalOutput } from "../lib/lib.mjs";
-import { loadProviders } from "../lib/_shared/model-client.mjs";
+import { loadEnabledProviders } from "../lib/replay-engine.mjs";
 import { evaluateQueueTarget } from "../lib/evaluate-queue.mjs";
 
 // ── CLI 参数解析 ──
@@ -63,12 +63,11 @@ if (batchMode && selectedCaseId !== null) {
 
 let provider = null;
 if (liveMode) {
-  const { active, skipped, noEnvFile } = loadProviders();
-  if (noEnvFile || active.length === 0) {
+  const providers = loadEnabledProviders();
+  if (providers.length === 0) {
     console.log("SKIP: no active provider available for live recall."); process.exit(0);
   }
-  provider = active[0];
-  for (const s of skipped) console.log(`  skip provider [${s.name}]: ${s.reason}`);
+  provider = providers[0];
 }
 
 // ── 运行 ──

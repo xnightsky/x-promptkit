@@ -26,19 +26,19 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 
 // 真实矩阵文件可放在多个位置(cwd / 仓库根 / skill 目录 / home 目录),发现时
 // 会在每个候选目录里按下列文件名顺序命中第一个存在的文件。
-export const REPLAY_MATRIX_FILENAMES = Object.freeze([
+export const PROVIDER_CONFIG_FILENAMES = Object.freeze([
 	".recall-replay.env.yaml",
 	".recall-replay.env.yml",
 	".recall-replay.env",
 ])
 
 // 覆盖矩阵路径用的环境变量名。
-export const DEFAULT_REPLAY_MATRIX_ENV = "RECALL_REPLAY_MATRIX"
+export const DEFAULT_PROVIDER_CONFIG_ENV = "RECALL_PROVIDER_CONFIG"
 
 // 仅用于文档 / 错误信息展示的「主文件名」(相对某个候选目录)。
-export const DEFAULT_REPLAY_MATRIX_PATH = REPLAY_MATRIX_FILENAMES[0]
+export const DEFAULT_PROVIDER_CONFIG_PATH = PROVIDER_CONFIG_FILENAMES[0]
 
-export const SUPPORTED_REPLAY_APIS = Object.freeze([
+export const SUPPORTED_PROVIDER_APIS = Object.freeze([
 	"openai-chat",
 	"anthropic-messages",
 	"gemini-generate",
@@ -79,7 +79,7 @@ export function findRepoRoot(startDir, options = {}) {
 //   4) 用户 home 目录。
 // 返回值去重并保持顺序(例如 cwd 本身即仓库根时只保留一份)。
 // cwd / skillDir / homeDir / fileExists 均可注入，便于测试不触碰真实文件系统。
-export function replayMatrixSearchDirs(options = {}) {
+export function providerConfigSearchDirs(options = {}) {
 	const {
 		cwd = process.cwd(),
 		skillDir = SCRIPT_DIR,
@@ -104,12 +104,12 @@ export function replayMatrixSearchDirs(options = {}) {
 }
 
 // 解析真实矩阵文件路径。优先级:
-//   1) RECALL_REPLAY_MATRIX 环境变量(显式指定，最高优先);
-//   2) 在 replayMatrixSearchDirs() 的候选目录(cwd / 仓库根 / skill 目录 /
-//      home 目录)中，按 REPLAY_MATRIX_FILENAMES 命中的第一个存在文件;
+//   1) RECALL_PROVIDER_CONFIG 环境变量(显式指定，最高优先);
+//   2) 在 providerConfigSearchDirs() 的候选目录(cwd / 仓库根 / skill 目录 /
+//      home 目录)中，按 PROVIDER_CONFIG_FILENAMES 命中的第一个存在文件;
 //   3) 都不存在时回退到「仓库根 + 主文件名」，让后续读取报错时指向最符合直觉的位置。
 // cwd / env / fileExists / skillDir / homeDir 均可注入，便于测试。
-export function discoverReplayMatrixPath(options = {}) {
+export function discoverProviderConfigPath(options = {}) {
 	const {
 		cwd = process.cwd(),
 		env = process.env,
@@ -117,20 +117,20 @@ export function discoverReplayMatrixPath(options = {}) {
 		skillDir = SCRIPT_DIR,
 		homeDir = homedir(),
 	} = options
-	const override = env[DEFAULT_REPLAY_MATRIX_ENV]
+	const override = env[DEFAULT_PROVIDER_CONFIG_ENV]
 	if (typeof override === "string" && override.length > 0) {
 		// `~` 前缀展开为 homeDir:shell 之外没人会替我们展开它,
 		// 尤其 Windows 上会被当成字面目录名导致 override 静默失效
 		return expandHomePath(override, homeDir)
 	}
-	const searchDirs = replayMatrixSearchDirs({
+	const searchDirs = providerConfigSearchDirs({
 		cwd,
 		skillDir,
 		homeDir,
 		fileExists,
 	})
 	for (const dir of searchDirs) {
-		for (const filename of REPLAY_MATRIX_FILENAMES) {
+		for (const filename of PROVIDER_CONFIG_FILENAMES) {
 			const candidate = join(dir, filename)
 			if (fileExists(candidate)) {
 				return candidate
@@ -138,24 +138,24 @@ export function discoverReplayMatrixPath(options = {}) {
 		}
 	}
 	const repoRoot = findRepoRoot(cwd, { fileExists })
-	return join(repoRoot, REPLAY_MATRIX_FILENAMES[0])
+	return join(repoRoot, PROVIDER_CONFIG_FILENAMES[0])
 }
 
 // 把一份 provider 矩阵 YAML 文本解析为规范化的矩阵对象。
 // 支持 v2（map 式，camelCase，对齐 pi models.json）。
 // v2 内部归一化到 v1 结构，下游代码无感知。
-export function parseReplayMatrix(text) {
+export function parseProviderConfig(text) {
 	if (typeof text !== "string" || text.trim() === "") {
-		throw new Error("replay matrix source is empty")
+		throw new Error("provider config source is empty")
 	}
 	const raw = parseYaml(text)
 	if (!raw || typeof raw !== "object") {
-		throw new Error("replay matrix must be a YAML mapping")
+		throw new Error("provider config must be a YAML mapping")
 	}
 	const version = raw.version ?? 1
 	if (version < 2) {
 		throw new Error(
-			`unsupported replay matrix version ${version}. Please migrate to v2 (map-style providers, camelCase fields). See .recall-replay.env.example.yaml for the current format.`,
+			`unsupported provider config version ${version}. Please migrate to v2 (map-style providers, camelCase fields). See .recall-replay.env.example.yaml for the current format.`,
 		)
 	}
 
@@ -243,7 +243,7 @@ export function parseReplayMatrix(text) {
 
 // 解析矩阵路径(显式 path > 发现规则)并读取解析。文件读取函数可注入，
 // 测试因此永不触碰真实文件系统。
-export function loadReplayMatrix(options = {}) {
+export function loadProviderConfig(options = {}) {
 	const {
 		path,
 		cwd = process.cwd(),
@@ -255,16 +255,16 @@ export function loadReplayMatrix(options = {}) {
 	} = options
 	const resolved =
 		path ??
-		discoverReplayMatrixPath({ cwd, env, fileExists, skillDir, homeDir })
+		discoverProviderConfigPath({ cwd, env, fileExists, skillDir, homeDir })
 	const text = fileReader(resolved)
-	return { path: resolved, matrix: parseReplayMatrix(text) }
+	return { path: resolved, matrix: parseProviderConfig(text) }
 }
 
 // 结构化校验（v2 归一化后的内部格式）。返回 { ok, errors }。
-export function validateReplayMatrix(matrix) {
+export function validateProviderConfig(matrix) {
 	const errors = []
 	if (!matrix || typeof matrix !== "object") {
-		return { ok: false, errors: ["matrix must be an object"] }
+		return { ok: false, errors: ["config must be an object"] }
 	}
 	if (!SUPPORTED_MEMORY_MODES.includes(matrix.memory?.mode)) {
 		errors.push(
@@ -284,7 +284,7 @@ export function validateReplayMatrix(matrix) {
 		if (!provider?.id) {
 			errors.push(`provider ${label} is missing an id`)
 		}
-		if (!SUPPORTED_REPLAY_APIS.includes(provider?.api)) {
+		if (!SUPPORTED_PROVIDER_APIS.includes(provider?.api)) {
 			errors.push(`provider ${label} has unsupported api "${provider?.api}"`)
 		}
 		if (!provider?.model && provider?.api !== "echo") {
@@ -454,4 +454,17 @@ export function buildReplayQueueFixture() {
 			},
 		],
 	}
+}
+
+// 一站式加载已启用的 provider：发现矩阵文件 → 解析 → 筛选 → 解析 apiKey。
+// 返回可直接传给 callModel / createClient 的 provider 对象数组。
+// 失败时抛出明确错误，调用方自行决定是否 skip。
+export function loadEnabledProviders(options = {}) {
+	const { env = process.env } = options
+	const { matrix } = loadProviderConfig(options)
+	const enabled = selectEnabledProviders(matrix, options)
+	return enabled.map((p) => ({
+		...p,
+		apikey: resolveProviderKey(p, env),
+	}))
 }

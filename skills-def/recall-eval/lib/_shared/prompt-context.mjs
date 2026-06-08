@@ -1,3 +1,5 @@
+// synced from skills-def/_shared/prompt-context.mjs @ e762e40+uncommitted
+// DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/prompt-context.mjs
 //
 // 三层上下文拼装引擎：纯函数，接收 config 对象，输出 system prompt 字符串。

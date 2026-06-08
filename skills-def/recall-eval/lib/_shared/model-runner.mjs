@@ -1,3 +1,5 @@
+// synced from skills-def/_shared/model-runner.mjs @ e762e40+uncommitted
+// DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/model-runner.mjs
 //
 // 共享模型传输原语：多协议 callModel + 重试预算。

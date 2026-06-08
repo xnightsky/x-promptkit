@@ -3,8 +3,8 @@ import assert from "node:assert/strict"
 
 import { parseProviderArgs, resolveProviders, showProviderHelp } from "../../skills-def/recall-eval/lib/cli-provider.mjs"
 import {
-  loadReplayMatrix,
-  validateReplayMatrix,
+  loadProviderConfig,
+  validateProviderConfig,
 } from "../../skills-def/recall-eval/lib/replay-engine.mjs"
 import { evaluateQueueTarget } from "../../skills-def/recall-eval/lib/evaluate-queue.mjs"
 
@@ -21,17 +21,17 @@ const cliOpts = parseProviderArgs(process.argv.slice(2))
 if (cliOpts.help) { showProviderHelp(); process.exit(0) }
 
 test("recall-eval live replay with real queue", async (t) => {
-  // 1. 加载 provider matrix
+  // 1. 加载 provider config
   let loaded
   try {
-    loaded = loadReplayMatrix()
+    loaded = loadProviderConfig()
   } catch (error) {
-    t.skip(`no provider matrix available: ${error.message}`)
+    t.skip(`no provider config available: ${error.message}`)
     return
   }
 
   const { matrix } = loaded
-  const { ok, errors } = validateReplayMatrix(matrix)
+  const { ok, errors } = validateProviderConfig(matrix)
   assert.ok(ok, `invalid provider matrix: ${errors.join("; ")}`)
 
   // 2. 解析 provider targets

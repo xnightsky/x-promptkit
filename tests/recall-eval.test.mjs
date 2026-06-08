@@ -297,7 +297,7 @@ test("run-eval executes live recall via echo provider and produces a report", ()
     ],
     {
       env: {
-        RECALL_REPLAY_MATRIX: matrixPath,
+        RECALL_PROVIDER_CONFIG: matrixPath,
       },
     },
   );
@@ -322,11 +322,11 @@ function makeLiveSandbox() {
     homeDir,
     // 子进程 cwd 是沙箱,队列路径必须用仓库根的绝对路径
     queuePath: path.join(cwd, "skills-def", "recall-eval", ".recall", "queue.yaml"),
-    env: { HOME: homeDir, USERPROFILE: homeDir, RECALL_REPLAY_MATRIX: "" },
+    env: { HOME: homeDir, USERPROFILE: homeDir, RECALL_PROVIDER_CONFIG: "" },
   };
 }
 
-const ECHO_MATRIX = [
+const ECHO_CONFIG = [
   "version: 2",
   "providers:",
   "  echo-home:",
@@ -334,10 +334,10 @@ const ECHO_MATRIX = [
   "    api: echo",
 ].join("\n");
 
-// 场景：--live 时无显式 RECALL_REPLAY_MATRIX 但 home 目录有矩阵。预期：自动发现 home 矩阵。
+// 场景：--live 时无显式 RECALL_PROVIDER_CONFIG 但 home 目录有矩阵。预期：自动发现 home 矩阵。
 test("run-eval uses home directory provider matrix when available in live mode", () => {
   const { sandboxCwd, homeDir, queuePath, env } = makeLiveSandbox();
-  fs.writeFileSync(path.join(homeDir, ".recall-replay.env.yaml"), ECHO_MATRIX);
+  fs.writeFileSync(path.join(homeDir, ".recall-replay.env.yaml"), ECHO_CONFIG);
 
   const output = runScript(
     "run-eval.mjs",
@@ -355,16 +355,16 @@ test("run-eval uses home directory provider matrix when available in live mode",
   assert.doesNotMatch(output, /source_ref not found/);
 });
 
-// 场景：RECALL_REPLAY_MATRIX 用 `~/` 前缀指向 home 下的矩阵。预期：展开后正常 live。
+// 场景：RECALL_PROVIDER_CONFIG 用 `~/` 前缀指向 home 下的矩阵。预期：展开后正常 live。
 // 矩阵文件名刻意不在自动发现名单里，证明走的是 override 展开而非目录发现。
-test("run-eval expands a ~ prefix in RECALL_REPLAY_MATRIX to the home directory", () => {
+test("run-eval expands a ~ prefix in RECALL_PROVIDER_CONFIG to the home directory", () => {
   const { sandboxCwd, homeDir, queuePath, env } = makeLiveSandbox();
-  fs.writeFileSync(path.join(homeDir, "custom-matrix.yaml"), ECHO_MATRIX);
+  fs.writeFileSync(path.join(homeDir, "custom-matrix.yaml"), ECHO_CONFIG);
 
   const output = runScript(
     "run-eval.mjs",
     [queuePath, "--case", "recall_eval.reject_missing_medium", "--live"],
-    { env: { ...env, RECALL_REPLAY_MATRIX: "~/custom-matrix.yaml" }, cwd: sandboxCwd },
+    { env: { ...env, RECALL_PROVIDER_CONFIG: "~/custom-matrix.yaml" }, cwd: sandboxCwd },
   );
 
   assert.match(output, /Case Results/);
@@ -423,7 +423,7 @@ test("run-eval scores a whole live queue with echo provider", () => {
     ["skills-def/recall-eval/.recall/queue.yaml", "--live"],
     {
       env: {
-        RECALL_REPLAY_MATRIX: matrixPath,
+        RECALL_PROVIDER_CONFIG: matrixPath,
       },
     },
   );
@@ -452,7 +452,7 @@ test("run-eval batches multiple queue targets in live mode with echo provider", 
     ["skills-def/recall-eval/.recall/queue.yaml", ".recall/queue.yaml", "--live"],
     {
       env: {
-        RECALL_REPLAY_MATRIX: matrixPath,
+        RECALL_PROVIDER_CONFIG: matrixPath,
       },
     },
   );

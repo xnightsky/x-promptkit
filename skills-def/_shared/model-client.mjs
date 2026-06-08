@@ -26,7 +26,7 @@ import { buildSystemPrompt } from "./prompt-context.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
-export const REPLAY_MATRIX_FILENAMES = Object.freeze([
+export const PROVIDER_CONFIG_FILENAMES = Object.freeze([
   ".recall-replay.env.yaml",
   ".recall-replay.env.yml",
   ".recall-replay.env",
@@ -45,7 +45,7 @@ const DEFAULT_DEFAULTS = Object.freeze({
  * 把配置里的 `~` 前缀展开为用户 home 目录。
  *
  * 为什么需要:`~` 展开是 shell 的行为,Node 与 Windows 都不会自动做——
- * `RECALL_REPLAY_MATRIX=~/.recall-replay.env.yaml` 在 Windows 上会被当成
+ * `RECALL_PROVIDER_CONFIG=~/.recall-replay.env.yaml` 在 Windows 上会被当成
  * 名为 `~` 的普通目录,导致配置静默失效。这里做一层显式转换,
  * 让 POSIX / Windows 行为一致。
  *
@@ -75,7 +75,7 @@ export function findRepoRoot(startDir, fileExists = (t) => existsSync(t)) {
 // ── Provider 加载 ──
 
 /**
- * 按优先级发现矩阵文件（RECALL_REPLAY_MATRIX 环境变量 >
+ * 按优先级发现矩阵文件（RECALL_PROVIDER_CONFIG 环境变量 >
  * cwd > repo root > skill dir > home），用 yaml 库解析，
  * 返回 active / skipped provider 列表。
  */
@@ -90,7 +90,7 @@ export function loadProviders(options = {}) {
   } = options;
 
   // 发现矩阵文件;override 先做 `~` 展开,否则 Windows 上指向不存在的字面目录
-  const override = expandHomePath(env.RECALL_REPLAY_MATRIX, homeDir);
+  const override = expandHomePath(env.RECALL_PROVIDER_CONFIG, homeDir);
   const candidates = [cwd, findRepoRoot(cwd, fileExists), skillDir, homeDir];
   const seen = new Set();
   let matrixPath = null;
@@ -101,7 +101,7 @@ export function loadProviders(options = {}) {
     for (const dir of candidates) {
       if (!dir || seen.has(dir)) continue;
       seen.add(dir);
-      for (const name of REPLAY_MATRIX_FILENAMES) {
+      for (const name of PROVIDER_CONFIG_FILENAMES) {
         const p = join(dir, name);
         if (fileExists(p)) { matrixPath = p; break; }
       }
@@ -171,7 +171,7 @@ export function loadProviders(options = {}) {
 
   for (const name of matrix) {
     const p = providerMap[name];
-    if (!p) { skipped.push({ name, reason: "matrix 引用了未定义的 provider" }); continue; }
+    if (!p) { skipped.push({ name, reason: "config 引用了未定义的 provider" }); continue; }
 
     // apikey 解析：优先 env[apikey] → 其次 apikey 本身（兼容 inline key）
     // 向后兼容旧字段 key_env
@@ -252,7 +252,7 @@ export function createClient(options = {}) {
      */
     async ask(question, askOptions = {}) {
       if (!resolvedProvider) {
-        return { ok: false, reason: noEnvFile ? "no provider matrix found" : "no active provider available" };
+        return { ok: false, reason: noEnvFile ? "no provider config found" : "no active provider available" };
       }
 
       const system = buildSystemPrompt(promptConfig);

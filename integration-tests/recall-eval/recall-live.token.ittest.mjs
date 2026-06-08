@@ -14,17 +14,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { loadProviders } from "../../skills-def/_shared/model-client.mjs";
+import { loadEnabledProviders } from "../../skills-def/recall-eval/lib/replay-engine.mjs";
 import { runRecallAgent } from "../../skills-def/recall-eval/lib/model-agent.mjs";
 import { loadRecallYaml, validateRecallData, scoreAnswer } from "../../skills-def/recall-eval/lib/lib.mjs";
 
 // ── Self-skip gate ──
 // 筛掉 echo，只保留启用且带 key 的真实 provider；一个都没有则跳过整个套件。
 function selectTokenProviders() {
-  const { active, noEnvFile } = loadProviders();
-  if (noEnvFile || active.length === 0) return [];
-
-  return active.filter((p) => p.api !== "echo" && p.key);
+  try {
+    return loadEnabledProviders().filter(p => p.api !== "echo");
+  } catch {
+    return [];
+  }
 }
 
 // ── 场景：live recall 全链路（真实 API） ──
@@ -45,7 +46,7 @@ test("live recall evaluates all queue cases and scores full marks", async (t) =>
   const provider = providers[0];
   if (providers.length > 1) {
     t.diagnostic(
-      `${providers.length} providers found; using \`${provider.name}(${provider.model})\``,
+      `${providers.length} providers found; using \`${provider.id}(${provider.model})\``,
     );
   }
 

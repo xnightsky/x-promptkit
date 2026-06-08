@@ -7,13 +7,24 @@
 // 用法：node scripts/sync-shared.mjs
 
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = dirname(SCRIPT_DIR);             // skills-def/recall-eval/
 const SHARED_DIR = join(EVAL_DIR, "..", "_shared"); // skills-def/_shared/
 const DEST_DIR = join(EVAL_DIR, "lib", "_shared");
+const REPO_ROOT = join(EVAL_DIR, "..", "..");
+
+// 取当前 HEAD commit 短哈希用于锁定版本
+let GIT_REF = "unknown";
+try {
+  GIT_REF = execSync("git rev-parse --short HEAD", { cwd: REPO_ROOT, encoding: "utf8" }).trim();
+  // 检测工作区是否有未提交改动
+  const stat = execSync("git status --porcelain", { cwd: REPO_ROOT, encoding: "utf8" }).trim();
+  if (stat.length > 0) GIT_REF += "+uncommitted";
+} catch { /* 非 git 环境忽略 */ }
 
 // ── Step 1: 复制 _shared/ 模块 ──
 const FILES = [
@@ -35,7 +46,19 @@ for (const file of FILES) {
     console.error(`MISSING: ${src}`);
     process.exit(1);
   }
-  cpSync(src, dest);
+  const srcRel = relative(REPO_ROOT, src);
+  const content = readFileSync(src, "utf-8");
+  // 若已有 sync header 则跳过，否则在首行注释后插入
+  const header = [
+    `// synced from ${srcRel} @ ${GIT_REF}`,
+    `// DO NOT EDIT — run \`npm run recall:sync-shared\` to regenerate`,
+    "",
+  ].join("\n");
+  if (content.startsWith("// synced from")) {
+    writeFileSync(dest, content);
+  } else {
+    writeFileSync(dest, header + content);
+  }
   console.log(`COPIED: _shared/${file} → lib/_shared/${file}`);
 }
 

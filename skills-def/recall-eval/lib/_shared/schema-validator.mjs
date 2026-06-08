@@ -1,3 +1,5 @@
+// synced from skills-def/_shared/schema-validator.mjs @ e762e40+uncommitted
+// DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/schema-validator.mjs
 //
 // 极简 JSON Schema 子集校验器：让仓库内的 yaml 数据结构以独立 schema 文件

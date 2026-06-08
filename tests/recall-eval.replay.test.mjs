@@ -5,20 +5,20 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 
 import {
-	SUPPORTED_REPLAY_APIS,
+	SUPPORTED_PROVIDER_APIS,
 	SUPPORTED_MEMORY_MODES,
-	REPLAY_MATRIX_FILENAMES,
-	DEFAULT_REPLAY_MATRIX_ENV,
-	parseReplayMatrix,
-	loadReplayMatrix,
-	validateReplayMatrix,
+	PROVIDER_CONFIG_FILENAMES,
+	DEFAULT_PROVIDER_CONFIG_ENV,
+	parseProviderConfig,
+	loadProviderConfig,
+	validateProviderConfig,
 	selectEnabledProviders,
 	buildReplayMessages,
 	extractPolicyEcho,
 	assembleEphemeralAgent,
 	buildReplayQueueFixture,
-	discoverReplayMatrixPath,
-	replayMatrixSearchDirs,
+	discoverProviderConfigPath,
+	providerConfigSearchDirs,
 } from "../skills-def/recall-eval/lib/replay-engine.mjs"
 import { callModel } from "../skills-def/_shared/model-runner.mjs"
 
@@ -29,14 +29,14 @@ import { callModel } from "../skills-def/_shared/model-runner.mjs"
 // → 协议分发 → echo 打分」整条链路，每条用例采用 BDD(场景 / 给定 / 当 / 那么)注释。
 //
 // 两类用例的文件系统策略刻意不同:
-// - 发现类用例(discoverReplayMatrixPath / replayMatrixSearchDirs / loadReplayMatrix
+// - 发现类用例(discoverProviderConfigPath / providerConfigSearchDirs / loadProviderConfig
 //   的路径发现部分)在 os.tmpdir() 沙箱里搭真实目录树，用生产默认的 existsSync
 //   端到端验证。不用「字符串集合模拟文件系统」，因为那会隐含平台分隔符假设
 //   (POSIX 夹具在 win32 上与 join() 产出的反斜杠路径错配)，且绕过真实文件探测。
 // - 解析 / 校验 / 打分类用例保持纯离线，用注入的 fetch / fileReader，不碰磁盘。
 // ───────────────────────────────────────────────────────────────────────────
 
-const SAMPLE_MATRIX = `
+const SAMPLE_CONFIG = `
 version: 2
 defaults:
   api: echo
@@ -96,10 +96,10 @@ function makeSandbox(t) {
 
 // 场景:解析矩阵时为每个 provider 套用顶层 defaults
 //   给定 一份带 defaults 与三个 provider 的矩阵
-//   当   调用 parseReplayMatrix
+//   当   调用 parseProviderConfig
 //   那么 每个 provider 都继承 defaults(如 temperature / max_tokens)
-test("parseReplayMatrix applies defaults to providers", () => {
-	const matrix = parseReplayMatrix(SAMPLE_MATRIX)
+test("parseProviderConfig applies defaults to providers", () => {
+	const matrix = parseProviderConfig(SAMPLE_CONFIG)
 	assert.equal(matrix.version, 2)
 	assert.equal(matrix.providers.length, 3)
 	const echo = matrix.providers.find((p) => p.id === "echo-local")
@@ -109,21 +109,21 @@ test("parseReplayMatrix applies defaults to providers", () => {
 
 // 场景:校验一份结构正确的矩阵
 //   给定 一份字段齐全、策略 id 正确的矩阵
-//   当   调用 validateReplayMatrix
+//   当   调用 validateProviderConfig
 //   那么 ok 为 true 且 errors 为空
-test("validateReplayMatrix accepts a well-formed matrix", () => {
-	const matrix = parseReplayMatrix(SAMPLE_MATRIX)
-	const { ok, errors } = validateReplayMatrix(matrix)
+test("validateProviderConfig accepts a well-formed matrix", () => {
+	const matrix = parseProviderConfig(SAMPLE_CONFIG)
+	const { ok, errors } = validateProviderConfig(matrix)
 	assert.deepEqual(errors, [])
 	assert.equal(ok, true)
 })
 
 // 场景:真实 provider 缺少 apikey 时校验失败
 //   给定 一个 openai-chat provider 既无 apikey 也无旧字段 key/key_env
-//   当   调用 validateReplayMatrix
+//   当   调用 validateProviderConfig
 //   那么 校验失败，报 missing apiKey
-test("validateReplayMatrix rejects providers without apiKey", () => {
-	const matrix = parseReplayMatrix(`
+test("validateProviderConfig rejects providers without apiKey", () => {
+	const matrix = parseProviderConfig(`
 version: 2
 memory:
   mode: in-process
@@ -136,7 +136,7 @@ providers:
     models:
       - id: gpt-4o-mini
 `)
-	const { ok, errors } = validateReplayMatrix(matrix)
+	const { ok, errors } = validateProviderConfig(matrix)
 	assert.equal(ok, false)
 	assert.ok(errors.some((e) => e.includes("missing apiKey")))
 })
@@ -146,7 +146,7 @@ providers:
 //   当   分别在「无 key」与「有 OPENAI_API_KEY」两种环境下筛选
 //   那么 无 key 时只剩 echo-local;有 key 时再加上 openai-prod
 test("selectEnabledProviders honours enabled flag and key availability", () => {
-	const matrix = parseReplayMatrix(SAMPLE_MATRIX)
+	const matrix = parseProviderConfig(SAMPLE_CONFIG)
 	const withoutKeys = selectEnabledProviders(matrix, { env: {} })
 	assert.deepEqual(
 		withoutKeys.map((p) => p.id),
@@ -179,7 +179,7 @@ test("buildReplayMessages embeds memory and policy", () => {
 //   当   对内置 case 运行 agent.run
 //   那么 回答回显策略 id，含必备事实(8443/TLS)且不含禁止词
 test("echo provider round-trips the policy and memory for scoring", async () => {
-	const matrix = parseReplayMatrix(SAMPLE_MATRIX)
+	const matrix = parseProviderConfig(SAMPLE_CONFIG)
 	const [echo] = selectEnabledProviders(matrix, { env: {} })
 	const agent = assembleEphemeralAgent({ matrix, provider: echo, env: {} })
 	const [caseReport] = buildReplayQueueFixture().cases
@@ -246,7 +246,7 @@ test("assembleEphemeralAgent resolves apikey env names before calling the model"
 			}),
 		}
 	}
-	const matrix = parseReplayMatrix(SAMPLE_MATRIX)
+	const matrix = parseProviderConfig(SAMPLE_CONFIG)
 	const provider = matrix.providers.find((p) => p.id === "openai-prod")
 	const agent = assembleEphemeralAgent({
 		matrix,
@@ -259,46 +259,46 @@ test("assembleEphemeralAgent resolves apikey env names before calling the model"
 	assert.equal(captured[0].authorization, "Bearer sk-resolved-from-env")
 })
 
-// 场景:loadReplayMatrix 支持注入的文件读取器
+// 场景:loadProviderConfig 支持注入的文件读取器
 //   给定 显式 path 与一个返回样例矩阵的 fileReader
-//   当   调用 loadReplayMatrix
+//   当   调用 loadProviderConfig
 //   那么 回显该 path，并解析出 3 个 provider(不触碰真实文件系统)
-test("loadReplayMatrix reads from an injected file reader", () => {
-	const { path, matrix } = loadReplayMatrix({
+test("loadProviderConfig reads from an injected file reader", () => {
+	const { path, matrix } = loadProviderConfig({
 		path: "virtual.yaml",
-		fileReader: () => SAMPLE_MATRIX,
+		fileReader: () => SAMPLE_CONFIG,
 	})
 	assert.equal(path, "virtual.yaml")
 	assert.equal(matrix.providers.length, 3)
 })
 
-// 场景:RECALL_REPLAY_MATRIX 显式指定时直接采用，跳过目录发现
-//   给定 设置了 RECALL_REPLAY_MATRIX 环境变量(指向一个并不存在的路径)
-//   当   调用 discoverReplayMatrixPath
+// 场景:RECALL_PROVIDER_CONFIG 显式指定时直接采用，跳过目录发现
+//   给定 设置了 RECALL_PROVIDER_CONFIG 环境变量(指向一个并不存在的路径)
+//   当   调用 discoverProviderConfigPath
 //   那么 直接返回该路径，不理会任何候选目录、也不做存在性检查
-test("discoverReplayMatrixPath honours the RECALL_REPLAY_MATRIX override", (t) => {
+test("discoverProviderConfigPath honours the RECALL_PROVIDER_CONFIG override", (t) => {
 	const { sub, skillDir, homeDir, root } = makeSandbox(t)
 	// 故意不创建该文件:override 必须原样透传,存在性留给后续读取报错
 	const override = join(root, "custom-matrix.yaml")
-	const resolved = discoverReplayMatrixPath({
+	const resolved = discoverProviderConfigPath({
 		cwd: sub,
-		env: { [DEFAULT_REPLAY_MATRIX_ENV]: override },
+		env: { [DEFAULT_PROVIDER_CONFIG_ENV]: override },
 		skillDir,
 		homeDir,
 	})
 	assert.equal(resolved, override)
 })
 
-// 场景:RECALL_REPLAY_MATRIX 使用 `~/` 前缀
+// 场景:RECALL_PROVIDER_CONFIG 使用 `~/` 前缀
 //   给定 override 写成 ~/custom-matrix.yaml(shell 之外没人展开 `~`,
 //        Windows 上更会被当成字面目录名)
-//   当   调用 discoverReplayMatrixPath
+//   当   调用 discoverProviderConfigPath
 //   那么 `~` 被展开为注入的 homeDir,而不是原样返回
-test("discoverReplayMatrixPath expands a ~ prefix override against homeDir", (t) => {
+test("discoverProviderConfigPath expands a ~ prefix override against homeDir", (t) => {
 	const { sub, skillDir, homeDir } = makeSandbox(t)
-	const resolved = discoverReplayMatrixPath({
+	const resolved = discoverProviderConfigPath({
 		cwd: sub,
-		env: { [DEFAULT_REPLAY_MATRIX_ENV]: "~/custom-matrix.yaml" },
+		env: { [DEFAULT_PROVIDER_CONFIG_ENV]: "~/custom-matrix.yaml" },
 		skillDir,
 		homeDir,
 	})
@@ -307,13 +307,13 @@ test("discoverReplayMatrixPath expands a ~ prefix override against homeDir", (t)
 
 // 场景:cwd 下存在矩阵文件
 //   给定 沙箱中仅 cwd 下有 .recall-replay.env.yaml
-//   当   调用 discoverReplayMatrixPath(使用真实 existsSync)
+//   当   调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 命中 cwd 下的文件
-test("discoverReplayMatrixPath discovers a matrix in the current working directory", (t) => {
+test("discoverProviderConfigPath discovers a matrix in the current working directory", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(work, ".recall-replay.env.yaml")
-	writeFileSync(expected, SAMPLE_MATRIX)
-	const resolved = discoverReplayMatrixPath({
+	writeFileSync(expected, SAMPLE_CONFIG)
+	const resolved = discoverProviderConfigPath({
 		cwd: work,
 		env: {},
 		skillDir,
@@ -324,13 +324,13 @@ test("discoverReplayMatrixPath discovers a matrix in the current working directo
 
 // 场景:cwd / 仓库根都没有，但 skill 目录下有
 //   给定 沙箱中仅 skill 目录下有 .recall-replay.env.yml
-//   当   调用 discoverReplayMatrixPath(使用真实 existsSync)
+//   当   调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 越过空的 cwd / 仓库根，命中 skill 目录下的文件
-test("discoverReplayMatrixPath discovers a matrix in the skill directory", (t) => {
+test("discoverProviderConfigPath discovers a matrix in the skill directory", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(skillDir, ".recall-replay.env.yml")
-	writeFileSync(expected, SAMPLE_MATRIX)
-	const resolved = discoverReplayMatrixPath({
+	writeFileSync(expected, SAMPLE_CONFIG)
+	const resolved = discoverProviderConfigPath({
 		cwd: work,
 		env: {},
 		skillDir,
@@ -341,13 +341,13 @@ test("discoverReplayMatrixPath discovers a matrix in the skill directory", (t) =
 
 // 场景:仅 home 目录下存在矩阵文件
 //   给定 沙箱中仅 home 目录下有 .recall-replay.env
-//   当   调用 discoverReplayMatrixPath(使用真实 existsSync)
+//   当   调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 命中 home 目录下的文件(即 Windows 上 %USERPROFILE% 同样可作放置点)
-test("discoverReplayMatrixPath discovers a matrix in the home directory", (t) => {
+test("discoverProviderConfigPath discovers a matrix in the home directory", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(homeDir, ".recall-replay.env")
-	writeFileSync(expected, SAMPLE_MATRIX)
-	const resolved = discoverReplayMatrixPath({
+	writeFileSync(expected, SAMPLE_CONFIG)
+	const resolved = discoverProviderConfigPath({
 		cwd: work,
 		env: {},
 		skillDir,
@@ -358,29 +358,29 @@ test("discoverReplayMatrixPath discovers a matrix in the home directory", (t) =>
 
 // 场景:任何候选目录都没有矩阵文件
 //   给定 沙箱候选目录里都没有匹配文件(仅有 .git 标记仓库根)
-//   当   以仓库子目录为 cwd 调用 discoverReplayMatrixPath(使用真实 existsSync)
+//   当   以仓库子目录为 cwd 调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 向上找到仓库根，回退到「仓库根 + 主文件名」
-test("discoverReplayMatrixPath falls back to the repo-root primary filename", (t) => {
+test("discoverProviderConfigPath falls back to the repo-root primary filename", (t) => {
 	const { repo, sub, skillDir, homeDir } = makeSandbox(t)
-	const resolved = discoverReplayMatrixPath({
+	const resolved = discoverProviderConfigPath({
 		cwd: sub,
 		env: {},
 		skillDir,
 		homeDir,
 	})
-	assert.equal(resolved, join(repo, REPLAY_MATRIX_FILENAMES[0]))
+	assert.equal(resolved, join(repo, PROVIDER_CONFIG_FILENAMES[0]))
 })
 
 // 场景:候选目录顺序与去重
 //   给定 cwd 恰好就是仓库根(沙箱中 repo 自带 .git)
-//   当   调用 replayMatrixSearchDirs(使用真实 existsSync)
+//   当   调用 providerConfigSearchDirs(使用真实 existsSync)
 //   那么 返回 [cwd, skillDir, homeDir](仓库根与 cwd 去重)
-test("replayMatrixSearchDirs lists cwd, repo root, skill dir, and home dir without duplicates", (t) => {
+test("providerConfigSearchDirs lists cwd, repo root, skill dir, and home dir without duplicates", (t) => {
 	const { repo, homeDir } = makeSandbox(t)
 	// skillDir 放在仓库内部,贴近真实安装形态(skills-def/ 目录随仓库走)
 	const skillDir = join(repo, "skills-def", "recall-eval", "scripts")
 	mkdirSync(skillDir, { recursive: true })
-	const dirs = replayMatrixSearchDirs({
+	const dirs = providerConfigSearchDirs({
 		cwd: repo,
 		skillDir,
 		homeDir,
@@ -388,15 +388,15 @@ test("replayMatrixSearchDirs lists cwd, repo root, skill dir, and home dir witho
 	assert.deepEqual(dirs, [repo, skillDir, homeDir])
 })
 
-// 场景:loadReplayMatrix 透传 skillDir / homeDir 给发现逻辑
+// 场景:loadProviderConfig 透传 skillDir / homeDir 给发现逻辑
 //   给定 不传 path，沙箱中仅 skill 目录下有真实矩阵文件
-//   当   调用 loadReplayMatrix(真实 existsSync + 真实 readFileSync,端到端)
+//   当   调用 loadProviderConfig(真实 existsSync + 真实 readFileSync,端到端)
 //   那么 解析路径为 skill 目录下的矩阵文件，且成功解析出 provider
-test("loadReplayMatrix forwards skillDir and homeDir to discovery", (t) => {
+test("loadProviderConfig forwards skillDir and homeDir to discovery", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(skillDir, ".recall-replay.env.yaml")
-	writeFileSync(expected, SAMPLE_MATRIX)
-	const { path, matrix } = loadReplayMatrix({
+	writeFileSync(expected, SAMPLE_CONFIG)
+	const { path, matrix } = loadProviderConfig({
 		cwd: work,
 		env: {},
 		skillDir,
@@ -411,6 +411,6 @@ test("loadReplayMatrix forwards skillDir and homeDir to discovery", (t) => {
 //   当   读取它们
 //   那么 至少包含 echo 与 upstream
 test("api and memory enums stay in sync with documentation", () => {
-	assert.ok(SUPPORTED_REPLAY_APIS.includes("echo"))
+	assert.ok(SUPPORTED_PROVIDER_APIS.includes("echo"))
 	assert.ok(SUPPORTED_MEMORY_MODES.includes("upstream"))
 })
