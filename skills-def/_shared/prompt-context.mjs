@@ -8,6 +8,52 @@
 // 引擎不内置任何策略。策略（如 recall-eval 的 clean-context-v1）钉死在调用方代码。
 // 各共享模块的边界划分见 ./README.md。
 
+/*
+  ── 本文件维护两种结构，别混淆 ──
+
+    1) 输入声明结构   context: { repo|global: { enabled, path?, max_bytes? } }
+         权威 = schema 文件 schemas/prompt-context-layers.schema.yaml；
+         本文件底部那段注释只是镜像，不是权威。
+    2) 输出 prompt 结构   buildSystemPrompt 拼出来的 system prompt（下面这张「输出模板」）
+         权威 = buildSystemPrompt 本身；改 prompt 长相 = 改其拼接代码。
+
+  ── 输出模板 ──
+  各段按下列顺序拼接，段间以一行 "---" 分隔（真实分隔符是 "\n\n---\n\n"）；
+  缺失 / 未启用的段整段跳过。一份同时启用 skills + repo + global + 发现池的输出示例：
+
+      <injections.beforeSkills 原文>
+
+      ---
+
+      ### my-skill
+
+      <my-skill 正文>
+
+      ---
+
+      ### Repo Context
+
+      <AGENTS.md 内容，按 maxBytes 截断>
+
+      ---
+
+      ### Global Context
+
+      <全局提示词内容，按 maxBytes 截断>
+
+      ---
+
+      Available skills (cat the path to read full docs): alpha - 做A (skills/alpha), beta
+
+  段类型只有三种写法（这就是「不止一种格式」之处）：
+      · 注入段     injections.beforeSkills / afterSkills —— 原文照插，无任何包裹
+      · 标题段     "### <名字>\n\n<内容>" —— skills.items 各项、Repo Context、Global Context 都走它
+      · 发现池段   "Available skills (cat the path to read full docs): <逗号分隔列表>"
+                   列表每项两种形态：
+                       字符串    "beta"
+                       对象      "alpha - 做A (skills/alpha)"   即 name [- desc] [(path)]
+*/
+
 import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -61,6 +107,17 @@ function truncate(text, maxBytes) {
  * @param {object} config.injections - { beforeSkills?, afterSkills? }
  * @param {string} config.cwd - 路径解析基准目录
  * @returns {string}
+ *
+ * BDD（输出模板见文件顶部）：
+ *   Given  skills.items=[a,b]、repo.enabled=true、global.enabled=false
+ *   When   buildSystemPrompt(config)
+ *   Then   得 "### a … --- ### b … --- ### Repo Context …"，global 段因未启用整段省略。
+ *   Given  某层 enabled=true，但 content 与 path 都解析为空
+ *   When   拼装该层
+ *   Then   该层整段跳过——不产出空的 "### Repo Context" 头（见各 if(content) 卫语句）。
+ *   Given  某层只给 path、未给 content
+ *   When   拼装该层
+ *   Then   以 readMaybe(path, cwd) 兜底读文件（path 经 ~ 展开为 home，相对 cwd 解析）。
  */
 export function buildSystemPrompt(config = {}) {
   const cwd = config.cwd || process.cwd();
@@ -156,6 +213,14 @@ function isPlainObject(value) {
  * @param {*} context - context 层声明
  * @param {string} [basePath="context"] - 错误消息中的路径前缀
  * @returns {string[]}
+ *
+ * BDD：
+ *   Given  global.enabled=true 但未给 path（或 path 为空白串）
+ *   When   校验
+ *   Then   返回一条 "missing `context.global.path`"（全局提示词无跨平台默认路径）。
+ *   Given  repo.enabled=true 但未给 path
+ *   When   校验
+ *   Then   放行——repo 省略 path 是合法的，落约定默认 AGENTS.md（见 normalizeContextLayers）。
  */
 export function validateContextSemantics(context, basePath = "context") {
   if (!isPlainObject(context)) return [];
@@ -189,6 +254,15 @@ export function validateContextLayers(context) {
  * 输入应已通过 validateContextLayers；对非法输入不做修复，仅尽力映射。
  *
  * @returns {{repo?: object, global?: object}}
+ *
+ * BDD：
+ *   Given  repo:{enabled:true}（无 path）、global:{enabled:true, path:"~/x", max_bytes:4096}
+ *   When   归一化
+ *   Then   得 { repo:{enabled:true, path:"AGENTS.md"}, global:{enabled:true, path:"~/x", maxBytes:4096} }
+ *          —— repo 省略 path 落默认 AGENTS.md；snake_case max_bytes → camelCase maxBytes。
+ *   Given  某层非普通对象（数组/null/缺失）
+ *   When   归一化
+ *   Then   跳过该层（不写进结果），由调用方按未启用处理。
  */
 export function normalizeContextLayers(context) {
   if (!isPlainObject(context)) return {};

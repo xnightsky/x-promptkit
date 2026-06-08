@@ -19,6 +19,24 @@ import { dirname } from "node:path";
 import { findRepoRoot } from "./_shared/model-client.mjs";
 import { runRecallAgent, runSkillTriggerAgent } from "./model-agent.mjs";
 
+// 把 scoreAnswer 返回的 decision 累加分格式化成报告后缀。
+// 无 decision → 空串（内容线行为不变）；有则并列展示总分与逐维度命中。
+function formatDecisionSuffix(decision) {
+  if (!decision) return "";
+  const head = decision.score === "FAIL"
+    ? `decision=FAIL(knockout @${decision.knockout})`
+    : `decision=${decision.score >= 0 ? "+" : ""}${decision.score}`;
+  const dims = decision.perDim
+    .map((d) => {
+      const sign = d.contribution >= 0 ? "+" : "";
+      const mark = d.hit ? "✓" : "✗";
+      const got = d.got === null ? "∅" : d.got;
+      return `${d.name}=${got}(${sign}${d.contribution})${mark}`;
+    })
+    .join(" ");
+  return ` | ${head} | ${dims}`;
+}
+
 /**
  * 评测单个队列目标。
  *
@@ -144,7 +162,7 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
     }
 
     const scored = scoreAnswer(caseReport, resolvedAnswerText);
-    caseItems.push({ id: caseReport.id, result: `score=${scored.score} | ${scored.rationale}` });
+    caseItems.push({ id: caseReport.id, result: `score=${scored.score} | ${scored.rationale}${formatDecisionSuffix(scored.decision)}` });
     directlyEvaluable.push(`\`${caseReport.id}\``);
   }
 

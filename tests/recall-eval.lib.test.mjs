@@ -133,6 +133,204 @@ test("scoreAnswer does not treat negated must_not_include text as an overreach h
   assert.deepEqual(scored.mustNotHits, []);
 });
 
+// ── decision 块（双极累加 + knockout）──
+// 注：这里直接构造归一化后的 expected.decision（[{name,eq,from,weight,knockout}]），
+// 即 normalizeExpected 的产物，scoreDecision 直接消费此形态。
+
+// 场景：三维全命中。预期：decision.score 为各 weight 之和（+2+2+1=+5），content 桶不受影响。
+test("scoreAnswer decision: all dims hit accumulate to the weight sum", () => {
+  const scored = scoreAnswer(
+    {
+      expected: {
+        mustInclude: ["recall-author"],
+        shouldInclude: [],
+        mustNotInclude: [],
+        decision: [
+          { name: "chosen_skill", eq: "recall-author", from: null, weight: 2, knockout: true },
+          { name: "answer_mode", eq: "author", from: null, weight: 2, knockout: false },
+          { name: "answer_depth", eq: "L2", from: null, weight: 1, knockout: false },
+        ],
+      },
+      scoreRule: { full: "full", partial: "partial", fail: "fail" },
+    },
+    "recall-author\nchosen_skill: recall-author\nanswer_mode: author\nanswer_depth: L2",
+  );
+
+  assert.equal(scored.decision.score, 5);
+  assert.equal(scored.score, 2); // 内容桶与 decision 并列，互不影响
+});
+
+// 场景：一维答了但答错值。预期：该维 -weight（反效果），总分相应下降。
+test("scoreAnswer decision: a present-but-wrong value contributes -weight", () => {
+  const scored = scoreAnswer(
+    {
+      expected: {
+        mustInclude: ["recall-author"],
+        shouldInclude: [],
+        mustNotInclude: [],
+        decision: [
+          { name: "chosen_skill", eq: "recall-author", from: null, weight: 2, knockout: true },
+          { name: "answer_mode", eq: "fix", from: null, weight: 2, knockout: false },
+        ],
+      },
+      scoreRule: { full: "full", partial: "partial", fail: "fail" },
+    },
+    "recall-author\nchosen_skill: recall-author\nanswer_mode: author",
+  );
+
+  // chosen_skill +2，answer_mode 抽到 author ≠ fix → -2，合计 0
+  assert.equal(scored.decision.score, 0);
+});
+
+// 场景：维度缺席（答案没有该行）。预期：贡献 0（无效果），区别于答错的负分。
+test("scoreAnswer decision: an absent dimension contributes 0, not negative", () => {
+  const scored = scoreAnswer(
+    {
+      expected: {
+        mustInclude: ["recall-author"],
+        shouldInclude: [],
+        mustNotInclude: [],
+        decision: [
+          { name: "answer_depth", eq: "L2", from: null, weight: 2, knockout: false },
+        ],
+      },
+      scoreRule: { full: "full", partial: "partial", fail: "fail" },
+    },
+    "recall-author（答案里并没有 answer_depth 那一行）",
+  );
+
+  assert.equal(scored.decision.score, 0);
+  assert.equal(scored.decision.perDim[0].got, null);
+});
+
+// 场景：knockout 维度未命中。预期：decision.score==='FAIL'，无视其他维度累加。
+test("scoreAnswer decision: a knockout miss forces FAIL regardless of the sum", () => {
+  const scored = scoreAnswer(
+    {
+      expected: {
+        mustInclude: ["recall-eval"],
+        shouldInclude: [],
+        mustNotInclude: [],
+        decision: [
+          { name: "chosen_skill", eq: "recall-eval", from: null, weight: 2, knockout: true },
+          { name: "answer_mode", eq: "run", from: null, weight: 2, knockout: false },
+        ],
+      },
+      scoreRule: { full: "full", partial: "partial", fail: "fail" },
+    },
+    "recall-eval\nchosen_skill: recall-author\nanswer_mode: run",
+  );
+
+  assert.equal(scored.decision.score, "FAIL");
+  assert.equal(scored.decision.knockout, "chosen_skill");
+});
+
+// 场景：无 decision 块。预期：返回对象不含 decision 字段（老用例逐字节不变）。
+test("scoreAnswer without a decision block returns no decision field", () => {
+  const scored = scoreAnswer(
+    {
+      expected: { mustInclude: ["recall-author"], shouldInclude: [], mustNotInclude: [] },
+      scoreRule: { full: "full", partial: "partial", fail: "fail" },
+    },
+    "recall-author",
+  );
+
+  assert.equal(scored.decision, undefined);
+});
+
+// 场景：from 自定义正则覆盖默认行约定。预期：按 from 抽取值再比对。
+test("scoreAnswer decision: a from regex overrides the default line convention", () => {
+  const scored = scoreAnswer(
+    {
+      expected: {
+        mustInclude: ["recall-author"],
+        shouldInclude: [],
+        mustNotInclude: [],
+        decision: [
+          { name: "skill", eq: "recall-author", from: "走的是\\s+(\\S+)", weight: 2, knockout: false },
+        ],
+      },
+      scoreRule: { full: "full", partial: "partial", fail: "fail" },
+    },
+    "recall-author，我判断走的是 recall-author 这个技能",
+  );
+
+  assert.equal(scored.decision.score, 2);
+  assert.equal(scored.decision.perDim[0].got, "recall-author");
+});
+
+// 场景：decision 维度 weight=0 违反 schema minimum:1。预期：该用例被判非法。
+test("validateRecallData rejects a decision weight below 1", () => {
+  const report = validateRecallData({
+    version: 1,
+    source_ref: "skills-def/recall-eval/SKILL.md",
+    fallback_answer: "未明确",
+    scoring: { "2": "full", "1": "partial", "0": "fail" },
+    cases: [
+      {
+        id: "c",
+        question: "q",
+        medium: "skill-mechanism",
+        expected: { must_include: ["x"], decision: { skill: { eq: "a", weight: 0 } } },
+        score_rule: { full: "f", partial: "p", fail: "x" },
+        tags: ["unit"],
+        source_scope: "s",
+      },
+    ],
+  });
+
+  assert.ok(report.caseReports[0].errors.length > 0);
+});
+
+// 场景：decision 维度内含未声明键。预期：additionalProperties:false 拦下（非法）。
+test("validateRecallData rejects an unknown key inside a decision dimension", () => {
+  const report = validateRecallData({
+    version: 1,
+    source_ref: "skills-def/recall-eval/SKILL.md",
+    fallback_answer: "未明确",
+    scoring: { "2": "full", "1": "partial", "0": "fail" },
+    cases: [
+      {
+        id: "c",
+        question: "q",
+        medium: "skill-mechanism",
+        expected: { must_include: ["x"], decision: { skill: { eq: "a", bogus: 1 } } },
+        score_rule: { full: "f", partial: "p", fail: "x" },
+        tags: ["unit"],
+        source_scope: "s",
+      },
+    ],
+  });
+
+  assert.ok(report.caseReports[0].errors.length > 0);
+});
+
+// 场景：合法 decision 块（开放维度名 + weight/knockout）。预期：无错误。
+test("validateRecallData accepts a well-formed decision block", () => {
+  const report = validateRecallData({
+    version: 1,
+    source_ref: "skills-def/recall-eval/SKILL.md",
+    fallback_answer: "未明确",
+    scoring: { "2": "full", "1": "partial", "0": "fail" },
+    cases: [
+      {
+        id: "c",
+        question: "q",
+        medium: "skill-mechanism",
+        expected: {
+          must_include: ["x"],
+          decision: { skill: { eq: "a", knockout: true }, depth: { eq: "L2", weight: 1 } },
+        },
+        score_rule: { full: "f", partial: "p", fail: "x" },
+        tags: ["unit"],
+        source_scope: "s",
+      },
+    ],
+  });
+
+  assert.equal(report.caseReports[0].errors.length, 0);
+});
+
 // 场景：格式化单目标报告。预期：始终包含 runtime failures 摘要行（不再包含 run artifact 行）。
 test("formatRunEvalOutput always includes the runtime failures summary line", () => {
   const output = formatRunEvalOutput({

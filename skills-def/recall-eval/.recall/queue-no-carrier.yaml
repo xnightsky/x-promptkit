@@ -1,0 +1,26 @@
+# 合法 fixture：演示 carrier 可省略（v0.6.0 起 carrier 为可选字段）。
+#
+# 注意：本文件不带 broken- 前缀，故 check-fixtures 期望它「校验通过」；
+# tests/recall-eval.test.mjs 也断言 validate-schema 对它退出 0。
+# 「显式给出但为空」才非法（见 broken-decision-* 之外的 non_empty_string 约束），
+# 「完全省略」是合法的——这正是本 fixture 要锁住的行为。
+version: 1
+source_ref: ../SKILL.md
+fallback_answer: 未明确
+scoring:
+  "2": 回答正确且关键边界完整
+  "1": 方向正确但缺关键限制或表述偏弱
+  "0": 回答错误、臆答、遗漏关键限制或答非所问
+cases:
+  - id: carrier_optional.omitted_is_valid
+    question: queue 未声明 carrier 时是否仍然合法？
+    medium: skill-mechanism
+    expected:
+      must_include:
+        - 可选
+    score_rule:
+      full: 明确答出 carrier 可省略且队列仍合法
+      partial: 只提到 carrier 相关但未点明可省略
+      fail: 误称 carrier 必填
+    tags: [selftest, carrier]
+    source_scope: SKILL.md#carrier-rule

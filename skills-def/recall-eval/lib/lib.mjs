@@ -180,7 +180,24 @@ function normalizeExpected(caseValue) {
     anyMustInclude: normalizeStringList(expected.any_must_include),  // 至少命中一项
     shouldInclude: normalizeStringList(expected.should_include),
     mustNotInclude: normalizeStringList(expected.must_not_include),
+    decision: normalizeDecision(expected.decision),  // 具名字段裁决；缺省 undefined
   };
+}
+
+// 归一化 decision 块：{ 维度名: {eq,from,weight,knockout} } → [{name,eq,from,weight,knockout}]。
+// shape 合法性由 schema 保证，这里只做缺省补齐（weight=2、knockout=false）供打分消费。
+function normalizeDecision(decision) {
+  if (!decision || typeof decision !== "object" || Array.isArray(decision)) {
+    return undefined;
+  }
+  const dims = Object.entries(decision).map(([name, spec]) => ({
+    name,
+    eq: typeof spec?.eq === "string" ? spec.eq : "",
+    from: typeof spec?.from === "string" ? spec.from : null,
+    weight: Number.isInteger(spec?.weight) && spec.weight >= 1 ? spec.weight : 2,
+    knockout: spec?.knockout === true,
+  }));
+  return dims.length > 0 ? dims : undefined;
 }
 
 // ── 校验层 ──
@@ -369,7 +386,53 @@ function hasNonNegatedMatch(text, phrase) {
   return false;
 }
 
+// 转义正则元字符，用于把维度名安全嵌进默认抽取正则。
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// 从答案文本里抽取某具名维度的实际值。
+// 有 from 用作者正则（取首个捕获组）；否则走约定 `^<维度名>: <值>$`。
+// 无匹配 / 正则非法 / 捕获组缺失 → 返回 null（视为「缺席」，与任何 eq 判不等）。
+function extractDecisionValue(answerText, name, fromRegex) {
+  const text = String(answerText ?? "");
+  let re;
+  if (fromRegex) {
+    try {
+      re = new RegExp(fromRegex, "im");
+    } catch {
+      return null;  // 非法正则不升级为队列错误，按缺席处理（v1 边界）
+    }
+  } else {
+    re = new RegExp(`^\\s*${escapeRegExp(name)}\\s*:\\s*(\\S.*?)\\s*$`, "im");
+  }
+  const match = re.exec(text);
+  if (!match) return null;
+  return match[1] !== undefined ? match[1].trim() : null;
+}
+
+// 双极累加打分（analytic rubric）：逐维度 命中=+weight / 答错=-weight / 缺席=0，求和。
+// 任一 knockout 维度未命中 → 整题 FAIL（无视累加）。perDim 供报告逐维度展示。
+function scoreDecision(decisionDims, answerText) {
+  const perDim = [];
+  let knockoutFail = null;
+  let sum = 0;
+  for (const dim of decisionDims) {
+    const got = extractDecisionValue(answerText, dim.name, dim.from);
+    const hit = got !== null && normalizeText(got) === normalizeText(dim.eq);
+    // 命中=+weight（达标）；答了但不对=-weight（反效果）；没答=0（无效果）
+    const contribution = hit ? dim.weight : got === null ? 0 : -dim.weight;
+    perDim.push({ name: dim.name, want: dim.eq, got, hit, weight: dim.weight, contribution });
+    if (dim.knockout && !hit && knockoutFail === null) knockoutFail = dim.name;
+    sum += contribution;
+  }
+  return knockoutFail !== null
+    ? { score: "FAIL", knockout: knockoutFail, perDim }
+    : { score: sum, perDim };
+}
+
 // 依据 expected 与 score_rule 给答案打分:命中禁止项=0;must 全中=2;部分命中=1。
+// 若用例声明了 decision 块，额外返回 decision 累加分（与内容分并列，不并入 headline）。
 export function scoreAnswer(caseReport, answerText) {
   const normalizedAnswer = normalizeText(answerText);
   const mustHits = caseReport.expected.mustInclude.filter((item) =>
@@ -409,12 +472,17 @@ export function scoreAnswer(caseReport, answerText) {
     rationale = `${caseReport.scoreRule?.partial ?? "partial score"} | missing: ${missingMust.join(", ")}`;
   }
 
-  return {
+  const result = {
     score,
     rationale,
     missingMust,
     mustNotHits,
   };
+  // decision 块存在时附带累加分；不存在则 result 无 decision 字段，老用例逐字节不变。
+  if (caseReport.expected.decision) {
+    result.decision = scoreDecision(caseReport.expected.decision, answerText);
+  }
+  return result;
 }
 
 // ── skill-trigger 评分 ──

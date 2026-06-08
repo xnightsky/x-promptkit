@@ -56,3 +56,21 @@ cases:
       fail: 未触发或输出含 FAIL
     tags: [example, trigger]
     source_scope: SKILL.md#validation-strategy
+
+  # ── decision 块（具名字段裁决：双极累加 weight + knockout 否决） ──
+  - id: recall_eval.decision_routing_example
+    question: 用户说『帮我写一个新的召回队列』，逐行输出 chosen_skill / answer_mode / answer_depth。
+    medium: skill-mechanism
+    expected:
+      must_include:
+        - recall-author
+      decision:
+        chosen_skill: { eq: recall-author, knockout: true }   # 选错 skill 直接失格
+        answer_mode: { eq: author }                           # weight 缺省 2
+        answer_depth: { eq: L2, weight: 1 }                   # 次要维度，值 1 分
+    score_rule:
+      full: 三维全命中，decision 累加 +5
+      partial: answer_mode/answer_depth 偏差导致扣分
+      fail: chosen_skill 选错 → knockout 失格
+    tags: [example, decision]
+    source_scope: SKILL.md#decision-rule

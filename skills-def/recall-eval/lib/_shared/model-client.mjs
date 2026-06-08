@@ -1,4 +1,4 @@
-// synced from skills-def/_shared/model-client.mjs @ f7bd90d+uncommitted
+// synced from skills-def\_shared\model-client.mjs @ 42db5c7+uncommitted
 // DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/model-client.mjs
 //
@@ -52,6 +52,14 @@ const DEFAULT_DEFAULTS = Object.freeze({
  * 让 POSIX / Windows 行为一致。
  *
  * 边界:只处理 `~`、`~/`、`~\` 前缀;`~user` 形式依赖系统用户数据库,刻意不支持。
+ *
+ * BDD：
+ *   Given  "~/x" 或 "~\x"（或纯 "~"）
+ *   When   expandHomePath
+ *   Then   展开为 <home>/x（或 <home>）。
+ *   Given  "~userfoo" 或不以 ~ 起的路径
+ *   When   expandHomePath
+ *   Then   原样返回（不支持 ~user，普通路径不动）。
  */
 export function expandHomePath(inputPath, homeDir = homedir()) {
   if (typeof inputPath !== "string" || inputPath.length === 0) return inputPath;
@@ -80,6 +88,20 @@ export function findRepoRoot(startDir, fileExists = (t) => existsSync(t)) {
  * 按优先级发现provider config 文件（RECALL_PROVIDER_CONFIG 环境变量 >
  * cwd > repo root > skill dir > home），用 yaml 库解析，
  * 返回 active / skipped provider 列表。
+ *
+ * BDD：
+ *   Given  四处候选都无 provider config 文件
+ *   When   loadProviders
+ *   Then   返回 { active:[], skipped:[], noEnvFile:true }。
+ *   Given  config.version < 2
+ *   When   loadProviders
+ *   Then   返回 parseError，reason 提示需 v2（不再支持 v1 格式）。
+ *   Given  某 provider api≠echo 且其 apiKey 既非有效 env 名、也非内联 key
+ *   When   loadProviders
+ *   Then   该 provider 落入 skipped（reason 标明缺 apikey/env），不进 active。
+ *   Given  run.models 显式列了若干 id
+ *   When   loadProviders
+ *   Then   仅这些 id 按声明顺序进入候选；未列的 enabled provider 不参选。
  */
 export function loadProviders(options = {}) {
   const {
@@ -216,6 +238,17 @@ export function loadProviders(options = {}) {
  * @param {object} [options.providerOptions] - 透传给 loadProviders 的选项
  * @param {number} [options.maxRetries=0] - 默认重试次数
  * @returns {{ ask, provider, promptConfig }}
+ *
+ * BDD：
+ *   Given  未显式传 provider，但自动发现到 active provider
+ *   When   createClient
+ *   Then   选用 active[0] 作为该 client 的 provider。
+ *   Given  既无显式 provider、也发现不到可用 provider
+ *   When   await client.ask(question)
+ *   Then   返回 { ok:false, reason }（区分 no provider config / no active provider）。
+ *   Given  client 有可用 provider
+ *   When   await client.ask(question)
+ *   Then   以 buildSystemPrompt(promptConfig) 拼 system + question，调 callModel，返回 { ok:true, answer:trim 后文本 }。
  */
 export function createClient(options = {}) {
   const {

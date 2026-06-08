@@ -25,6 +25,7 @@
 - [guides/how-to-get-ai.md](guides/how-to-get-ai.md)
 - [specs/2026-06-05-recall-eval-dynamic-agent-design.md](specs/2026-06-05-recall-eval-dynamic-agent-design.md)
 - [specs/2026-06-06-recall-context-layers-design.md](specs/2026-06-06-recall-context-layers-design.md)
+- [specs/2026-06-09-named-decision-adjudication-design.md](specs/2026-06-09-named-decision-adjudication-design.md)
 
 ## 约定
 

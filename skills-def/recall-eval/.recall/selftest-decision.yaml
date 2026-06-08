@@ -1,0 +1,79 @@
+# 决策累加打分自测队列（确定性 --answer 驱动）。
+# 三向覆盖：纯累加(+5) / 反效果(+1) / knockout 失格(FAIL)。
+# 结构权威：../schemas/recall-queue.schema.yaml；本文件由 check-fixtures 持续校验。
+# 自测隔离：source_ref 指向手写 fake-routing-prompt.md，不碰真实提示词。
+version: 1
+source_ref: fake-routing-prompt.md   # 相对本 yaml 所在的 .recall/ 目录解析
+fallback_answer: "无法判断该走哪个 skill。"
+
+# 顶层 scoring 仍描述内容桶 0/1/2（向后兼容）；decision 累加分独立上报。
+scoring:
+  "0": "未命中 must_include"
+  "1": "命中 must_include 但有遗漏"
+  "2": "完整命中 must_include"
+
+cases:
+  # 1. 纯累加：三维全命中 → decision = +2 +2 +1 = +5
+  - id: decision-accumulate-full
+    question: "用户说『帮我写一个新的召回队列』。逐行输出 chosen_skill / answer_mode / answer_depth。"
+    medium: skill-mechanism
+    carrier: direct-answer
+    source_scope: "写新队列 → recall-author / author / L2"
+    expected:
+      must_include:
+        - recall-author
+      decision:
+        chosen_skill: { eq: recall-author, knockout: true }
+        answer_mode: { eq: author }
+        answer_depth: { eq: L2, weight: 1 }
+    score_rule:
+      full: "三维全命中，decision=+5，content=2"
+      partial: "部分命中"
+      fail: "chosen_skill 错或内容未召回"
+    tags:
+      - decision
+      - selftest
+
+  # 2. 反效果：答错档位 → -weight，但不出局（answer_mode 没装刹车）
+  - id: decision-counter-effect
+    question: "用户说『修一下这个 queue 的 schema 报错』。逐行输出 chosen_skill / answer_mode / answer_depth。"
+    medium: skill-mechanism
+    carrier: direct-answer
+    source_scope: "修报错 → recall-author / fix / L2"
+    expected:
+      must_include:
+        - recall-author
+      decision:
+        chosen_skill: { eq: recall-author, knockout: true }
+        answer_mode: { eq: fix }
+        answer_depth: { eq: L2, weight: 1 }
+    score_rule:
+      full: "三维全命中 decision=+5"
+      partial: "answer_mode 反效果，decision=+1"
+      fail: "chosen_skill 错"
+    tags:
+      - decision
+      - selftest
+      - counter-effect
+
+  # 3. knockout 刹车：chosen_skill 选错 → 整题 FAIL，无视累加
+  - id: decision-knockout-fail
+    question: "用户说『跑一下这张卷子打分』。逐行输出 chosen_skill / answer_mode / answer_depth。"
+    medium: skill-mechanism
+    carrier: direct-answer
+    source_scope: "跑评分 → recall-eval / run / L1"
+    expected:
+      must_include:
+        - recall-eval
+      decision:
+        chosen_skill: { eq: recall-eval, knockout: true }
+        answer_mode: { eq: run }
+        answer_depth: { eq: L1, weight: 1 }
+    score_rule:
+      full: "三维全命中 decision=+5"
+      partial: "answer_mode/depth 偏差扣分"
+      fail: "chosen_skill 选错 → knockout 失格"
+    tags:
+      - decision
+      - selftest
+      - knockout

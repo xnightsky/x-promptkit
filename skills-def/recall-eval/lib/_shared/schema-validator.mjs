@@ -1,4 +1,4 @@
-// synced from skills-def/_shared/schema-validator.mjs @ f7bd90d+uncommitted
+// synced from skills-def\_shared\schema-validator.mjs @ 42db5c7+uncommitted
 // DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/schema-validator.mjs
 //
@@ -7,10 +7,25 @@
 // 不再手写逐字段 shape 检查。
 //
 // 能力边界（机制层）：只实现仓库 schema 文件实际用到的关键字子集——
-//   type / required / properties / additionalProperties(false) /
-//   items / minItems / minimum / pattern / $ref / $defs
+//   type / required / properties /
+//   additionalProperties（false=禁止开放 key；或一个子 schema=约束每个开放 key 的值）/
+//   minProperties / items / minItems / minimum / pattern / $ref / $defs
 // 刻意不支持 if-then、oneOf 等组合关键字；schema 表达不了的跨字段语义
 // （例如「global.enabled 时必须给 path」）留在调用方代码里。
+//
+// BDD：
+//   Given  value 符合 schema
+//   When   validateAgainstSchema
+//   Then   返回 []（空数组 = 合法）。
+//   Given  object 缺一个 required key
+//   When   校验
+//   Then   返回一条错误，format(相对路径) 渲染为 "missing `<key>`"。
+//   Given  additionalProperties 是子 schema、对象含未在 properties 声明的开放 key
+//   When   校验
+//   Then   每个开放 key 的「值」都按该子 schema 递归校验（decision 块靠此约束维度内形状）。
+//   Given  object 属性数 < minProperties
+//   When   校验
+//   Then   报 "`<path>` must have at least N properties"。
 //
 // 报错文案是对外契约的一部分（召回 fixture、EXAMPLES.md 与测试断言依赖
 // "missing `medium`"、"`score_rule` must be an object" 这类固定格式），
@@ -26,6 +41,11 @@ const schemaCache = new Map();
 /**
  * 读取并解析一个 yaml schema 文件，按绝对路径缓存。
  * schema 文件视为静态资产：进程内不感知磁盘上的后续修改。
+ *
+ * BDD：
+ *   Given  同一 absolutePath 第二次调用
+ *   When   loadSchemaFile
+ *   Then   命中缓存、不再读盘（故进程内改 schema 文件不生效，需重启）。
  */
 export function loadSchemaFile(absolutePath) {
   if (!schemaCache.has(absolutePath)) {
@@ -128,6 +148,13 @@ function walk(value, schema, path, ctx) {
   }
 
   if (schema.type === "object") {
+    if (schema.minProperties !== undefined && Object.keys(value).length < schema.minProperties) {
+      pushError(
+        ctx,
+        path,
+        (p) => `\`${p}\` must have at least ${schema.minProperties} ${schema.minProperties === 1 ? "property" : "properties"}`,
+      );
+    }
     for (const key of schema.required ?? []) {
       if (value[key] === undefined) {
         pushError(ctx, joinPath(path, key), (p) => `missing \`${p}\``);
@@ -138,10 +165,20 @@ function walk(value, schema, path, ctx) {
         walk(value[key], subSchema, joinPath(path, key), ctx);
       }
     }
+    // additionalProperties 两种语义：
+    //   === false        → 禁止任何未在 properties 声明的 key
+    //   是一个子 schema  → 允许开放 key，但每个未声明 key 的「值」须匹配该子 schema
+    //                      （decision 块即靠此：维度名自定义，维度内形状受约束）
     if (schema.additionalProperties === false) {
       for (const key of Object.keys(value)) {
         if (!(key in (schema.properties ?? {}))) {
           pushError(ctx, joinPath(path, key), (p) => `unknown field \`${p}\``);
+        }
+      }
+    } else if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+      for (const key of Object.keys(value)) {
+        if (!(key in (schema.properties ?? {}))) {
+          walk(value[key], schema.additionalProperties, joinPath(path, key), ctx);
         }
       }
     }

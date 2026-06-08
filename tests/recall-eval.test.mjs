@@ -88,7 +88,7 @@ test("validate-schema fails when medium is missing", () => {
 
 test("validate-schema runs without carrier (no longer required)", () => {
     const output = runScript("validate-schema.mjs", [
-      "skills-def/recall-eval/.recall/broken-missing-carrier.yaml",
+      "skills-def/recall-eval/.recall/queue-no-carrier.yaml",
     ]);
   });
 

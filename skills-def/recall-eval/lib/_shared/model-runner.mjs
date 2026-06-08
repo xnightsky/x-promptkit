@@ -1,4 +1,4 @@
-// synced from skills-def/_shared/model-runner.mjs @ f7bd90d+uncommitted
+// synced from skills-def\_shared\model-runner.mjs @ 42db5c7+uncommitted
 // DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/model-runner.mjs
 //
@@ -78,6 +78,20 @@ function classifyRetry(error) {
  * @param {number} [options.maxRetries=0] - 最大重试次数
  * @param {Function} [options.fetchImpl]  - 可注入的 fetch（测试用）
  * @returns {Promise<string>} 模型回答文本
+ *
+ * BDD：
+ *   Given  provider.api="echo"
+ *   When   callModel
+ *   Then   离线短路，返回 "[echo <model>]\n<prompt>"，不发网络、不重试。
+ *   Given  provider.api="openai-chat" 且响应 429
+ *   When   callModel(maxRetries=2)
+ *   Then   归类 RATE_LIMITED（预算 2），按指数退避重试，仍失败则抛 RETRIES_EXHAUSTED。
+ *   Given  响应 2xx 但 body 文本为空
+ *   When   callModel
+ *   Then   归类 EMPTY_RESPONSE（预算 0），不重试，直接抛 RETRIES_EXHAUSTED（cause 携带原错）。
+ *   Given  provider.api 不在 SUPPORTED_APIS
+ *   When   callModel
+ *   Then   抛 "unsupported api: <api>"。
  */
 export async function callModel(provider, prompt, options = {}) {
   const {

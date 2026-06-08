@@ -1,0 +1,26 @@
+# 故意非法的负例（broken-* 前缀）：decision 维度 weight=0 违反 schema 的 minimum:1。
+# check-fixtures 期望本文件「校验不通过」；它只被单测/check 消费，绝不作为真队列运行。
+version: 1
+source_ref: fake-routing-prompt.md
+fallback_answer: "占位。"
+scoring:
+  "0": "未命中"
+  "1": "部分命中"
+  "2": "完整命中"
+cases:
+  - id: decision-bad-weight
+    question: "占位问题。"
+    medium: skill-mechanism
+    source_scope: "占位"
+    expected:
+      must_include:
+        - recall-author
+      decision:
+        chosen_skill: { eq: recall-author, weight: 0 }   # 非法：weight 必须 >= 1
+    score_rule:
+      full: "full"
+      partial: "partial"
+      fail: "fail"
+    tags:
+      - decision
+      - broken

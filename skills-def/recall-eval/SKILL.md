@@ -131,6 +131,7 @@ Optional fields:
 - `variants`
 - `expected.should_include`
 - `expected.must_not_include`
+- `expected.decision` (named-field adjudication; see `decision` Rule)
 - `fallback_answer`
 - `source_ref` as a case-level override
 - `context` at queue level, and as a case-level whole-block override
@@ -287,6 +288,38 @@ Scoring guidance:
 - deterministic queues may rely on substring-style `must_include`
 - natural-language queues should use `score_rule` to define semantic boundaries, not just keyword presence
 - do not call a runtime environment failure a low recall score
+
+## `decision` Rule
+
+`expected.decision` is an optional named-field adjudication block for routing-style
+recall: it scores whether the answer named the right value per dimension — something the
+keyword buckets cannot express. Dimension names are author-defined; the contract only
+fixes the per-dimension shape `{ eq, from?, weight?, knockout? }` (machine authority:
+`schemas/recall-queue.schema.yaml`).
+
+Per-dimension scoring is analytic, bipolar, and accumulated:
+
+- extract the dimension's actual value from the answer — default convention is a line
+  `<dim>: <value>`; a `from` capture-group regex overrides it
+- actual `== eq` (trimmed, case-insensitive) → `+weight` (default `weight` is `2`)
+- present but `!= eq` → `-weight` (counter-effect)
+- absent → `0` (no effect — deliberately distinct from a wrong value)
+- the case's decision score is the sum across dimensions; it is unbounded (not capped to ±2)
+
+`knockout` is a hard veto on top of the accumulation:
+
+- a `knockout: true` dimension that is not hit forces the whole case to `FAIL`,
+  regardless of the accumulated sum
+
+Boundaries:
+
+- `decision` is an answer-content assertion scored on the content line (`scoreAnswer`); it
+  does not replace or touch skill-trigger verification (`scoreTriggerCase`)
+- the decision score and the content buckets are reported side by side and are NOT merged
+  into a single headline score in v1
+- absent `decision` → scoring is byte-identical to the current `0/1/2` behavior
+- only `eq` is supported in v1; an AND-over-a-set requirement is expressed as multiple
+  single-value dimensions, so `one_of`/`not_eq` are intentionally out of scope
 
 ## Output
 

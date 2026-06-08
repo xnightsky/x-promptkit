@@ -90,6 +90,20 @@ $defs:
           any_must_include: { $ref: "#/$defs/string_list" }
           should_include: { $ref: "#/$defs/string_list" }
           must_not_include: { $ref: "#/$defs/string_list" }
+          # 具名字段裁决（双极累加 + knockout 否决）。维度名由作者自定义，
+          # 契约只约束「每维 eq/from/weight/knockout」这一形状；判分语义在 lib.mjs。
+          decision:
+            type: object
+            minProperties: 1
+            additionalProperties:        # key = 自定义维度名（开放）
+              type: object
+              required: [eq]
+              additionalProperties: false  # 维度内仅许这 4 键
+              properties:
+                eq: { $ref: "#/$defs/non_empty_string" }      # 期望具名值
+                from: { $ref: "#/$defs/non_empty_string" }    # 抽取正则；缺省走约定
+                weight: { type: integer, minimum: 1 }         # 分值量级 ±weight；缺省 2
+                knockout: { type: boolean }                    # 未命中即整题 FAIL；缺省 false
       score_rule:
         type: object
         required: [full, partial, fail]

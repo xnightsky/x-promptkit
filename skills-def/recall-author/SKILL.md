@@ -162,6 +162,38 @@ queue.yaml
 | 答案必须同时包含 A、B、C | `must_include: [A, B, C]`（AND 语义） |
 | 答案只要提到 A 或 B 或 C 之一即可 | `any_must_include: [A, B, C]`（OR 语义） |
 
+### `decision` — 具名字段裁决（可选）
+
+给「路由类」召回打分：判答案在某个**具名维度**上选的值对不对——关键词桶判不了的东西
+（如「该走的 skill 是不是 `recall-author`」）。维度名**自定义**，契约只约束每维形状
+`{ eq, from?, weight?, knockout? }`（结构权威：`../recall-eval/schemas/recall-queue.schema.yaml`）。
+
+| 维度内字段 | 必填 | 语义 |
+|------|------|------|
+| `eq` | ✅ | 期望的具名值（trim 后大小写不敏感精确相等） |
+| `from` | 可选 | 抽取实际值的正则（含 1 个捕获组）；不写走约定 `<维度名>: <值>` 行 |
+| `weight` | 可选 | 分值量级；命中 +weight / 答错 -weight / 没答 0；缺省 `2` |
+| `knockout` | 可选 | `true` 时该维未命中 → 整题 FAIL（无视累加）；缺省 `false` |
+
+**打分**：各维度带符号贡献**求和**（不封顶，三维各 +2 → +5），这是「油门」；`knockout`
+是「刹车」——装了它的维度答错，整题直接出局，压过累加。
+
+```yaml
+expected:
+  must_include: [recall-author]
+  decision:
+    chosen_skill: { eq: recall-author, knockout: true }  # 选错 skill 直接失格
+    answer_mode:  { eq: fix }                            # weight 缺省 2
+    answer_depth: { eq: L2, weight: 1 }                  # 次要维度，1 分
+```
+
+**写作要点**：
+
+- 维度名自取，别复用任何「固定词表」——契约不预设维度名。
+- 「要同时满足多项」（AND）拆成**多条单值维度**即可，不需要 `one_of`；单值还逼你把标准写准。
+- 想「错了扣分但能救」用 `weight`；想「错了直接出局」用 `knockout`。
+- `decision` 与内容桶（`must_include` 等）**并列计分、互不覆盖**；不写 `decision` 则完全等同今天。
+
 ### `score_rule` — 三档评分标准
 
 | 字段 | 类型 | 必填 | 说明 |
