@@ -50,6 +50,16 @@ $defs:
       medium: { $ref: "#/$defs/non_empty_string" }
       carrier: { $ref: "#/$defs/non_empty_string" }
       source_scope: { $ref: "#/$defs/non_empty_string" }
+      # skill-trigger 模式：必须触发的命令（子串匹配）
+      trigger:
+        type: object
+        required: [must_run]
+        properties:
+          must_run:
+            type: array
+            minItems: 1
+            items: { $ref: "#/$defs/non_empty_string" }
+          must_not_run: { $ref: "#/$defs/string_list" }
       # 用例级覆盖（缺省继承队列级）
       source_ref: { $ref: "#/$defs/non_empty_string" }
       fallback_answer: { $ref: "#/$defs/non_empty_string" }

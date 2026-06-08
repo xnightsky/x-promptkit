@@ -246,6 +246,13 @@ export function validateRecallData(data) {
       caseErrors.push(...validateContextSemantics(caseValue.context));
     }
 
+    // skill-trigger 模式必须提供 trigger 块
+    if (caseValue?.medium === "skill-trigger") {
+      if (!caseValue?.trigger || typeof caseValue.trigger !== "object" || !Array.isArray(caseValue.trigger.must_run) || caseValue.trigger.must_run.length === 0) {
+        caseErrors.push("skill-trigger medium requires a non-empty trigger.must_run list");
+      }
+    }
+
     if (!isNonEmptyString(effectiveSourceRef)) {
       caseErrors.push("missing effective `source_ref`");
     }
@@ -406,6 +413,62 @@ export function scoreAnswer(caseReport, answerText) {
     missingMust,
     mustNotHits,
   };
+}
+
+// ── skill-trigger 评分 ──
+
+/**
+ * 对 skill-trigger 模式的 case 打分。
+ * 检查：trigger.must_run 是否在 toolCalls 中出现（子串）,
+ *       trigger.must_not_run 是否被触发,
+ *       finalAnswer 是否符合 expected。
+ */
+export function scoreTriggerCase(caseReport, { toolCalls, finalAnswer }) {
+  const commands = (toolCalls ?? []).map((tc) => tc.command ?? "").join("\n")
+  const trigger = caseReport.caseValue?.trigger ?? {}
+  const mustRun = Array.isArray(trigger.must_run) ? trigger.must_run : []
+  const mustNotRun = Array.isArray(trigger.must_not_run) ? trigger.must_not_run : []
+
+  // 检查禁止命令
+  const forbiddenHits = mustNotRun.filter((forbidden) =>
+    commands.includes(forbidden),
+  )
+  if (forbiddenHits.length > 0) {
+    return {
+      score: 0,
+      rationale: `forbidden command triggered: ${forbiddenHits.join(", ")}`,
+      triggerMatches: [],
+      triggerMissing: mustRun,
+    }
+  }
+
+  // 检查必须命令（子串匹配）
+  const triggerMatches = []
+  const triggerMissing = []
+  for (const required of mustRun) {
+    if (commands.includes(required)) {
+      triggerMatches.push(required)
+    } else {
+      triggerMissing.push(required)
+    }
+  }
+
+  if (triggerMissing.length > 0) {
+    return {
+      score: 0,
+      rationale: `skill not triggered | missing: ${triggerMissing.join(", ")}`,
+      triggerMatches,
+      triggerMissing,
+    }
+  }
+
+  // trigger 通过，检查输出
+  const outputScore = scoreAnswer(caseReport, finalAnswer ?? "")
+  return {
+    ...outputScore,
+    triggerMatches,
+    triggerMissing,
+  }
 }
 
 // ── 答案输入 ──

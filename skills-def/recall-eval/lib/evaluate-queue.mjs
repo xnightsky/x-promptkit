@@ -12,11 +12,12 @@ import {
   readAnswerInput,
   readAnswersFile,
   scoreAnswer,
+  scoreTriggerCase,
   validateRecallData,
 } from "./lib.mjs";
 import { dirname } from "node:path";
 import { findRepoRoot } from "../../_shared/model-client.mjs";
-import { runRecallAgent } from "./model-agent.mjs";
+import { runRecallAgent, runSkillTriggerAgent } from "./model-agent.mjs";
 
 /**
  * 评测单个队列目标。
@@ -93,6 +94,29 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
         continue;
       }
 
+      // skill-trigger 模式：白名单 shell 自主执行
+      if (caseReport.caseValue?.medium === "skill-trigger") {
+        const triggerResult = await runSkillTriggerAgent({
+          sourceRef: caseReport.effectiveSourceRef,
+          question: caseReport.caseValue.question,
+          provider,
+          baseDir: sourceBaseDir,
+        });
+
+        if (!triggerResult.ok) {
+          caseItems.push({ id: caseReport.id, result: `not evaluated | ${triggerResult.reason}` });
+          runtimeFailures.push(`\`${caseReport.id}\` ${triggerResult.reason}`);
+          continue;
+        }
+
+        // 用 scoreTriggerCase 打触发分 + 输出分
+        const triggerScored = scoreTriggerCase(caseReport, triggerResult);
+        caseItems.push({ id: caseReport.id, result: `score=${triggerScored.score} | ${triggerScored.rationale} | tc=${triggerResult.toolCalls?.length ?? 0}` });
+        if (triggerScored.score >= 2) directlyEvaluable.push(`\`${caseReport.id}\``);
+        continue;
+      }
+
+      // 默认：clean-context-v1 知识召回
       const result = await runRecallAgent({
         sourceRef: caseReport.effectiveSourceRef,
         question: caseReport.caseValue.question,

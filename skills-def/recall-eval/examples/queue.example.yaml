@@ -35,3 +35,24 @@ cases:
       fail: 回答可以继续评测，或允许执行器自行补 medium
     tags: [selftest, redline]
     source_scope: SKILL.md#medium-rule
+
+  # ── skill-trigger 模式（模型自主执行命令） ──
+  - id: recall_eval.trigger_validate_example
+    question: 验证 skills-def/recall-eval/examples/queue.example.yaml 是否合法。请使用 recall-eval skill 来完成。
+    medium: skill-trigger
+    carrier: isolated-context-run:subagent
+    trigger:
+      must_run:
+        - "queue.example.yaml"
+      must_not_run:
+        - "rm"
+        - "curl"
+    expected:
+      must_include:
+        - "recall_eval"
+    score_rule:
+      full: 读取了队列文件并完成校验，报告通过验证
+      partial: 读取了队列但验证不完整
+      fail: 未触发或输出含 FAIL
+    tags: [example, trigger]
+    source_scope: SKILL.md#validation-strategy

@@ -267,3 +267,27 @@ function isAllowed(command) {
 3. skill-trigger case 未触发时 → score=0
 4. skill-trigger case 触发了禁止命令 → score=0
 5. 不传 `trigger` 的 skill-trigger case → 校验失败
+
+## 实现心得
+
+### prompt 策略
+
+skill-trigger 模式**不注入 sourceRef 内容**——否则模型可以直接从注入的 prompt
+中回答，不需要执行命令。正确做法：只告诉模型文件路径，迫使其使用 shell 读取。
+
+### trigger 匹配
+
+`must_run` 是子串匹配，非 exact match。模型可能按 SKILL.md 文档中的推荐入口
+执行 `npm run recall:validate` 而非直接 `node validate-schema.mjs`，两者都应
+被视为触发成功。设计 `trigger.must_run` 时用最通用的子串（如文件名而非完整命令）。
+
+### 白名单
+
+需要包含 `npm` 和 `npx`——SKILL.md 文档推荐使用 npm scripts，模型自然会优先尝试。
+允许无害后缀 `2>/dev/null` 避免模型因 stderr 重定向被拦截而卡死。
+
+### scoreAnswer 陷阱
+
+`must_not_include` 会被 `normalizeText` 做 `toLowerCase` 后再做子串匹配。
+像 "FAIL" 这样的关键词会被结果文本中的任意位置命中（包括"验证不含 FAIL 错误"）。
+对 skill-trigger 模式建议用更精确的短语如 "validation failed"。
