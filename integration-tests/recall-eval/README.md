@@ -6,12 +6,12 @@ These files are not the schema source of truth. Real recall fixtures live next t
 
 ## Current Suites
 
-- `recall-replay.token.ittest.mjs`: token-backed provider-matrix replay that asserts the clean-context policy echo across enabled providers (self-skips without a configured provider matrix)
+- `recall-replay.token.ittest.mjs`: token-backed provider-config replay that asserts the clean-context policy echo across enabled providers (self-skips without a configured provider config)
 - `recall-live.token.ittest.mjs`: token-backed live recall over the real queue cases via `runRecallAgent` (self-skips without a token-bearing provider)
 
 Naming: token-burning integration tests use the `*.token.ittest.mjs` suffix — the `.ittest.mjs` suffix keeps them out of the batch `npm run iitest` collector by construction.
 
-## Provider-matrix replay
+## Provider-config replay
 
 The replay suite tests the clean-context policy echo across enabled providers. It uses a hardcoded recall fixture (no external `.recall/` queue needed).
 

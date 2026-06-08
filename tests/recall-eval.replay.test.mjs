@@ -76,10 +76,10 @@ providers:
 //   ├── work/repo/.git/   ← cwd=sub 的用例向上命中这里,验证「向上找仓库根」
 //   ├── work/repo/sub/
 //   ├── skill/scripts/    ← 注入为 skillDir
-//   └── home/             ← 注入为 homeDir(隔离真实 home,避免本机矩阵文件干扰)
+//   └── home/             ← 注入为 homeDir(隔离真实 home,避免本机provider config 文件干扰)
 //
 // 两个 .git 标记都始终创建:findRepoRoot 从 cwd 向上走,任一用例若在沙箱内
-// 找不到 .git,会一路越出沙箱、可能意外命中宿主机的真实仓库或矩阵文件。
+// 找不到 .git,会一路越出沙箱、可能意外命中宿主机的真实仓库或provider config 文件。
 function makeSandbox(t) {
 	const root = mkdtempSync(join(tmpdir(), "recall-replay-"))
 	t.after(() => rmSync(root, { recursive: true, force: true }))
@@ -99,10 +99,10 @@ function makeSandbox(t) {
 //   当   调用 parseProviderConfig
 //   那么 每个 provider 都继承 defaults(如 temperature / max_tokens)
 test("parseProviderConfig applies defaults to providers", () => {
-	const matrix = parseProviderConfig(SAMPLE_CONFIG)
-	assert.equal(matrix.version, 2)
-	assert.equal(matrix.providers.length, 3)
-	const echo = matrix.providers.find((p) => p.id === "echo-local")
+	const config = parseProviderConfig(SAMPLE_CONFIG)
+	assert.equal(config.version, 2)
+	assert.equal(config.providers.length, 3)
+	const echo = config.providers.find((p) => p.id === "echo-local")
 	assert.equal(echo.temperature, 0)
 	assert.equal(echo.max_tokens, 256)
 })
@@ -111,9 +111,9 @@ test("parseProviderConfig applies defaults to providers", () => {
 //   给定 一份字段齐全、策略 id 正确的矩阵
 //   当   调用 validateProviderConfig
 //   那么 ok 为 true 且 errors 为空
-test("validateProviderConfig accepts a well-formed matrix", () => {
-	const matrix = parseProviderConfig(SAMPLE_CONFIG)
-	const { ok, errors } = validateProviderConfig(matrix)
+test("validateProviderConfig accepts a well-formed config", () => {
+	const config = parseProviderConfig(SAMPLE_CONFIG)
+	const { ok, errors } = validateProviderConfig(config)
 	assert.deepEqual(errors, [])
 	assert.equal(ok, true)
 })
@@ -123,7 +123,7 @@ test("validateProviderConfig accepts a well-formed matrix", () => {
 //   当   调用 validateProviderConfig
 //   那么 校验失败，报 missing apiKey
 test("validateProviderConfig rejects providers without apiKey", () => {
-	const matrix = parseProviderConfig(`
+	const config = parseProviderConfig(`
 version: 2
 memory:
   mode: in-process
@@ -136,7 +136,7 @@ providers:
     models:
       - id: gpt-4o-mini
 `)
-	const { ok, errors } = validateProviderConfig(matrix)
+	const { ok, errors } = validateProviderConfig(config)
 	assert.equal(ok, false)
 	assert.ok(errors.some((e) => e.includes("missing apiKey")))
 })
@@ -146,13 +146,13 @@ providers:
 //   当   分别在「无 key」与「有 OPENAI_API_KEY」两种环境下筛选
 //   那么 无 key 时只剩 echo-local;有 key 时再加上 openai-prod
 test("selectEnabledProviders honours enabled flag and key availability", () => {
-	const matrix = parseProviderConfig(SAMPLE_CONFIG)
-	const withoutKeys = selectEnabledProviders(matrix, { env: {} })
+	const config = parseProviderConfig(SAMPLE_CONFIG)
+	const withoutKeys = selectEnabledProviders(config, { env: {} })
 	assert.deepEqual(
 		withoutKeys.map((p) => p.id),
 		["echo-local"],
 	)
-	const withKeys = selectEnabledProviders(matrix, {
+	const withKeys = selectEnabledProviders(config, {
 		env: { OPENAI_API_KEY: "sk-test" },
 	})
 	assert.deepEqual(
@@ -179,9 +179,9 @@ test("buildReplayMessages embeds memory and policy", () => {
 //   当   对内置 case 运行 agent.run
 //   那么 回答回显策略 id，含必备事实(8443/TLS)且不含禁止词
 test("echo provider round-trips the policy and memory for scoring", async () => {
-	const matrix = parseProviderConfig(SAMPLE_CONFIG)
-	const [echo] = selectEnabledProviders(matrix, { env: {} })
-	const agent = assembleEphemeralAgent({ matrix, provider: echo, env: {} })
+	const config = parseProviderConfig(SAMPLE_CONFIG)
+	const [echo] = selectEnabledProviders(config, { env: {} })
+	const agent = assembleEphemeralAgent({ config, provider: echo, env: {} })
 	const [caseReport] = buildReplayQueueFixture().cases
 	const result = await agent.run(caseReport)
 	assert.equal(result.policyEcho, "clean-context-v1")
@@ -246,10 +246,10 @@ test("assembleEphemeralAgent resolves apikey env names before calling the model"
 			}),
 		}
 	}
-	const matrix = parseProviderConfig(SAMPLE_CONFIG)
-	const provider = matrix.providers.find((p) => p.id === "openai-prod")
+	const config = parseProviderConfig(SAMPLE_CONFIG)
+	const provider = config.providers.find((p) => p.id === "openai-prod")
 	const agent = assembleEphemeralAgent({
-		matrix,
+		config,
 		provider,
 		env: { OPENAI_API_KEY: "sk-resolved-from-env" },
 		fetchImpl: fakeFetch,
@@ -264,12 +264,12 @@ test("assembleEphemeralAgent resolves apikey env names before calling the model"
 //   当   调用 loadProviderConfig
 //   那么 回显该 path，并解析出 3 个 provider(不触碰真实文件系统)
 test("loadProviderConfig reads from an injected file reader", () => {
-	const { path, matrix } = loadProviderConfig({
+	const { path, config } = loadProviderConfig({
 		path: "virtual.yaml",
 		fileReader: () => SAMPLE_CONFIG,
 	})
 	assert.equal(path, "virtual.yaml")
-	assert.equal(matrix.providers.length, 3)
+	assert.equal(config.providers.length, 3)
 })
 
 // 场景:RECALL_PROVIDER_CONFIG 显式指定时直接采用，跳过目录发现
@@ -279,7 +279,7 @@ test("loadProviderConfig reads from an injected file reader", () => {
 test("discoverProviderConfigPath honours the RECALL_PROVIDER_CONFIG override", (t) => {
 	const { sub, skillDir, homeDir, root } = makeSandbox(t)
 	// 故意不创建该文件:override 必须原样透传,存在性留给后续读取报错
-	const override = join(root, "custom-matrix.yaml")
+	const override = join(root, "custom-config.yaml")
 	const resolved = discoverProviderConfigPath({
 		cwd: sub,
 		env: { [DEFAULT_PROVIDER_CONFIG_ENV]: override },
@@ -290,7 +290,7 @@ test("discoverProviderConfigPath honours the RECALL_PROVIDER_CONFIG override", (
 })
 
 // 场景:RECALL_PROVIDER_CONFIG 使用 `~/` 前缀
-//   给定 override 写成 ~/custom-matrix.yaml(shell 之外没人展开 `~`,
+//   给定 override 写成 ~/custom-config.yaml(shell 之外没人展开 `~`,
 //        Windows 上更会被当成字面目录名)
 //   当   调用 discoverProviderConfigPath
 //   那么 `~` 被展开为注入的 homeDir,而不是原样返回
@@ -298,18 +298,18 @@ test("discoverProviderConfigPath expands a ~ prefix override against homeDir", (
 	const { sub, skillDir, homeDir } = makeSandbox(t)
 	const resolved = discoverProviderConfigPath({
 		cwd: sub,
-		env: { [DEFAULT_PROVIDER_CONFIG_ENV]: "~/custom-matrix.yaml" },
+		env: { [DEFAULT_PROVIDER_CONFIG_ENV]: "~/custom-config.yaml" },
 		skillDir,
 		homeDir,
 	})
-	assert.equal(resolved, join(homeDir, "custom-matrix.yaml"))
+	assert.equal(resolved, join(homeDir, "custom-config.yaml"))
 })
 
-// 场景:cwd 下存在矩阵文件
+// 场景:cwd 下存在provider config 文件
 //   给定 沙箱中仅 cwd 下有 .recall-replay.env.yaml
 //   当   调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 命中 cwd 下的文件
-test("discoverProviderConfigPath discovers a matrix in the current working directory", (t) => {
+test("discoverProviderConfigPath discovers a config in the current working directory", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(work, ".recall-replay.env.yaml")
 	writeFileSync(expected, SAMPLE_CONFIG)
@@ -326,7 +326,7 @@ test("discoverProviderConfigPath discovers a matrix in the current working direc
 //   给定 沙箱中仅 skill 目录下有 .recall-replay.env.yml
 //   当   调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 越过空的 cwd / 仓库根，命中 skill 目录下的文件
-test("discoverProviderConfigPath discovers a matrix in the skill directory", (t) => {
+test("discoverProviderConfigPath discovers a config in the skill directory", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(skillDir, ".recall-replay.env.yml")
 	writeFileSync(expected, SAMPLE_CONFIG)
@@ -339,11 +339,11 @@ test("discoverProviderConfigPath discovers a matrix in the skill directory", (t)
 	assert.equal(resolved, expected)
 })
 
-// 场景:仅 home 目录下存在矩阵文件
+// 场景:仅 home 目录下存在provider config 文件
 //   给定 沙箱中仅 home 目录下有 .recall-replay.env
 //   当   调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 命中 home 目录下的文件(即 Windows 上 %USERPROFILE% 同样可作放置点)
-test("discoverProviderConfigPath discovers a matrix in the home directory", (t) => {
+test("discoverProviderConfigPath discovers a config in the home directory", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(homeDir, ".recall-replay.env")
 	writeFileSync(expected, SAMPLE_CONFIG)
@@ -356,7 +356,7 @@ test("discoverProviderConfigPath discovers a matrix in the home directory", (t) 
 	assert.equal(resolved, expected)
 })
 
-// 场景:任何候选目录都没有矩阵文件
+// 场景:任何候选目录都没有provider config 文件
 //   给定 沙箱候选目录里都没有匹配文件(仅有 .git 标记仓库根)
 //   当   以仓库子目录为 cwd 调用 discoverProviderConfigPath(使用真实 existsSync)
 //   那么 向上找到仓库根，回退到「仓库根 + 主文件名」
@@ -389,21 +389,21 @@ test("providerConfigSearchDirs lists cwd, repo root, skill dir, and home dir wit
 })
 
 // 场景:loadProviderConfig 透传 skillDir / homeDir 给发现逻辑
-//   给定 不传 path，沙箱中仅 skill 目录下有真实矩阵文件
+//   给定 不传 path，沙箱中仅 skill 目录下有真实provider config 文件
 //   当   调用 loadProviderConfig(真实 existsSync + 真实 readFileSync,端到端)
-//   那么 解析路径为 skill 目录下的矩阵文件，且成功解析出 provider
+//   那么 解析路径为 skill 目录下的provider config 文件，且成功解析出 provider
 test("loadProviderConfig forwards skillDir and homeDir to discovery", (t) => {
 	const { work, skillDir, homeDir } = makeSandbox(t)
 	const expected = join(skillDir, ".recall-replay.env.yaml")
 	writeFileSync(expected, SAMPLE_CONFIG)
-	const { path, matrix } = loadProviderConfig({
+	const { path, config } = loadProviderConfig({
 		cwd: work,
 		env: {},
 		skillDir,
 		homeDir,
 	})
 	assert.equal(path, expected)
-	assert.equal(matrix.providers.length, 3)
+	assert.equal(config.providers.length, 3)
 })
 
 // 场景:枚举常量与文档保持同步

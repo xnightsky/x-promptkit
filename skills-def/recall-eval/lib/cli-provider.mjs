@@ -8,8 +8,8 @@
 //
 //   const opts = parseProviderArgs(process.argv.slice(2))
 //   if (opts.help) { showProviderHelp(); process.exit(0) }
-//   const matrix = parseProviderConfig(...)
-//   const targets = resolveProviders(matrix, opts)
+//   const config = parseProviderConfig(...)
+//   const targets = resolveProviders(config, opts)
 //   // targets = [{ provider, model, label }, ...]
 
 import { parseArgs } from "node:util"
@@ -54,26 +54,26 @@ Options:
 // ── Provider 解析 ──
 
 /**
- * 根据 matrix 和 CLI 参数解析出要运行的目标列表。
+ * 根据 config 和 CLI 参数解析出要运行的目标列表。
  *
- * @param {object} matrix          - parseProviderConfig 产出的规范化矩阵
+ * @param {object} config          - parseProviderConfig 产出的规范化 config
  * @param {object} opts
  * @param {string[]} opts.providerFilter - --provider 值列表
  * @param {string[]} opts.modelFilter    - --model 值列表
  * @param {boolean}  opts.verbose        - 是否打印详情（到 stderr）
  * @returns {{ provider: object, model: string, label: string }[]}
  */
-export function resolveProviders(matrix, opts = {}) {
+export function resolveProviders(config, opts = {}) {
 	const { providerFilter = [], modelFilter = [], verbose = false } = opts
 
 	// --provider 指定时覆盖 run.models，在全量 enabled 中直接筛选
-	const skipMatrix = providerFilter.length > 0
-	const allProviders = selectEnabledProviders(matrix, { skipMatrix }).filter(
+	const skipRunFilter = providerFilter.length > 0
+	const allProviders = selectEnabledProviders(config, { skipRunFilter }).filter(
 		(p) => p.api !== "echo",
 	)
 
 	if (verbose) {
-		console.error(`[verbose] run.models: ${JSON.stringify(matrix.run?.matrix ?? [])}`)
+		console.error(`[verbose] run.models: ${JSON.stringify(config.run?.ids ?? [])}`)
 		console.error(`[verbose] enabled providers: ${allProviders.map((p) => p.id + "(" + p.model + ")").join(", ")}`)
 	}
 
@@ -106,7 +106,7 @@ export function resolveProviders(matrix, opts = {}) {
 	}
 
 	// 展开 model：--model > --provider 的 / > run.models 的 / > 拒绝歧义
-	const overrides = { ...(matrix.run?._modelOverrides ?? {}), ...extraOverrides }
+	const overrides = { ...(config.run?._modelOverrides ?? {}), ...extraOverrides }
 	const targets = []
 	for (const provider of candidates) {
 		const hasMultiple = Array.isArray(provider.models) && provider.models.length > 1

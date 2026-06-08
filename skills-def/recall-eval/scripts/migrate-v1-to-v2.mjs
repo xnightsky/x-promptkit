@@ -6,7 +6,7 @@ v1 → v2 迁移脚本。
 维护说明:
   - 本脚本覆盖 v1 所有已知字段；若未来 v1 新增字段需同步维护。
   - 迁移是纯函数：读 v1 YAML → 写 v2 YAML 到 stdout，不修改原文件。
-  - 校验函数见 replay-engine.mjs 的 validateReplayMatrix()。
+  - 校验函数见 replay-engine.mjs 的 validateProviderConfig()。
 
 用法:
   node migrate-v1-to-v2.mjs <path-to-v1.yaml> > migrated-v2.yaml
@@ -64,7 +64,7 @@ try {
 }
 
 if (!raw || typeof raw !== "object" || raw.version !== 1) {
-	console.error("Not a valid v1 replay matrix")
+	console.error("Not a valid v1 provider config")
 	process.exit(1)
 }
 

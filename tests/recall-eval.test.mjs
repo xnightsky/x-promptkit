@@ -274,10 +274,10 @@ test("run-eval scores an overreaching answer as 0", () => {
 
 // 场景：--live 下通过 echo provider 现场执行。预期：echo 回显 SKILL.md 内容，产出 5 段报告。
 test("run-eval executes live recall via echo provider and produces a report", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-matrix-"));
-  const matrixPath = path.join(tempDir, ".recall-replay.env.yaml");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-config-"));
+  const configPath = path.join(tempDir, ".recall-replay.env.yaml");
   fs.writeFileSync(
-    matrixPath,
+    configPath,
     [
       "version: 2",
       "providers:",
@@ -297,7 +297,7 @@ test("run-eval executes live recall via echo provider and produces a report", ()
     ],
     {
       env: {
-        RECALL_PROVIDER_CONFIG: matrixPath,
+        RECALL_PROVIDER_CONFIG: configPath,
       },
     },
   );
@@ -312,7 +312,7 @@ test("run-eval executes live recall via echo provider and produces a report", ()
 // 为 --live 的发现类用例搭隔离环境：临时 cwd(自带 .git,把仓库根收敛在沙箱内)
 // + 临时 home。home 通过 HOME / USERPROFILE 注入(os.homedir() 在 POSIX 读
 // HOME、Windows 读 USERPROFILE),因此用例不依赖宿主机真实 home 或仓库根的
-// 本地矩阵文件状态——这两处的本地文件都被 .gitignore 忽略,内容不可预期。
+// 本地provider config 文件状态——这两处的本地文件都被 .gitignore 忽略,内容不可预期。
 function makeLiveSandbox() {
   const sandboxCwd = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-cwd-"));
   fs.mkdirSync(path.join(sandboxCwd, ".git"));
@@ -335,7 +335,7 @@ const ECHO_CONFIG = [
 ].join("\n");
 
 // 场景：--live 时无显式 RECALL_PROVIDER_CONFIG 但 home 目录有矩阵。预期：自动发现 home 矩阵。
-test("run-eval uses home directory provider matrix when available in live mode", () => {
+test("run-eval uses home directory provider config when available in live mode", () => {
   const { sandboxCwd, homeDir, queuePath, env } = makeLiveSandbox();
   fs.writeFileSync(path.join(homeDir, ".recall-replay.env.yaml"), ECHO_CONFIG);
 
@@ -356,15 +356,15 @@ test("run-eval uses home directory provider matrix when available in live mode",
 });
 
 // 场景：RECALL_PROVIDER_CONFIG 用 `~/` 前缀指向 home 下的矩阵。预期：展开后正常 live。
-// 矩阵文件名刻意不在自动发现名单里，证明走的是 override 展开而非目录发现。
+// provider config 文件名刻意不在自动发现名单里，证明走的是 override 展开而非目录发现。
 test("run-eval expands a ~ prefix in RECALL_PROVIDER_CONFIG to the home directory", () => {
   const { sandboxCwd, homeDir, queuePath, env } = makeLiveSandbox();
-  fs.writeFileSync(path.join(homeDir, "custom-matrix.yaml"), ECHO_CONFIG);
+  fs.writeFileSync(path.join(homeDir, "custom-config.yaml"), ECHO_CONFIG);
 
   const output = runScript(
     "run-eval.mjs",
     [queuePath, "--case", "recall_eval.reject_missing_medium", "--live"],
-    { env: { ...env, RECALL_PROVIDER_CONFIG: "~/custom-matrix.yaml" }, cwd: sandboxCwd },
+    { env: { ...env, RECALL_PROVIDER_CONFIG: "~/custom-config.yaml" }, cwd: sandboxCwd },
   );
 
   assert.match(output, /Case Results/);
@@ -406,9 +406,9 @@ test("run-eval rejects mixing --live with direct answer input", () => {
 // 场景：--live 下对整个队列现场执行。预期：echo 回显 SKILL.md，两个用例产出报告。
 test("run-eval scores a whole live queue with echo provider", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-whole-"));
-  const matrixPath = path.join(tempDir, ".recall-replay.env.yaml");
+  const configPath = path.join(tempDir, ".recall-replay.env.yaml");
   fs.writeFileSync(
-    matrixPath,
+    configPath,
     [
       "version: 2",
       "providers:",
@@ -423,7 +423,7 @@ test("run-eval scores a whole live queue with echo provider", () => {
     ["skills-def/recall-eval/.recall/queue.yaml", "--live"],
     {
       env: {
-        RECALL_PROVIDER_CONFIG: matrixPath,
+        RECALL_PROVIDER_CONFIG: configPath,
       },
     },
   );
@@ -435,9 +435,9 @@ test("run-eval scores a whole live queue with echo provider", () => {
 // 场景：--live 下批量评测多个队列目标。预期：产出批量报告。
 test("run-eval batches multiple queue targets in live mode with echo provider", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "recall-live-batch-"));
-  const matrixPath = path.join(tempDir, ".recall-replay.env.yaml");
+  const configPath = path.join(tempDir, ".recall-replay.env.yaml");
   fs.writeFileSync(
-    matrixPath,
+    configPath,
     [
       "version: 2",
       "providers:",
@@ -452,7 +452,7 @@ test("run-eval batches multiple queue targets in live mode with echo provider", 
     ["skills-def/recall-eval/.recall/queue.yaml", ".recall/queue.yaml", "--live"],
     {
       env: {
-        RECALL_PROVIDER_CONFIG: matrixPath,
+        RECALL_PROVIDER_CONFIG: configPath,
       },
     },
   );

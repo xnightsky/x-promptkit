@@ -30,14 +30,14 @@ test("recall-eval live replay with real queue", async (t) => {
     return
   }
 
-  const { matrix } = loaded
-  const { ok, errors } = validateProviderConfig(matrix)
-  assert.ok(ok, `invalid provider matrix: ${errors.join("; ")}`)
+  const { config } = loaded
+  const { ok, errors } = validateProviderConfig(config)
+  assert.ok(ok, `invalid provider config: ${errors.join("; ")}`)
 
   // 2. 解析 provider targets
   let targets
   try {
-    targets = resolveProviders(matrix, cliOpts)
+    targets = resolveProviders(config, cliOpts)
   } catch (error) {
     t.skip(error.message)
     return

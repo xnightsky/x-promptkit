@@ -20,11 +20,11 @@ import {
 import { callModel } from "./_shared/model-runner.mjs"
 import { expandHomePath } from "./_shared/model-client.mjs"
 
-// 本脚本(replay-engine.mjs)所在目录即「skill 运行时目录」。发现矩阵文件时会把它
+// 本脚本(replay-engine.mjs)所在目录即「skill 运行时目录」。发现provider config 文件时会把它
 // 当作候选目录之一，从而支持把 .recall-replay.env.yaml 放在技能安装目录旁边。
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 
-// 真实矩阵文件可放在多个位置(cwd / 仓库根 / skill 目录 / home 目录),发现时
+// 真实provider config 文件可放在多个位置(cwd / 仓库根 / skill 目录 / home 目录),发现时
 // 会在每个候选目录里按下列文件名顺序命中第一个存在的文件。
 export const PROVIDER_CONFIG_FILENAMES = Object.freeze([
 	".recall-replay.env.yaml",
@@ -72,7 +72,7 @@ export function findRepoRoot(startDir, options = {}) {
 	}
 }
 
-// 汇总发现 replay 矩阵文件的候选目录，按优先级排序:
+// 汇总发现 replay provider config 文件的候选目录，按优先级排序:
 //   1) 当前工作目录 cwd;
 //   2) 从 cwd 向上找到的仓库根(含 `.git` 的目录);
 //   3) skill 运行时目录(本脚本所在目录);
@@ -103,7 +103,7 @@ export function providerConfigSearchDirs(options = {}) {
 	return dirs
 }
 
-// 解析真实矩阵文件路径。优先级:
+// 解析真实provider config 文件路径。优先级:
 //   1) RECALL_PROVIDER_CONFIG 环境变量(显式指定，最高优先);
 //   2) 在 providerConfigSearchDirs() 的候选目录(cwd / 仓库根 / skill 目录 /
 //      home 目录)中，按 PROVIDER_CONFIG_FILENAMES 命中的第一个存在文件;
@@ -189,21 +189,21 @@ export function parseProviderConfig(text) {
 			max_tokens: p.maxTokens,
 		}
 	})
-	// v2: run.models → 内部 run.matrix
+	// v2: run.models → 内部 run.ids
 	// 支持 "provider" 或 "provider/model" 语法，指定非首 model
 	const runModels = rawRun.models
 	if (Array.isArray(runModels) && runModels.length > 0) {
-		const matrix = []
+		const ids = []
 		const modelOverrides = {}
 		for (const m of runModels) {
 			const slash = m.indexOf("/")
 			const pid = slash >= 0 ? m.slice(0, slash) : m
-			matrix.push(pid)
+			ids.push(pid)
 			if (slash >= 0) modelOverrides[pid] = m.slice(slash + 1)
 		}
-		rawRun = { matrix, _modelOverrides: Object.keys(modelOverrides).length > 0 ? modelOverrides : undefined }
+		rawRun = { ids, _modelOverrides: Object.keys(modelOverrides).length > 0 ? modelOverrides : undefined }
 	} else {
-		rawRun = { matrix: [] }
+		rawRun = { ids: [] }
 	}
 	// 过滤 undefined，避免覆盖 DEFAULT_DEFAULTS
 	const cleanDefaults = {}
@@ -257,29 +257,29 @@ export function loadProviderConfig(options = {}) {
 		path ??
 		discoverProviderConfigPath({ cwd, env, fileExists, skillDir, homeDir })
 	const text = fileReader(resolved)
-	return { path: resolved, matrix: parseProviderConfig(text) }
+	return { path: resolved, config: parseProviderConfig(text) }
 }
 
 // 结构化校验（v2 归一化后的内部格式）。返回 { ok, errors }。
-export function validateProviderConfig(matrix) {
+export function validateProviderConfig(config) {
 	const errors = []
-	if (!matrix || typeof matrix !== "object") {
+	if (!config || typeof config !== "object") {
 		return { ok: false, errors: ["config must be an object"] }
 	}
-	if (!SUPPORTED_MEMORY_MODES.includes(matrix.memory?.mode)) {
+	if (!SUPPORTED_MEMORY_MODES.includes(config.memory?.mode)) {
 		errors.push(
 			`memory.mode must be one of ${SUPPORTED_MEMORY_MODES.join(", ")}`,
 		)
 	}
-	if (matrix.context_policy?.id !== DEFAULT_CLEAN_CONTEXT_POLICY.id) {
+	if (config.context_policy?.id !== DEFAULT_CLEAN_CONTEXT_POLICY.id) {
 		errors.push(
 			`context_policy.id must equal "${DEFAULT_CLEAN_CONTEXT_POLICY.id}"`,
 		)
 	}
-	if (!Array.isArray(matrix.providers) || matrix.providers.length === 0) {
+	if (!Array.isArray(config.providers) || config.providers.length === 0) {
 		errors.push("providers must be a non-empty array")
 	}
-	for (const provider of matrix.providers ?? []) {
+	for (const provider of config.providers ?? []) {
 		const label = provider?.id ?? "(unknown)"
 		if (!provider?.id) {
 			errors.push(`provider ${label} is missing an id`)
@@ -302,20 +302,20 @@ export function validateProviderConfig(matrix) {
 
 // 选出「已启用且可达」的 provider。真实 provider 需要其 apikey(或 echo 的内联
 // key)存在，这正是 token 套件在没有任何凭据时能自动跳过的原因。
-// 如果 run.matrix 非空，仅考虑其中列出的 provider id（否则所有 enabled 都参选）。
-export function selectEnabledProviders(matrix, options = {}) {
-	const { env = process.env, skipMatrix = false } = options
-	const providers = Array.isArray(matrix?.providers) ? matrix.providers : []
-	// run.matrix 非空时只考虑声明的 id；为空/未设置时所有 enabled 都参选
-	// skipMatrix=true 时跳过此限制（--provider 覆盖场景）
-	const runMatrix = !skipMatrix && Array.isArray(matrix?.run?.matrix) && matrix.run.matrix.length > 0
-		? new Set(matrix.run.matrix)
+// 如果 run.ids 非空，仅考虑其中列出的 provider id（否则所有 enabled 都参选）。
+export function selectEnabledProviders(config, options = {}) {
+	const { env = process.env, skipRunFilter = false } = options
+	const providers = Array.isArray(config?.providers) ? config.providers : []
+	// run.ids 非空时只考虑声明的 id；为空/未设置时所有 enabled 都参选
+	// skipRunFilter=true 时跳过此限制（--provider 覆盖场景）
+	const runFilter = !skipRunFilter && Array.isArray(config?.run?.ids) && config.run.ids.length > 0
+		? new Set(config.run.ids)
 		: null
 	return providers.filter((provider) => {
 		if (provider?.enabled === false) {
 			return false
 		}
-		if (runMatrix && !runMatrix.has(provider.id)) {
+		if (runFilter && !runFilter.has(provider.id)) {
 			return false
 		}
 		if (provider?.api === "echo") {
@@ -386,7 +386,7 @@ export function resolveProviderKey(provider, env = process.env) {
 // 调用方用完直接丢弃引用即可(无需清理)。
 export function assembleEphemeralAgent(options = {}) {
 	const {
-		matrix,
+		config,
 		provider,
 		env = process.env,
 		fetchImpl = globalThis.fetch,
@@ -396,7 +396,7 @@ export function assembleEphemeralAgent(options = {}) {
 	}
 	const policy = {
 		...DEFAULT_CLEAN_CONTEXT_POLICY,
-		...(matrix?.context_policy ?? {}),
+		...(config?.context_policy ?? {}),
 	}
 	// callModel 只认 provider.apikey，这里把 apikey/key_env 物化为实际值
 	// 同时透传 headers（伪装头等）给 model-runner
@@ -409,7 +409,7 @@ export function assembleEphemeralAgent(options = {}) {
 		id: `recall-replay:${provider.id}`,
 		carrier: "direct",
 		policy,
-		memoryMode: matrix?.memory?.mode ?? "in-process",
+		memoryMode: config?.memory?.mode ?? "in-process",
 		provider: provider.id,
 		async run(caseReport) {
 			const messages = buildReplayMessages(caseReport, { policy })
@@ -456,13 +456,13 @@ export function buildReplayQueueFixture() {
 	}
 }
 
-// 一站式加载已启用的 provider：发现矩阵文件 → 解析 → 筛选 → 解析 apiKey。
+// 一站式加载已启用的 provider：发现provider config 文件 → 解析 → 筛选 → 解析 apiKey。
 // 返回可直接传给 callModel / createClient 的 provider 对象数组。
 // 失败时抛出明确错误，调用方自行决定是否 skip。
 export function loadEnabledProviders(options = {}) {
 	const { env = process.env } = options
-	const { matrix } = loadProviderConfig(options)
-	const enabled = selectEnabledProviders(matrix, options)
+	const { config } = loadProviderConfig(options)
+	const enabled = selectEnabledProviders(config, options)
 	return enabled.map((p) => ({
 		...p,
 		apikey: resolveProviderKey(p, env),

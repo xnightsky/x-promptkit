@@ -1,4 +1,4 @@
-// synced from skills-def/_shared/model-client.mjs @ e762e40+uncommitted
+// synced from skills-def/_shared/model-client.mjs @ f7bd90d+uncommitted
 // DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/model-client.mjs
 //
@@ -8,7 +8,7 @@
 // 使用方式：
 //   import { loadProviders, createClient } from "./model-client.mjs";
 //
-//   // 方式 A：从矩阵文件自动发现 provider
+//   // 方式 A：从provider config 文件自动发现 provider
 //   const client = createClient({ promptConfig: { /* ... */ } });
 //   const { ok, answer } = await client.ask("问题文本");
 //
@@ -77,7 +77,7 @@ export function findRepoRoot(startDir, fileExists = (t) => existsSync(t)) {
 // ── Provider 加载 ──
 
 /**
- * 按优先级发现矩阵文件（RECALL_PROVIDER_CONFIG 环境变量 >
+ * 按优先级发现provider config 文件（RECALL_PROVIDER_CONFIG 环境变量 >
  * cwd > repo root > skill dir > home），用 yaml 库解析，
  * 返回 active / skipped provider 列表。
  */
@@ -91,32 +91,32 @@ export function loadProviders(options = {}) {
     fileReader = (t) => readFileSync(t, "utf8"),
   } = options;
 
-  // 发现矩阵文件;override 先做 `~` 展开,否则 Windows 上指向不存在的字面目录
+  // 发现provider config 文件;override 先做 `~` 展开,否则 Windows 上指向不存在的字面目录
   const override = expandHomePath(env.RECALL_PROVIDER_CONFIG, homeDir);
   const candidates = [cwd, findRepoRoot(cwd, fileExists), skillDir, homeDir];
   const seen = new Set();
-  let matrixPath = null;
+  let configPath = null;
 
   if (override && fileExists(override)) {
-    matrixPath = override;
+    configPath = override;
   } else {
     for (const dir of candidates) {
       if (!dir || seen.has(dir)) continue;
       seen.add(dir);
       for (const name of PROVIDER_CONFIG_FILENAMES) {
         const p = join(dir, name);
-        if (fileExists(p)) { matrixPath = p; break; }
+        if (fileExists(p)) { configPath = p; break; }
       }
-      if (matrixPath) break;
+      if (configPath) break;
     }
   }
 
-  if (!matrixPath) return { active: [], skipped: [], noEnvFile: true };
+  if (!configPath) return { active: [], skipped: [], noEnvFile: true };
 
   // 用 yaml 库解析标准 YAML 格式
   let cfg;
   try {
-    cfg = parseYaml(fileReader(matrixPath));
+    cfg = parseYaml(fileReader(configPath));
   } catch {
     return { active: [], skipped: [], noEnvFile: false, parseError: true };
   }
@@ -159,7 +159,7 @@ export function loadProviders(options = {}) {
   })
 
   const runModels = cfg.run?.models
-  const matrix = Array.isArray(runModels) && runModels.length > 0
+  const ids = Array.isArray(runModels) && runModels.length > 0
     ? runModels
     : rawProviders.filter(p => p.enabled !== false).map(p => p.id).filter(Boolean)
 
@@ -171,7 +171,7 @@ export function loadProviders(options = {}) {
   const active = [];
   const skipped = [];
 
-  for (const name of matrix) {
+  for (const name of ids) {
     const p = providerMap[name];
     if (!p) { skipped.push({ name, reason: "config 引用了未定义的 provider" }); continue; }
 
@@ -208,7 +208,7 @@ export function loadProviders(options = {}) {
 // ── Client 工厂 ──
 
 /**
- * 创建一个模型客户端。若未显式传入 provider，则从矩阵文件自动发现。
+ * 创建一个模型客户端。若未显式传入 provider，则从provider config 文件自动发现。
  *
  * @param {object} [options]
  * @param {object} [options.provider]    - 显式指定的 provider（跳过自动发现）
