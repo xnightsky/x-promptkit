@@ -27,7 +27,6 @@
 //   │   · must 全中 + should 不全 → 1 分                                 │
 //   │   · 否定前缀检测：避免把"不能继续执行"误判为命中"继续执行"         │
 //   ├─ carrier 解析层 ──────────────────────────────────────────────────┤
-//   │ resolveEffectiveCarrier                                             │
 //   │   · CLI --carrier > case.carrier，均无则返回 null                   │
 //   └─ 输出格式化层 ────────────────────────────────────────────────────┘
 //     formatValidationReport / formatRunEvalOutput / formatBatchRunEvalOutput
@@ -47,7 +46,6 @@ import { loadSchemaFile, validateAgainstSchema } from "../../_shared/schema-vali
 // ── Carrier 与 clean-context 策略常量 ──
 
 // 唯一支持的 recall 执行载体标识。
-export const SUBAGENT_CARRIER = "isolated-context-run:subagent";
 
 // 固定 clean-context 策略：live recall 必须以「仅凭记忆、无工具、无搜索、
 // 无仓库读取」的方式作答，Object.freeze 保证运行时不可篡改。
@@ -314,21 +312,6 @@ export function formatValidationReport(yamlPath, report) {
   return lines.join("\n");
 }
 
-// ── Carrier 解析 ──
-
-// 解析最终生效的 carrier：CLI 覆盖优先于队列/用例自带的 carrier。
-export function resolveEffectiveCarrier(caseReport, cliCarrier) {
-  if (isNonEmptyString(cliCarrier)) {
-    return cliCarrier;
-  }
-
-  if (isNonEmptyString(caseReport?.caseValue?.carrier)) {
-    return caseReport.caseValue.carrier;
-  }
-
-  return null;
-}
-
 // ── 打分引擎 ──
 
 // 将输入文本转为小写，用于大小写不敏感匹配。
@@ -507,7 +490,7 @@ export function readAnswersFile(filePath) {
 // 说明:已移除原 "run artifact" 行,因为不再有本地落盘产物。
 export function formatRunEvalOutput({
   yamlPath,
-  carrierLabel,
+  modelLabel,
   integrityItems,
   caseItems,
   summary,
@@ -516,22 +499,18 @@ export function formatRunEvalOutput({
   lines.push("1. Queue");
   lines.push(`- \`${yamlPath}\``);
   lines.push("");
-  lines.push("2. Carrier");
-  lines.push(`- ${carrierLabel}`);
-  lines.push("");
-  lines.push("3. Integrity Check");
+  lines.push("2. Integrity Check");
   for (const item of integrityItems) {
     lines.push(`- \`${item.id}\`: ${item.status} | ${item.reason}`);
   }
   lines.push("");
-  lines.push("4. Case Results");
+  lines.push("3. Case Results");
   for (const item of caseItems) {
     lines.push(`- \`${item.id}\`: ${item.result}`);
   }
   lines.push("");
-  lines.push("5. Summary");
+  lines.push("4. Summary");
   lines.push(`- directly evaluable: ${summary.directlyEvaluable}`);
-  lines.push(`- refused for missing carrier: ${summary.refusedForMissingCarrier}`);
   lines.push(`- queue fixes required: ${summary.queueFixesRequired}`);
   lines.push(`- runtime failures: ${summary.runtimeFailures ?? "none"}`);
   return lines.join("\n");
@@ -549,7 +528,7 @@ export function formatBatchRunEvalOutput({ mode, targets }) {
 
   for (const target of targets) {
     lines.push(
-      `- \`${target.yamlPath}\`: directly evaluable=${target.summary.directlyEvaluable}; refused for missing carrier=${target.summary.refusedForMissingCarrier}; queue fixes required=${target.summary.queueFixesRequired}; runtime failures=${target.summary.runtimeFailures ?? "none"}`,
+      `- \`${target.yamlPath}\`: directly evaluable=${target.summary.directlyEvaluable}; queue fixes required=${target.summary.queueFixesRequired}; runtime failures=${target.summary.runtimeFailures ?? "none"}`,
     );
   }
 

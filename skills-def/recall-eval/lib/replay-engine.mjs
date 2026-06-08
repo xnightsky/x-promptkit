@@ -15,7 +15,6 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { parse as parseYaml } from "yaml"
 import {
-	SUBAGENT_CARRIER,
 	DEFAULT_CLEAN_CONTEXT_POLICY,
 } from "./lib.mjs"
 import { callModel } from "../../_shared/model-runner.mjs"
@@ -408,7 +407,7 @@ export function assembleEphemeralAgent(options = {}) {
 	}
 	return {
 		id: `recall-replay:${provider.id}`,
-		carrier: SUBAGENT_CARRIER,
+		carrier: "direct",
 		policy,
 		memoryMode: matrix?.memory?.mode ?? "in-process",
 		provider: provider.id,
@@ -441,7 +440,7 @@ export function buildReplayQueueFixture() {
 				memory:
 					"The staging gateway listens on port 8443 and serves TLS traffic.",
 				medium: "text",
-				carrier: SUBAGENT_CARRIER,
+				carrier: "direct",
 				expected: {
 					must_include: ["8443"],
 					should_include: ["TLS"],

@@ -6,7 +6,6 @@
 
 #### 背景
 
-- 仓库里的 repo `skills-def/` 可能会被挂载到子载体视图里，例如 `isolated-context-run:subagent`、`isolated-context-run:codex`。
 - 这意味着子载体不只是执行一个局部任务，还可能“看到”其他 repo skills。
 - 风险点不在于“能不能看到”，而在于：
   - 本该由 main / 父层决定的 runner 选择、fallback 决策、验证推导、上下文解释，是否被子载体提前感知并接管。
@@ -15,13 +14,11 @@
 #### 已有收口
 
 - `integration-tests/README.md` 已经规定：`subagent.md` 只放发给执行 agent 的输入与执行约束。
-- `integration-tests/isolated-context-run-subagent/README.md`、`integration-tests/isolated-context-run-codex/README.md`、`integration-tests/claude-p-watch/README.md` 已同步这条规则。
 - 主代理专用的验证理由、watch 次数换算、维护者侧推导、验收计算规则，应放在 `main-agent-assert.md`，通常写在 `## Assert Notes`。
 
 #### 给新 session 的提示词
 
 ```text
-请检查这个仓库里 repo `skills-def/` 被挂载到子载体（例如 `isolated-context-run:subagent`、`isolated-context-run:codex`）后的“主代理决策被子载体提前接管 / 剧透”的风险。
 
 目标：
 1. 找出当前有哪些路径会把 repo skills 暴露给子载体。
@@ -33,9 +30,6 @@
 要求：
 - 先做代码和文档层面的事实排查，再改。
 - 重点看：
-  - `skills-def/isolated-context-run-subagent/`
-  - `skills-def/isolated-context-run-codex/`
-  - `skills-def/isolated-context-run-codex/scripts/skill-loading.mjs`
   - `integration-tests/`
 - 特别关注：
   - `skill_entries` / repo skill bundle 挂载
@@ -69,9 +63,6 @@
 
 ### 这份 TODO 要保留的架构落点
 
-- `isolated-context-run`：保留为父层 frontdoor skill。
-- `isolated-context-run:subagent`：保留为独立子层，负责当前会话内原生 subagent 路径。
-- `isolated-context-run:codex`：重新评估为 Codex 真实宿主执行、trace 采集与宿主级验证的前置必要子层。
 - `claude`、`opencode`：当前仍停留在父层内部最小 adapter，暂不预建完整子 skill。
 - `recall-eval`：保留为 `recall-queue-policy` / evaluator contract。
 - `recall-evaluator`：承接 `run / score / report / live / batch / persistence` 的脚本、CLI 与 harness 运行层。
@@ -83,10 +74,6 @@
   - 重点看第 3 节“现有工具版图”、第 5 节“Capability Dev Kit”、第 8 节“建议的实施顺序”、第 9 节“最终判断”。
   - 核心判断：当前缺的不是单一“大框架”，而是围绕 `Artifact + Injection Adapter + Eval Harness + Sandbox Harness` 的最小 Capability Dev Kit。
 - 本仓库当前契约与运行入口：
-  - `skills-def/isolated-context-run/SKILL.md`
-  - `skills-def/isolated-context-run/EXAMPLES.md`
-  - `skills-def/isolated-context-run-subagent/SKILL.md`
-  - `skills-def/isolated-context-run-subagent/EXAMPLES.md`
   - `skills-def/recall-eval/SKILL.md`
   - `skills-def/recall-eval/EXAMPLES.md`
   - `skills-def/recall-evaluator/README.md`
@@ -128,7 +115,6 @@
 
 ## P0 架构定向与边界
 
-### isolated-context-run
 
 - [x] 统一输出协议，解决“固定 5 段”与 `self-cli` 场景额外 `Minimal Template` 的冲突。
   done when: `SKILL.md` 与 `EXAMPLES.md` 都明确采用“5 个核心段落 + 可选扩展块”；`Execution Template`、`Install Guidance`、`Failure Detail` 只作为扩展块出现，不再被写成固定第 6 段。
@@ -138,20 +124,14 @@
   done when: 至少有对应 fixture 或自测 case 覆盖这 3 类规则，且规则名称与文档描述一一对应。
   depends on: 统一输出协议
 
-- [x] 明确 `isolated-context-run` 的父层职责与统一结果骨架。
-  done when: `isolated-context-run` 被固定为 frontdoor skill；父层只负责默认优先级、override 解释、carrier 选择与路由、统一输出；不承载具体 carrier 执行细节；父层与子层复用同一结果骨架。
   depends on: 统一输出协议
 
-- [x] 落地 `isolated-context-run:subagent` 的第一阶段独立子层边界。
   done when: `subagent` 子层只负责 probe、execution、subagent 特有错误分类、结果归一化；且第一阶段唯一允许独立出去的 carrier 是 `subagent`。
   depends on: 父层职责与统一结果骨架
 
-- [x] 将 `codex` 从父层内部最小 adapter 重新评估为前置必要子层 `isolated-context-run:codex`。
   done when: `codex` 子层独立承接 Codex 宿主下的 probe、execution、failure taxonomy、trace 采集与结果归一化；父层不再只以 `self-cli -> codex exec` 或 `mode=codex-exec` 的最小映射承载这条真实宿主路径。
   depends on: 父层职责与统一结果骨架
 
-- [x] 固定 `isolated-context-run:codex` 的专项设计文档集合。
-  done when: 至少存在并互相引用 `docs/isolated-context-run-codex/clean-room-design.md`、`docs/isolated-context-run-codex/structured-init-design.md`、`docs/isolated-context-run-codex/exec-v0-contract.md`、`docs/isolated-context-run-codex/probe-run-exec-contract.md`、`docs/isolated-context-run-codex/failure-taxonomy.md`、`docs/isolated-context-run-codex/test-plan.md`；主文档保持总览角色，不再回流实现细节。
   depends on: `codex` 重新评估为前置必要子层
 
 - [x] 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约。
@@ -167,7 +147,6 @@
   depends on: 按方案 A 固定 `probe.mjs` / `run-exec.mjs` 的脚本契约；固定 `failure.kind/reason` 的 v0 判定表
 
 - [x] 增加 `workspace-link` 默认链与正式真实测试门槛。
-  done when: `clean-room` 默认优先走 `workspace-link`，失败时仅在隐式默认链下回退到 `git-worktree`；显式 `workspace-link` 请求不允许静默降级；至少有 2 条阻塞真实测试分别覆盖 `tmp HOME + workspace-link` 的真实 Codex 运行，以及挂载完整 `isolated-context-run` skill 视图后的真实运行。
   depends on: 固定 `probe.mjs` / `run-exec.mjs` 的测试分层
 
 - [x] 保留 `claude`、`opencode` 为父层内部最小 adapter。
@@ -198,11 +177,9 @@
 
 - [x] 写清当前阶段的两条非目标：不为每个 carrier 预建完整子 skill；不让 `recall-eval` 直接承担 live runtime、状态持久化、批量调度与外部接口职责。
   done when: `TODO.md`、相关 skill 文档和脚本说明统一使用“skill = artifact/frontdoor，adapter/carrier/harness = runtime”的表述，不再把 skill 写成完整运行体。
-  depends on: `isolated-context-run` 父层职责；`recall-eval` 两层拆分
 
 ## P1 契约、fixture 与真实样本
 
-### isolated-context-run
 
 - [ ] 补一张 `codex`、`claude`、`opencode` 的官方安装入口简表。
   done when: 文档里能直接看到 3 个宿主 CLI 的安装入口，不需要再从示例反推。
@@ -236,7 +213,6 @@
   done when: 仓库根存在与 `AGENTS.md` 配套的真实 recall queue，且路径布局与 skill 目录旁 queue 约定一致。
   depends on: 明确默认 queue fallback 策略
 
-- [ ] 除 `isolated-context-run` 外，至少给一个非平凡 skill 补一份真实 `.recall/queue.yaml`。
   done when: 至少 1 个非平凡 skill 有真实 queue，并能覆盖不止一个简单顺序问答边界。
   depends on: 明确默认 queue fallback 策略
 
@@ -244,9 +220,6 @@
 
 ### carrier adapter
 
-- [x] 在 carrier adapter 层补 `isolated-context-run:subagent` 的 host-injected 调用桥原型。
-  done when: `recall-evaluator` 可通过 adapter 层接入 `isolated-context-run:subagent`，支持请求模板、失败归类、命令桥接与响应归一化；调用桥职责停留在 adapter 层，不回流到父层 skill。
-  depends on: `isolated-context-run:subagent` 第一阶段独立子层边界；`recall-eval` 两层拆分
 
 ### integration
 
@@ -258,7 +231,6 @@
   done when: 至少 1 条集成测试覆盖 carrier 存在但执行失败的上报路径，且失败归因落在 adapter / harness 层而不是 skill 契约层。
   depends on: 环境失败样例；真实 runner integration-tests 接入
 
-- [x] 为 `isolated-context-run:codex` 增加 `unit / cli / harness` 三层测试。
   done when: 至少有 `tests/codex-runner.lib.test.mjs`、`tests/codex-runner.probe.test.mjs`、`tests/codex-runner.run-exec.test.mjs`、`integration-tests/codex-runner.harness.test.mjs`；并覆盖 fake `codex` 的 `probe_ok`、`probe_missing`、`run_ok`、`run_auth_failed`、`run_bad_jsonl` 五种最小行为集。
   depends on: 固定 `probe.mjs` / `run-exec.mjs` 的测试分层
 
@@ -269,8 +241,6 @@
 ### real host validation
 
 - [x] 建立以 Codex 为主的 `recall-eval` 真实宿主验证。
-  done when: 真实 Codex 宿主在原生加载 `skills-def/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `skills-def/recall-evaluator/scripts/*.mjs` 伪装为真实宿主通过。
-  depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner integration-tests 接入
 
 - [x] 将 `npm run test:recall-real` 固定为 `recall-eval` reopen 的显式真实宿主阻塞入口。
   done when: `test:recall-real` 直接执行 `integration-tests/recall-eval/real-host.trigger.test.mjs`，不静默跳过；`recall-eval` 重新开放前必须与 `test:codex-real` 一起通过。
@@ -282,7 +252,6 @@
 
 - [x] 为 `recall-evaluator` CLI / harness 增加 live 模式，让它能通过已解析的 carrier 获取模型真实回答，而不是只对预先提供的答案打分。
   done when: live 执行入口能区分“打分已有答案”和“获取真实回答后再打分”两种模式，且运行责任归属 `recall-evaluator` 而不是 `recall-eval` skill。
-  depends on: P0 全部完成；`isolated-context-run:subagent` 调用桥；真实 runner integration-tests 接入
 
 - [x] 定义一份稳定的 recall request contract，包含 `source_ref`、case `question`、carrier 约束，以及“只能依据目标提示词回答”的指令。
   done when: live request 已固定为共享 JSON contract，至少包含 `source_ref`、`question`、`carrier`、`case_id`、`medium`；文档、测试、命令桥与 harness 输入统一复用这一份契约，不回退为当前会话本地执行。

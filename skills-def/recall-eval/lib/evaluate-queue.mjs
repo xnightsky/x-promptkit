@@ -30,7 +30,7 @@ import { runRecallAgent, runSkillTriggerAgent } from "./model-agent.mjs";
  * @param {string} [opts.answer=null]                  - 直接答案文本
  * @param {string} [opts.answerFile=null]              - 答案文件路径
  * @param {string} [opts.answersFile=null]             - JSON 批量答案文件
- * @returns {Promise<{yamlPath, carrierLabel, integrityItems, caseItems, summary, reportText}>}
+ * @returns {Promise<{yamlPath, modelLabel, integrityItems, caseItems, summary, reportText}>}
  */
 export async function evaluateQueueTarget(yamlPath, opts = {}) {
   const {
@@ -147,7 +147,7 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
     directlyEvaluable.push(`\`${caseReport.id}\``);
   }
 
-  const carrierLabel = liveMode && provider
+  const modelLabel = liveMode && provider
     ? `\`${provider.name ?? provider.id}(${provider.model})\``
     : "`direct-answer`";
 
@@ -160,7 +160,7 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
 
   const reportText = formatRunEvalOutput({
     yamlPath: inputPath,
-    carrierLabel,
+    modelLabel,
     integrityItems,
     caseItems,
     summary,
@@ -169,7 +169,7 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
   return {
     yamlPath: inputPath,
     summary,
-    carrierLabel,
+    modelLabel,
     integrityItems,
     caseItems,
     reportText,

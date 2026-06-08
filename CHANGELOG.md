@@ -2,6 +2,35 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.6.0
+
+provider 矩阵 v2、skill-trigger 模式、carrier 下线。
+
+### Added
+
+- provider 矩阵 v2 格式：map + camelCase，对齐 pi models.json 结构。
+- model-runner headers 透传（伪装 UA、注入 beta flag），字段 key 统一为 apiKey。
+- 共享 CLI 模块（--provider --model --verbose --help）。
+- run.models 支持 `provider/model` 语法，多 model provider 歧义拒绝。
+- skill-trigger 模式：白名单 shell agent，模型自主选择并执行命令。
+- scoreTriggerCase：trigger.must_run/must_not_run + 输出双轨评分。
+- available_skills 目录 + SKILL.md frontmatter 自动解析 name/description。
+- v1→v2 迁移脚本。
+
+### Changed
+
+- `skills-def/recall-eval/scripts/` 拆分为 `lib/`（库模块）+ `scripts/`（CLI 入口）。
+- evaluateQueueTarget 导出，接受 provider 参数，return 结构化结果。
+- 集成测试 import evaluateQueueTarget，跑真实 .recall/queue.yaml 全链路。
+- prompt-context 发现池支持 {name, desc, path} 对象。
+- queue.yaml reject_missing_medium must_include 简化为 [medium]。
+
+### Removed
+
+- `isolated-context-run:subagent` carrier 机制全量下线。
+- `skills-def/isolated-context-run-subagent/` 与 `integration-tests/isolated-context-run-subagent/`。
+- 队列 schema 中 carrier 不再为必填字段，报告不再输出 Carrier 节。
+
 ## v0.5.0
 
 `skills/` → `skills-def/` 目录重命名。

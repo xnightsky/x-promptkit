@@ -24,7 +24,6 @@ cases:
     # 子串打分下的正确写法：在问题里钉死作答词表，避免「不会加载/不加载」措辞漂移
     question: 召回队列的 context 块缺省时，repo 层与 global 层是否加载？请用「加载」或「不加载」作答并简要说明。
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - 不加载
@@ -39,7 +38,6 @@ cases:
   - id: context_layers.case_override_disables_repo
     question: 用例级 context 覆盖队列级时是整块覆盖还是深合并？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     # 用例级整块覆盖：本用例显式关掉 repo 层
     context:
       repo:

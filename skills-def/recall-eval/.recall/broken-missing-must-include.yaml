@@ -9,7 +9,6 @@ cases:
   - id: broken.missing_must_include
     question: expected.must_include 缺失时怎么处理？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       should_include:
         - 必须补齐 expected.must_include

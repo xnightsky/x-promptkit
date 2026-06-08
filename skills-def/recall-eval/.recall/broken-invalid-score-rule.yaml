@@ -9,7 +9,6 @@ cases:
   - id: broken.invalid_score_rule
     question: score_rule 结构非法时怎么处理？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - score_rule

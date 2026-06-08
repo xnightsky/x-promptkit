@@ -8,7 +8,6 @@ scoring:
 cases:
   - id: broken.missing_medium
     question: queue 缺少 medium 时怎么处理？
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - 拒绝执行

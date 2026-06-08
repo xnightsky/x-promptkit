@@ -6,13 +6,12 @@ scoring:
   "0": 回答错误、臆答、遗漏关键限制或答非所问
 cases:
   - id: override-by-case
-    source_ref: skills-def/isolated-context-run/SKILL.md#default-priority
-    question: isolated-context-run 的默认优先级是什么？
+    source_ref: skills-def/recall-eval/SKILL.md#default-priority
+    question: recall-eval 的默认优先级是什么？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
-        - subagent -> self-cli
+        - default priority
     score_rule:
       full: 明确答出默认优先级
       partial: 只答其中一部分

@@ -20,7 +20,6 @@ Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, c
 - Let each queue or case declare explicitly whether the repo prompt and the global prompt are loaded (`context` block)
 - Detect queue-definition gaps, especially missing `medium` or missing `carrier`
 - Require recall to be bound to an explicit carrier before evaluator runtime can execute
-- Recommend `isolated-context-run:subagent` as the normal default carrier value at the caller layer
 - Refuse execution when no carrier can be resolved
 - Define the fixed live recall clean-context policy
 - Point callers to the official minimal runner and its artifacts
@@ -240,14 +239,12 @@ Do not compare scores from two live runs unless they used the same clean-context
 
 Default carrier:
 
-- `isolated-context-run:subagent`
 
 Rules:
 
 - Treat the default carrier as the recommended binding supplied by the caller layer, not as an implicit local fallback inside `recall-eval`.
 - If the caller explicitly sets another carrier, that override wins.
 - If the queue sets a carrier and the caller does not, use the queue value.
-- If neither the caller nor the queue provides a carrier, refuse execution and recommend `isolated-context-run:subagent`.
 - If a provided carrier is unavailable in the environment, report carrier resolution failure instead of silently downgrading to the current session.
 - Do not treat this skill as the live execution layer; carrier execution belongs to the evaluator runtime or adapter layer.
 

@@ -46,7 +46,6 @@
 
 ### 1. 需要隔离执行
 
-先从 [`skills-def/isolated-context-run-subagent/SKILL.md`](./skills-def/isolated-context-run-subagent/SKILL.md) 开始。
 
 这个 skill 只在当前宿主原生支持 subagent 时使用：
 

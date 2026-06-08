@@ -44,12 +44,10 @@
 适用场景：
 
 - 修改 `ai-run` skill 的后端选择逻辑、命令模板或输出骨架
-- 修改 `isolated-context-run-subagent` 的提示词契约
 
 当前目录：
 
 - `integration-tests/ai-run/`
-- `integration-tests/isolated-context-run-subagent/`
 
 执行协议：
 
@@ -72,7 +70,6 @@
 详细协议见：
 
 - [ai-run/README.md](./ai-run/README.md)
-- [isolated-context-run-subagent/README.md](./isolated-context-run-subagent/README.md)
 
 ### 3. YAML orchestration / fixture 集成测试
 
@@ -98,8 +95,6 @@
 
 - 修改 `ai-run` skill：
   先跑集成测试 Markdown case（`integration-tests/ai-run/`），验证后端选择与命令骨架
-- 修改 `isolated-context-run-subagent`：
-  跑 `integration-tests/isolated-context-run-subagent/` 下的 Markdown case
 - 修改 recall orchestration / queue / fixture：
   先跑 `npm run check:fixtures`，再按需要跑 recall 相关测试
 - 需要完整仓库交付校验：

@@ -8,7 +8,6 @@ cases:
   - id: broken.missing_source_ref
     question: queue 缺少 source_ref 时怎么处理？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - source_ref

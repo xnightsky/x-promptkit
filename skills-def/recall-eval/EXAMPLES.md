@@ -38,7 +38,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `skills-def/recall-eval/.recall/queue.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `case-01`: pass | required fields present
@@ -85,7 +84,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `skills-def/recall-eval/examples/queue.example.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `recall_eval.reject_missing_medium`: pass | compatible recall schema
@@ -131,13 +129,11 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `skills-def/recall-eval/.recall/queue-with-case-source-override.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `override-by-case`: pass | effective source_ref resolved from case override
 
 4. Case Results
-- `override-by-case`: score=2 | target resolved to `skills-def/isolated-context-run/SKILL.md#default-priority`
 
 5. Summary
 - directly evaluable: `override-by-case`
@@ -176,7 +172,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `<memory-target>/.recall/queue.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `case-02`: fail | missing `medium`
@@ -213,7 +208,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 
 - 明确 carrier 解析顺序
 - 无法解析 carrier 时直接拒绝
-- 返回推荐默认值 `isolated-context-run:subagent`
 
 标准输出样例：
 
@@ -233,7 +227,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 5. Summary
 - directly evaluable: none
 - refused for missing carrier: `case-03`
-- queue fixes required: add `carrier` or explicitly pass `isolated-context-run:subagent`
 ```
 
 反例：
@@ -268,7 +261,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `skills-def/recall-eval/.recall/queue.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `recall_eval.reject_missing_medium`: pass | required fields present
@@ -300,7 +292,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 最小上下文：
 
 - live 模式
-- `isolated-context-run:subagent` 或兼容 carrier
 
 期望产出：
 
@@ -315,7 +306,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `skills-def/recall-eval/.recall/queue.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `recall_eval.reject_missing_medium`: pass | required fields present
@@ -408,7 +398,6 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks th
 - `skills-def/recall-eval/.recall/queue.yaml`
 
 2. Carrier
-- `isolated-context-run:subagent`
 
 3. Integrity Check
 - `recall_eval.reject_missing_medium`: pass | required fields present

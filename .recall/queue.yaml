@@ -9,7 +9,6 @@ cases:
   - id: repo_agents.cn_and_canary
     question: 本仓库的回复语言和输出标记要求是什么？
     medium: global-memory
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - 简体中文

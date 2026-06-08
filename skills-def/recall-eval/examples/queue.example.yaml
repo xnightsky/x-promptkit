@@ -19,7 +19,6 @@ cases:
   - id: recall_eval.reject_missing_medium
     question: recall queue 缺少 medium 时，能否继续执行？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - 拒绝执行
@@ -40,7 +39,6 @@ cases:
   - id: recall_eval.trigger_validate_example
     question: 验证 skills-def/recall-eval/examples/queue.example.yaml 是否合法。请使用 recall-eval skill 来完成。
     medium: skill-trigger
-    carrier: isolated-context-run:subagent
     trigger:
       must_run:
         - "queue.example.yaml"

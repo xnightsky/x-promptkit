@@ -43,7 +43,7 @@ $defs:
       $ref: "#/$defs/non_empty_string"
   case:
     type: object
-    required: [id, question, medium, carrier, expected, score_rule, tags, source_scope]
+    required: [id, question, medium, expected, score_rule, tags, source_scope]
     properties:
       id: { $ref: "#/$defs/non_empty_string" }
       question: { $ref: "#/$defs/non_empty_string" }

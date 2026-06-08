@@ -12,7 +12,6 @@ import {
   formatBatchRunEvalOutput,
   formatRunEvalOutput,
   resolveRecallInputPath,
-  resolveEffectiveCarrier,
   scoreAnswer,
   validateRecallData,
 } from "../skills-def/recall-eval/lib/lib.mjs";
@@ -33,7 +32,6 @@ test("validateRecallData inherits queue-level source_ref when case-level overrid
         id: "case.inherit_source_ref",
         question: "queue-level source_ref 会被继承吗？",
         medium: "skill-mechanism",
-        carrier: "isolated-context-run:subagent",
         expected: {
           must_include: ["source_ref"],
         },
@@ -66,12 +64,11 @@ test("validateRecallData prefers case-level source_ref override", () => {
     cases: [
       {
         id: "case.override_source_ref",
-        source_ref: "skills-def/isolated-context-run/SKILL.md#default-priority",
         question: "默认优先级是什么？",
         medium: "skill-mechanism",
-        carrier: "isolated-context-run:subagent",
+        source_ref: "skills-def/recall-eval/SKILL.md#default-priority",
         expected: {
-          must_include: ["subagent -> self-cli"],
+          must_include: ["direct recall"],
         },
         score_rule: {
           full: "full",
@@ -86,25 +83,9 @@ test("validateRecallData prefers case-level source_ref override", () => {
 
   assert.equal(
     report.caseReports[0].effectiveSourceRef,
-    "skills-def/isolated-context-run/SKILL.md#default-priority",
+    "skills-def/recall-eval/SKILL.md#default-priority",
   );
   assert.equal(report.caseReports[0].errors.length, 0);
-});
-
-// 场景：解析生效 carrier。预期：CLI 覆盖优先于队列 carrier，二者皆无时为 null。
-test("resolveEffectiveCarrier applies cli override before queue carrier", () => {
-  const caseReport = {
-    caseValue: {
-      carrier: "isolated-context-run:subagent",
-    },
-  };
-
-  assert.equal(resolveEffectiveCarrier(caseReport, "custom-carrier"), "custom-carrier");
-  assert.equal(
-    resolveEffectiveCarrier(caseReport, null),
-    "isolated-context-run:subagent",
-  );
-  assert.equal(resolveEffectiveCarrier({ caseValue: {} }, null), null);
 });
 
 // 场景：仅命中 should_include。预期：score=1（部分），并列出缺失的 must 项。
@@ -156,7 +137,6 @@ test("scoreAnswer does not treat negated must_not_include text as an overreach h
 test("formatRunEvalOutput always includes the runtime failures summary line", () => {
   const output = formatRunEvalOutput({
     yamlPath: "skills-def/recall-eval/.recall/queue.yaml",
-    carrierLabel: "`isolated-context-run:subagent`",
     integrityItems: [
       {
         id: "case-01",
@@ -174,12 +154,12 @@ test("formatRunEvalOutput always includes the runtime failures summary line", ()
       directlyEvaluable: "`case-01`",
       refusedForMissingCarrier: "none",
       queueFixesRequired: "none",
-      runtimeFailures: "`case-02` carrier unavailable in current environment",
+      runtimeFailures: "`case-02` agent failed in current environment",
     },
   });
 
-  assert.match(output, /5\. Summary/);
-  assert.match(output, /runtime failures: `case-02` carrier unavailable in current environment/);
+  assert.match(output, /4\. Summary/);
+  assert.match(output, /runtime failures: `case-02` agent failed in current environment/);
   assert.doesNotMatch(output, /run artifact/);
 });
 
@@ -242,7 +222,6 @@ function makeValidCase(overrides = {}) {
     id: "case.context",
     question: "context 怎么生效？",
     medium: "skill-mechanism",
-    carrier: "isolated-context-run:subagent",
     expected: { must_include: ["context"] },
     score_rule: { full: "full", partial: "partial", fail: "fail" },
     tags: ["unit"],

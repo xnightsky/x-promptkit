@@ -9,7 +9,6 @@ cases:
   - id: recall_eval.reject_missing_medium
     question: recall queue 缺少 medium 时，能否继续执行？
     medium: skill-mechanism
-    carrier: isolated-context-run:subagent
     expected:
       must_include:
         - medium
@@ -24,23 +23,3 @@ cases:
       fail: 回答可以继续评测，或允许执行器自行补 medium
     tags: [selftest, redline]
     source_scope: SKILL.md#medium-rule
-  - id: recall_eval.reject_missing_carrier
-    question: recall queue 缺少 carrier 时，能否继续执行？
-    medium: skill-mechanism
-    carrier: isolated-context-run:subagent
-    expected:
-      must_include:
-        - 拒绝执行
-        - carrier
-      should_include:
-        - 推荐值
-        - isolated-context-run:subagent
-      must_not_include:
-        - 当前上下文
-        - 直接执行
-    score_rule:
-      full: 明确答出缺 carrier 时必须拒绝执行，并返回推荐默认值
-      partial: 只答字段缺失，但没有明确拒绝执行或推荐值
-      fail: 回答可以在当前上下文继续执行，或不需要 carrier
-    tags: [selftest, redline]
-    source_scope: SKILL.md#carrier-rule

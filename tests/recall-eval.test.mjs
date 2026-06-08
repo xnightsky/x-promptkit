@@ -86,20 +86,11 @@ test("validate-schema fails when medium is missing", () => {
   );
 });
 
-// 场景：用例缺少 carrier。预期：退出码 1 且报错 missing `carrier`。
-test("validate-schema fails when carrier is missing", () => {
-  assert.throws(
-    () =>
-      runScript("validate-schema.mjs", [
-        "skills-def/recall-eval/.recall/broken-missing-carrier.yaml",
-      ]),
-    (error) => {
-      assert.equal(error.status, 1);
-      assert.match(error.stdout, /missing `carrier`/);
-      return true;
-    },
-  );
-});
+test("validate-schema runs without carrier (no longer required)", () => {
+    const output = runScript("validate-schema.mjs", [
+      "skills-def/recall-eval/.recall/broken-missing-carrier.yaml",
+    ]);
+  });
 
 // 场景：缺少生效的 source_ref。预期：退出码 1 且报错 missing effective `source_ref`。
 test("validate-schema fails when effective source_ref is missing", () => {
@@ -201,7 +192,6 @@ test("resolve-target prints effective source_ref values", () => {
   ]);
 
   assert.match(output, /override-by-case/);
-  assert.match(output, /skills-def\/isolated-context-run\/SKILL.md#default-priority/);
 });
 
 // 场景：从目标目录发现队列并解析。预期：回显队列路径与队列级 source_ref。
@@ -220,8 +210,6 @@ test("run-eval evaluates an entire queue from an answers-file", () => {
     answersPath,
     JSON.stringify({
       "recall_eval.reject_missing_medium": "缺少 medium 时必须拒绝执行，需要先完善 queue。",
-      "recall_eval.reject_missing_carrier":
-        "缺少 carrier 时必须拒绝执行，并返回推荐值 isolated-context-run:subagent。",
     }),
   );
 
@@ -232,11 +220,7 @@ test("run-eval evaluates an entire queue from an answers-file", () => {
   ]);
 
   assert.match(output, /`recall_eval\.reject_missing_medium`: score=2/);
-  assert.match(output, /`recall_eval\.reject_missing_carrier`: score=2/);
-  assert.match(
-    output,
-    /directly evaluable: `recall_eval\.reject_missing_medium`, `recall_eval\.reject_missing_carrier`/,
-  );
+  assert.match(output, /directly evaluable: `recall_eval\.reject_missing_medium`/);
 });
 
 // 场景：从目标文件路径发现本地队列后打分。预期：回显队列并对用例 score=2。
@@ -261,7 +245,7 @@ test("run-eval discovers a target-local queue from a target file path", () => {
   assert.match(output, /`repo_agents\.cn_and_canary`: score=2/);
 });
 
-// 场景：完全正确的答案。预期：score=2，并输出 Queue/Carrier 区块。
+// 场景：完全正确的答案。预期：score=2，并输出 Queue 区块。
 test("run-eval scores a fully correct answer as 2", () => {
   const output = runScript("run-eval.mjs", [
     "skills-def/recall-eval/.recall/queue.yaml",
@@ -273,7 +257,6 @@ test("run-eval scores a fully correct answer as 2", () => {
 
   assert.match(output, /score=2/);
   assert.match(output, /Queue/);
-  assert.match(output, /Carrier/);
 });
 
 // 场景：命中禁止项（越界）的答案。预期：score=0。
@@ -321,7 +304,6 @@ test("run-eval executes live recall via echo provider and produces a report", ()
 
   // echo 回显包含 SKILL.md 原文和问题，至少应产出 5 段结构
   assert.match(output, /Queue/);
-  assert.match(output, /Carrier/);
   assert.match(output, /Integrity Check/);
   assert.match(output, /Case Results/);
   assert.match(output, /Summary/);
@@ -365,7 +347,6 @@ test("run-eval uses home directory provider matrix when available in live mode",
 
   // 应产出 5 段报告结构
   assert.match(output, /Queue/);
-  assert.match(output, /Carrier/);
   assert.match(output, /Integrity Check/);
   assert.match(output, /Case Results/);
   assert.match(output, /Summary/);
@@ -448,7 +429,6 @@ test("run-eval scores a whole live queue with echo provider", () => {
   );
 
   assert.match(output, /recall_eval\.reject_missing_medium/);
-  assert.match(output, /recall_eval\.reject_missing_carrier/);
   assert.match(output, /Summary/);
 });
 
@@ -554,7 +534,7 @@ test("run-eval reports integrity failures for invalid cases", () => {
   const output = runScript(
     "run-eval.mjs",
     [
-      "skills-def/recall-eval/.recall/broken-missing-carrier.yaml",
+      "skills-def/recall-eval/.recall/broken-missing-medium.yaml",
       "--answer",
       "随便写点内容",
     ],
@@ -562,6 +542,5 @@ test("run-eval reports integrity failures for invalid cases", () => {
   );
 
   assert.match(output, /Integrity Check/);
-  assert.match(output, /missing `carrier`/);
   assert.match(output, /not evaluated/);
 });
