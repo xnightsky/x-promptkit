@@ -291,3 +291,7 @@ skill-trigger 模式**不注入 sourceRef 内容**——否则模型可以直接
 `must_not_include` 会被 `normalizeText` 做 `toLowerCase` 后再做子串匹配。
 像 "FAIL" 这样的关键词会被结果文本中的任意位置命中（包括"验证不含 FAIL 错误"）。
 对 skill-trigger 模式建议用更精确的短语如 "validation failed"。
+
+## TODO
+
+- **`any_must_include`**：当前 `must_include` 要求全部命中，无法表达"至少命中以下任意一项"的语义（如 "拒绝执行" 或 "停止" 或 "不能继续"）。需要评估是否引入 `expected.any_must_include` 字段及对应评分逻辑。

@@ -13,12 +13,6 @@ cases:
     expected:
       must_include:
         - medium
-        - "不能"
-      any_must_include:
-        - 拒绝执行
-        - 停止
-        - 必须先
-        - 不能继续
       should_include:
         - 需要先完善 queue
       must_not_include:

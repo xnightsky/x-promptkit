@@ -179,6 +179,7 @@ function normalizeExpected(caseValue) {
 
   return {
     mustInclude: normalizeStringList(expected.must_include),
+    anyMustInclude: normalizeStringList(expected.any_must_include),  // 至少命中一项
     shouldInclude: normalizeStringList(expected.should_include),
     mustNotInclude: normalizeStringList(expected.must_not_include),
   };
@@ -400,8 +401,18 @@ export function scoreAnswer(caseReport, answerText) {
     score = 0;
     rationale = `${caseReport.scoreRule?.fail ?? "failed score rule"} | must_not_include hit: ${mustNotHits.join(", ")}`;
   } else if (missingMust.length === 0) {
-    score = 2;
-    rationale = `${caseReport.scoreRule?.full ?? "full score"} | must_include matched`;
+    // all must_include matched; check any_must_include (at least one)
+    const anyList = caseReport.expected.anyMustInclude ?? []
+    const anyMustHits = anyList.filter((item) =>
+      normalizedAnswer.includes(item.toLowerCase()),
+    );
+    if (anyList.length > 0 && anyMustHits.length === 0) {
+      score = 1;
+      rationale = `${caseReport.scoreRule?.partial ?? "partial score"} | missing any: ${anyList.join(", ")}`;
+    } else {
+      score = 2;
+      rationale = `${caseReport.scoreRule?.full ?? "full score"} | must_include matched`;
+    }
   } else if (mustHits.length > 0 || shouldHits.length > 0) {
     score = 1;
     rationale = `${caseReport.scoreRule?.partial ?? "partial score"} | missing: ${missingMust.join(", ")}`;
