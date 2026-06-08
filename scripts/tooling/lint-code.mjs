@@ -16,7 +16,7 @@ const codeFiles = walkRepoFiles(rootDir, {
   return (
     filePath.startsWith("scripts/") ||
     filePath.startsWith("tests/") ||
-    filePath.startsWith("skills/") ||
+    filePath.startsWith("skills-def/") ||
     filePath.startsWith("runtime/") ||
     filePath.startsWith("integration-tests/")
   );

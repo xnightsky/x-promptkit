@@ -6,7 +6,7 @@
 
 #### 背景
 
-- 仓库里的 repo `skills/` 可能会被挂载到子载体视图里，例如 `isolated-context-run:subagent`、`isolated-context-run:codex`。
+- 仓库里的 repo `skills-def/` 可能会被挂载到子载体视图里，例如 `isolated-context-run:subagent`、`isolated-context-run:codex`。
 - 这意味着子载体不只是执行一个局部任务，还可能“看到”其他 repo skills。
 - 风险点不在于“能不能看到”，而在于：
   - 本该由 main / 父层决定的 runner 选择、fallback 决策、验证推导、上下文解释，是否被子载体提前感知并接管。
@@ -21,7 +21,7 @@
 #### 给新 session 的提示词
 
 ```text
-请检查这个仓库里 repo `skills/` 被挂载到子载体（例如 `isolated-context-run:subagent`、`isolated-context-run:codex`）后的“主代理决策被子载体提前接管 / 剧透”的风险。
+请检查这个仓库里 repo `skills-def/` 被挂载到子载体（例如 `isolated-context-run:subagent`、`isolated-context-run:codex`）后的“主代理决策被子载体提前接管 / 剧透”的风险。
 
 目标：
 1. 找出当前有哪些路径会把 repo skills 暴露给子载体。
@@ -33,9 +33,9 @@
 要求：
 - 先做代码和文档层面的事实排查，再改。
 - 重点看：
-  - `skills/isolated-context-run-subagent/`
-  - `skills/isolated-context-run-codex/`
-  - `skills/isolated-context-run-codex/scripts/skill-loading.mjs`
+  - `skills-def/isolated-context-run-subagent/`
+  - `skills-def/isolated-context-run-codex/`
+  - `skills-def/isolated-context-run-codex/scripts/skill-loading.mjs`
   - `integration-tests/`
 - 特别关注：
   - `skill_entries` / repo skill bundle 挂载
@@ -83,15 +83,15 @@
   - 重点看第 3 节“现有工具版图”、第 5 节“Capability Dev Kit”、第 8 节“建议的实施顺序”、第 9 节“最终判断”。
   - 核心判断：当前缺的不是单一“大框架”，而是围绕 `Artifact + Injection Adapter + Eval Harness + Sandbox Harness` 的最小 Capability Dev Kit。
 - 本仓库当前契约与运行入口：
-  - `skills/isolated-context-run/SKILL.md`
-  - `skills/isolated-context-run/EXAMPLES.md`
-  - `skills/isolated-context-run-subagent/SKILL.md`
-  - `skills/isolated-context-run-subagent/EXAMPLES.md`
-  - `skills/recall-eval/SKILL.md`
-  - `skills/recall-eval/EXAMPLES.md`
-  - `skills/recall-evaluator/README.md`
-  - `skills/recall-evaluator/scripts/run-eval.mjs`
-  - `skills/recall-evaluator/scripts/run-iitest.mjs`
+  - `skills-def/isolated-context-run/SKILL.md`
+  - `skills-def/isolated-context-run/EXAMPLES.md`
+  - `skills-def/isolated-context-run-subagent/SKILL.md`
+  - `skills-def/isolated-context-run-subagent/EXAMPLES.md`
+  - `skills-def/recall-eval/SKILL.md`
+  - `skills-def/recall-eval/EXAMPLES.md`
+  - `skills-def/recall-evaluator/README.md`
+  - `skills-def/recall-evaluator/scripts/run-eval.mjs`
+  - `skills-def/recall-evaluator/scripts/run-iitest.mjs`
   - `tests/recall-eval.test.mjs`
   - `integration-tests/recall-eval/README.md`
   - `integration-tests/recall-eval/real-host.trigger.test.mjs`
@@ -183,7 +183,7 @@
 - 验证分层说明：
   - 契约层：schema / integrity / `source_ref` / `medium` / `carrier` / `score_rule` / 输出骨架
   - runtime 层：`recall-evaluator` 脚本、carrier adapter、initialized-workspace harness
-  - 真实宿主层：Codex 原生加载 `skills/recall-eval` 后，对自然语言输入的 should-trigger / should-not-trigger / refusal 行为验证，并要求结果 + trace 双证据
+  - 真实宿主层：Codex 原生加载 `skills-def/recall-eval` 后，对自然语言输入的 should-trigger / should-not-trigger / refusal 行为验证，并要求结果 + trace 双证据
   - 完成标准：前两层只证明实现没坏；`recall-eval` 是否阶段完成，以真实宿主层是否通过为准
 
 - [x] 将 `recall-eval` 明确拆分为 `recall-queue-policy` 与 `recall-evaluator` 两层。
@@ -269,7 +269,7 @@
 ### real host validation
 
 - [x] 建立以 Codex 为主的 `recall-eval` 真实宿主验证。
-  done when: 真实 Codex 宿主在原生加载 `skills/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `skills/recall-evaluator/scripts/*.mjs` 伪装为真实宿主通过。
+  done when: 真实 Codex 宿主在原生加载 `skills-def/recall-eval` 的前提下，依托 `isolated-context-run:codex` 提供的宿主执行与 trace 能力，至少覆盖 should-trigger、should-not-trigger、broken queue refusal 三类 case，且每条 case 同时满足最终回答断言与可观测 trace 断言；不得通过本地 `skills-def/recall-evaluator/scripts/*.mjs` 伪装为真实宿主通过。
   depends on: `isolated-context-run:codex` 前置落地；`recall-eval` 两层拆分；默认 queue fallback 策略；runtime runner integration-tests 接入
 
 - [x] 将 `npm run test:recall-real` 固定为 `recall-eval` reopen 的显式真实宿主阻塞入口。

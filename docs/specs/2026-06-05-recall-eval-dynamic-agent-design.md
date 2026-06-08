@@ -2,7 +2,7 @@
 
 日期：2026-06-05 | 状态：已确认（部分被 2026-06-06 修订）
 
-> **修订记录（2026-06-06）**：`.recall/prompt-context.yaml` DSL 文件方案取消——该文件从未被运行时读取，且 `.recall/*.yaml` 会被 check-fixtures 当作召回契约 fixture 校验。上下文层声明改为内嵌进召回队列契约的 `context` 块；结构定义落地为独立 schema 文件（`skills/_shared/schemas/`、`skills/recall-eval/schemas/`）；Section 3 设想的 `PROMPT_CONTEXT_SCHEMA` JS 常量导出未实现，由 schema 文件替代；`SAMPLE-QUEUE.yaml` 迁至 `examples/queue.example.yaml`。详见 [2026-06-06-recall-context-layers-design.md](./2026-06-06-recall-context-layers-design.md)。
+> **修订记录（2026-06-06）**：`.recall/prompt-context.yaml` DSL 文件方案取消——该文件从未被运行时读取，且 `.recall/*.yaml` 会被 check-fixtures 当作召回契约 fixture 校验。上下文层声明改为内嵌进召回队列契约的 `context` 块；结构定义落地为独立 schema 文件（`skills-def/_shared/schemas/`、`skills-def/recall-eval/schemas/`）；Section 3 设想的 `PROMPT_CONTEXT_SCHEMA` JS 常量导出未实现，由 schema 文件替代；`SAMPLE-QUEUE.yaml` 迁至 `examples/queue.example.yaml`。详见 [2026-06-06-recall-context-layers-design.md](./2026-06-06-recall-context-layers-design.md)。
 
 ---
 
@@ -15,7 +15,7 @@
 ## Section 1：文件职责划分
 
 ```
-skills/
+skills-def/
 ├── _shared/
 │   ├── model-runner.mjs           🆕 共享：provider 加载 + callModel + 重试预算
 │   └── prompt-context.mjs         🆕 共享：三层上下文拼装引擎（纯函数，不读文件）
@@ -35,7 +35,7 @@ skills/
         ├── replay-matrix.mjs      🔄 重构：callReplayModel 切到 _shared/model-runner
         └── carrier-adapter.mjs    ❌ 删除
 
-skills/recall-evaluator/           ❌ 整个目录删除，资产归入 recall-eval/
+skills-def/recall-evaluator/           ❌ 整个目录删除，资产归入 recall-eval/
 ```
 
 | 模块 | 职责 | 依赖 |
@@ -47,7 +47,7 @@ skills/recall-evaluator/           ❌ 整个目录删除，资产归入 recall-
 
 ---
 
-## Section 2：`skills/_shared/model-runner.mjs`
+## Section 2：`skills-def/_shared/model-runner.mjs`
 
 ### API
 
@@ -81,7 +81,7 @@ const answer = await callModel(provider, prompt, { maxRetries?, fetchImpl? })
 
 ---
 
-## Section 3：`skills/_shared/prompt-context.mjs`
+## Section 3：`skills-def/_shared/prompt-context.mjs`
 
 纯引擎，接收配置 → 输出 system prompt。不读文件、不解析 YAML。
 
@@ -97,7 +97,7 @@ const config = {
   skills: {
     items: [
       { name: 'some-skill', content: '...' },           // 直接给内容
-      { name: 'some-skill', path: 'skills/.../SKILL.md' }, // 或从文件读
+      { name: 'some-skill', path: 'skills-def/.../SKILL.md' }, // 或从文件读
     ],
     allowDiscovery: false,
     discoveryPool: ['skill-a', 'skill-b'],
@@ -129,7 +129,7 @@ const config = {
 ### recall-eval 的 YAML DSL
 
 ```yaml
-# skills/recall-eval/.recall/prompt-context.yaml
+# skills-def/recall-eval/.recall/prompt-context.yaml
 skills:
   items: []
   allowDiscovery: false
@@ -150,13 +150,13 @@ injections:
 
 ---
 
-## Section 4：`skills/recall-eval/scripts/model-agent.mjs`
+## Section 4：`skills-def/recall-eval/scripts/model-agent.mjs`
 
 ### API
 
 ```js
 const result = await runRecallAgent({
-  sourceRef: 'skills/recall-eval/SKILL.md',
+  sourceRef: 'skills-def/recall-eval/SKILL.md',
   question: 'recall queue 缺少 medium 时，能否继续执行？',
   provider,
   maxRetries: 2,
@@ -221,7 +221,7 @@ const result = await runRecallAgent({
 
 | 删除 | 原因 |
 |------|------|
-| `skills/recall-evaluator/` 整个目录 | 合并到 recall-eval/ |
+| `skills-def/recall-evaluator/` 整个目录 | 合并到 recall-eval/ |
 | `carrier-adapter.mjs` | spawnSync 废弃 |
 | 其余 scripts 移到 recall-eval/scripts/ | 路径迁移 |
 
@@ -237,5 +237,5 @@ const result = await runRecallAgent({
 ## 命名约定
 
 - token 消耗组件：`-token-ittest-` 或 `-token-itutil-` 中缀
-- 共享原语：`skills/_shared/` 下，无 token 标签
+- 共享原语：`skills-def/_shared/` 下，无 token 标签
 - 配置文件：~~`prompt-context.yaml`（YAML DSL 驱动）~~（2026-06-06 修订：取消，改为队列内嵌 `context` 块）；`provider` 矩阵沿用 `.recall-replay.env.yaml`

@@ -12,22 +12,22 @@
 
 同时解决三个既有问题：
 
-1. `skills/recall-eval/prompt-context.yaml` 是死文件——`model-agent.mjs` 从不读取它，注入内容硬编码在脚本内，文件头注释与实现矛盾。
+1. `skills-def/recall-eval/prompt-context.yaml` 是死文件——`model-agent.mjs` 从不读取它，注入内容硬编码在脚本内，文件头注释与实现矛盾。
 2. 上一版设计把该 DSL 放进 `.recall/`，但 `.recall/*.yaml` 会被 `scripts/tooling/check-fixtures.mjs` 当作召回契约 fixture 校验，非召回 schema 的 yaml 放进去必然打挂 `npm run check`。
-3. 上下文拼装结构定义（skills/repo/global 三层）散落：引擎在 `_shared`，DSL 孤儿文件在 recall-eval，队列契约对上下文层只字未提。
+3. 上下文拼装结构定义（skills-def/repo/global 三层）散落：引擎在 `_shared`，DSL 孤儿文件在 recall-eval，队列契约对上下文层只字未提。
 
 ## 方案
 
-废除独立 DSL 文件，把上下文层声明**内嵌进召回队列契约**；结构定义归 `skills/_shared` 引擎层维护，并且**落地为独立 schema 文件**（类 JSON Schema 子集），校验代码只消费 schema、不再手写逐字段 shape 检查。
+废除独立 DSL 文件，把上下文层声明**内嵌进召回队列契约**；结构定义归 `skills-def/_shared` 引擎层维护，并且**落地为独立 schema 文件**（类 JSON Schema 子集），校验代码只消费 schema、不再手写逐字段 shape 检查。
 
 ### 能力边界划分
 
 | 层 | 归属 | 职责 |
 |---|---|---|
-| 机制层 | `skills/_shared/prompt-context.mjs` + `schema-validator.mjs` | 三层（skills/repo/global）拼装引擎；schema 文件解释执行；context 声明的归一化与跨字段语义；不内置任何策略 |
-| 结构权威 | `skills/_shared/schemas/prompt-context-layers.schema.yaml`、`skills/recall-eval/schemas/recall-queue.schema.yaml` | yaml 数据结构的唯一机器可读定义；队列 schema 通过外部 `$ref` 复用 layers schema |
+| 机制层 | `skills-def/_shared/prompt-context.mjs` + `schema-validator.mjs` | 三层（skills-def/repo/global）拼装引擎；schema 文件解释执行；context 声明的归一化与跨字段语义；不内置任何策略 |
+| 结构权威 | `skills-def/_shared/schemas/prompt-context-layers.schema.yaml`、`skills-def/recall-eval/schemas/recall-queue.schema.yaml` | yaml 数据结构的唯一机器可读定义；队列 schema 通过外部 `$ref` 复用 layers schema |
 | 契约层 | 召回队列 yaml（`context` 块） | 显式声明本次召回加载哪些提示词层；队列级声明、用例级整块覆盖 |
-| 策略层 | `skills/recall-eval/scripts/model-agent.mjs` | clean-context-v1 注入钉死在代码（红线不是配置项）；按 `context` 声明拼装 repo/global 层 |
+| 策略层 | `skills-def/recall-eval/scripts/model-agent.mjs` | clean-context-v1 注入钉死在代码（红线不是配置项）；按 `context` 声明拼装 repo/global 层 |
 
 判据：**调用方允许改的进队列契约（加载哪些层）；不允许改的钉死在代码（no tools / no web / no fresh reads）；结构本身写进 schema 文件，代码与文档都只是消费方/镜像。**
 
@@ -74,12 +74,12 @@ context:
 
 ### 文件变更
 
-- 删除 `skills/recall-eval/prompt-context.yaml`（死文件）。
-- 新增 `skills/_shared/schema-validator.mjs`（类 JSON Schema 子集校验器）。
-- 新增 `skills/_shared/schemas/prompt-context-layers.schema.yaml`（context 声明结构权威）。
-- 新增 `skills/recall-eval/schemas/recall-queue.schema.yaml`（队列契约结构权威，外部 `$ref` 复用 layers schema）。
-- 新增 `skills/_shared/README.md`：各共享模块能力边界 + context 声明结构定义（prose 镜像）。
-- 样例迁入 examples 目录：`SAMPLE-QUEUE.yaml` → `skills/recall-eval/examples/queue.example.yaml`（带队列的版本）；新增 `skills/_shared/examples/context-layers.example.yaml`（非队列的简单版本）。
+- 删除 `skills-def/recall-eval/prompt-context.yaml`（死文件）。
+- 新增 `skills-def/_shared/schema-validator.mjs`（类 JSON Schema 子集校验器）。
+- 新增 `skills-def/_shared/schemas/prompt-context-layers.schema.yaml`（context 声明结构权威）。
+- 新增 `skills-def/recall-eval/schemas/recall-queue.schema.yaml`（队列契约结构权威，外部 `$ref` 复用 layers schema）。
+- 新增 `skills-def/_shared/README.md`：各共享模块能力边界 + context 声明结构定义（prose 镜像）。
+- 样例迁入 examples 目录：`SAMPLE-QUEUE.yaml` → `skills-def/recall-eval/examples/queue.example.yaml`（带队列的版本）；新增 `skills-def/_shared/examples/context-layers.example.yaml`（非队列的简单版本）。
 - `.recall/` 命名规约升格为书面契约（写入 SKILL.md）：`queue.yaml` 是自动发现入口；`broken-*` 前缀 = 故意非法负例（`npm run check` 强制其保持非法）；其余名字仅显式路径引用；`.recall/` 不放非召回 schema 的 yaml。
 - 新 fixture：`.recall/queue-with-context-layers.yaml`（正例）、`.recall/broken-invalid-context.yaml`（负例）。
 - 新增手写 fixture 提示词：`.recall/fake-repo-prompt.md`、`.recall/fake-global-prompt.md`。自测隔离红线：自测队列与单元测试的 `context` 层只指向手写 fixture 提示词（或临时目录文件），不依赖真实 `AGENTS.md` / 用户全局提示词——真实提示词内容变化不得影响自测结果；只有「评测对象就是该提示词」的真实评测队列（如仓库根 `.recall/queue.yaml`）才引用真实文件。
@@ -93,4 +93,4 @@ context:
 
 - `npm test`：lib 校验/继承覆盖、schema 校验器与样例一致性（`tests/prompt-context.test.mjs`）、model-agent（echo provider）按声明注入 repo/global 层（`tests/recall-eval.model-agent.test.mjs`）。
 - `npm run lint` 与 `npm run check` 全绿（新增 fixture 被 check-fixtures 按预期分类）。
-- `npm run recall:validate -- skills/recall-eval/.recall/queue-with-context-layers.yaml` 输出 PASS；`broken-invalid-context.yaml` 输出 FAIL 且指明 `context.global.path`。
+- `npm run recall:validate -- skills-def/recall-eval/.recall/queue-with-context-layers.yaml` 输出 PASS；`broken-invalid-context.yaml` 输出 FAIL 且指明 `context.global.path`。

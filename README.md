@@ -4,7 +4,7 @@
 
 ## 仓库结构
 
-- [`skills/`](./skills/)
+- [`skills-def/`](./skills-def/)
   - 能力入口与配套说明所在目录。
   - `SKILL.md` 是默认主入口,通常用于快速确认能力边界、输入约束和输出骨架,不保证单独构成完整教程。
   - 如果某个目录额外保留 `SKILLS.fallback.md`,它只作为旧版契约保底文件;runtime 仅在 `SKILL.md` 缺失时才会回退到它,并对宿主 materialize 出规范化的 `SKILL.md`。
@@ -36,13 +36,17 @@
 2. 再看 `EXAMPLES.md`,把抽象规则和实际说法对应起来。
 3. 如果这个 skill 背后还有 runtime 或宿主执行链路,再看同目录 README、脚本 README 或专题 docs。
 
+## skills 安装
+
+详见 [`skills-def/INSTALL.md`](./skills-def/INSTALL.md)。
+
 ## skills 快速上手
 
 下面这些说明是根 README 补的最小教程,用来回答"我现在大概该用哪个 skill、从哪一份文档开始看"。
 
 ### 1. 需要隔离执行
 
-先从 [`skills/isolated-context-run-subagent/SKILL.md`](./skills/isolated-context-run-subagent/SKILL.md) 开始。
+先从 [`skills-def/isolated-context-run-subagent/SKILL.md`](./skills-def/isolated-context-run-subagent/SKILL.md) 开始。
 
 这个 skill 只在当前宿主原生支持 subagent 时使用：
 
@@ -54,7 +58,7 @@
 
 统一的非交互 AI CLI 执行 skill：
 
-- [`skills/ai-run/SKILL.md`](./skills/ai-run/SKILL.md)
+- [`skills-def/ai-run/SKILL.md`](./skills-def/ai-run/SKILL.md)
   - 支持 4 个后端：**claude**（默认）、**codex**、**opencode**、**pi**
   - 根据用户信号自动选择后端，构造命令并直接执行
   - 各后端的命令模板、转义规则和返回模式见 `SKILL.md`
@@ -66,6 +70,7 @@
 
 ## 常用入口
 
+- 安装指南:[`skills-def/INSTALL.md`](./skills-def/INSTALL.md)
 - 文档总入口:[`docs/README.md`](./docs/README.md)
 - 集成测试入口:[`integration-tests/README.md`](./integration-tests/README.md)
 - Codex bridge runtime 入口:[`runtime/codex-bridge/`](./runtime/codex-bridge/)

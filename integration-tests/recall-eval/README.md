@@ -15,9 +15,9 @@ Naming: token-burning integration tests use the `*.token.ittest.mjs` suffix — 
 
 The replay suite turns a `.env`-style provider matrix into an ephemeral, in-process recall agent. It has zero local footprint — nothing is written to disk and no clean-up step runs — and pulls the clean-context policy from `lib.mjs` so the replay path and the live recall path stay aligned.
 
-- helper module: `skills/recall-eval/scripts/replay-matrix.mjs`
+- helper module: `skills-def/recall-eval/scripts/replay-matrix.mjs`
 - matrix discovery walks up from the current working directory to the repo root (the directory containing `.git`) and reads the first of `.recall-replay.env.yaml` / `.recall-replay.env.yml` / `.recall-replay.env`; override with `RECALL_REPLAY_MATRIX`
-- copy `skills/recall-eval/.recall-replay.env.example.yaml` to the repo-root `.recall-replay.env.yaml` (git-ignored) and fill in real values
+- copy `skills-def/recall-eval/.recall-replay.env.example.yaml` to the repo-root `.recall-replay.env.yaml` (git-ignored) and fill in real values
 - run with `npm run iitest:token:recall-replay` (excluded from the default `npm run iitest`)
 
 ## Execution Policy

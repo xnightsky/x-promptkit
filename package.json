@@ -1,7 +1,7 @@
 {
   "name": "x-promptkit",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "sync:codex-bridge-runtime": "node scripts/tooling/sync-codex-bridge-runtime.mjs",
@@ -20,9 +20,9 @@
     "iitest:ai-run": "node --test integration-tests/ai-run/",
     "iitest:token:recall-replay": "node --test integration-tests/recall-eval/recall-replay.token.ittest.mjs",
     "iitest:token:recall-live": "node --test integration-tests/recall-eval/recall-live.token.ittest.mjs",
-    "recall:validate": "node skills/recall-eval/scripts/validate-schema.mjs",
-    "recall:resolve": "node skills/recall-eval/scripts/resolve-target.mjs",
-    "recall:run": "node skills/recall-eval/scripts/run-eval.mjs"
+    "recall:validate": "node skills-def/recall-eval/scripts/validate-schema.mjs",
+    "recall:resolve": "node skills-def/recall-eval/scripts/resolve-target.mjs",
+    "recall:run": "node skills-def/recall-eval/scripts/run-eval.mjs"
   },
   "dependencies": {
     "yaml": "^2.8.3"

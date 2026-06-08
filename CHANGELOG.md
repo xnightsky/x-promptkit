@@ -2,6 +2,15 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.5.0
+
+`skills/` → `skills-def/` 目录重命名。
+
+### Changed
+
+- 技能定义目录由 `skills/` 重命名为 `skills-def/`，与仓库约定（`skills-def/` 为 skill 定义目录，`skills/` 保留给运行时挂载）对齐。
+- 所有引用路径（lint、fixture、文档）同步更新。
+
 ## v0.4.0
 
 recall-eval 契约 schema 化与 dynamic agent 重构。
@@ -59,7 +68,7 @@ skill 载体扩展与 codex-bridge runtime 化。
 - codex-bridge MiniMax worker loader skill：可配置 bridge host/port、54187 启动校验、detached 启动。
 - `codex-kimi-worker-installer` skill：no-bridge OpenAI-wire 直连，三维 action 模型与 direnv key 接线。
 - PUA 适配器扩展：可见能力快照、子 agent 继承、input/tool_call/compact/turn_end 四个 enforcement hooks。
-- lint 扩展：syntax 检查覆盖 `skills/`、`runtime/`、`integration-tests/`；`lint:repo` 新增 vendor-source 一致性检查。
+- lint 扩展：syntax 检查覆盖 `skills-def/`、`runtime/`、`integration-tests/`；`lint:repo` 新增 vendor-source 一致性检查。
 
 ### Changed
 

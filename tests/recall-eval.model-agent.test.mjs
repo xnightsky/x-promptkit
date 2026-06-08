@@ -8,7 +8,7 @@ import path from "node:path";
 // 用 echo provider（离线短路，回显完整 prompt）验证 prompt 拼装行为：
 // 纯 fake、不消耗真实 AI token，按测试边界约定属于单元测试。
 
-import { runRecallAgent } from "../skills/recall-eval/scripts/model-agent.mjs";
+import { runRecallAgent } from "../skills-def/recall-eval/scripts/model-agent.mjs";
 
 const ECHO_PROVIDER = { api: "echo", model: "unit-test" };
 

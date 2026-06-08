@@ -6,7 +6,7 @@
 
 ## Input
 
-Use `skills/isolated-context-run/SKILL.md`.
+Use `skills-def/isolated-context-run/SKILL.md`.
 
 Reply to this request:
 

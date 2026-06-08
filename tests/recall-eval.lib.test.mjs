@@ -15,13 +15,13 @@ import {
   resolveEffectiveCarrier,
   scoreAnswer,
   validateRecallData,
-} from "../skills/recall-eval/scripts/lib.mjs";
+} from "../skills-def/recall-eval/scripts/lib.mjs";
 
 // 场景：用例未提供 source_ref。预期：继承队列级 source_ref，无错误。
 test("validateRecallData inherits queue-level source_ref when case-level override is absent", () => {
   const report = validateRecallData({
     version: 1,
-    source_ref: "skills/recall-eval/SKILL.md",
+    source_ref: "skills-def/recall-eval/SKILL.md",
     fallback_answer: "未明确",
     scoring: {
       "2": "full",
@@ -48,7 +48,7 @@ test("validateRecallData inherits queue-level source_ref when case-level overrid
     ],
   });
 
-  assert.equal(report.caseReports[0].effectiveSourceRef, "skills/recall-eval/SKILL.md");
+  assert.equal(report.caseReports[0].effectiveSourceRef, "skills-def/recall-eval/SKILL.md");
   assert.equal(report.caseReports[0].errors.length, 0);
 });
 
@@ -56,7 +56,7 @@ test("validateRecallData inherits queue-level source_ref when case-level overrid
 test("validateRecallData prefers case-level source_ref override", () => {
   const report = validateRecallData({
     version: 1,
-    source_ref: "skills/recall-eval/SKILL.md",
+    source_ref: "skills-def/recall-eval/SKILL.md",
     fallback_answer: "未明确",
     scoring: {
       "2": "full",
@@ -66,7 +66,7 @@ test("validateRecallData prefers case-level source_ref override", () => {
     cases: [
       {
         id: "case.override_source_ref",
-        source_ref: "skills/isolated-context-run/SKILL.md#default-priority",
+        source_ref: "skills-def/isolated-context-run/SKILL.md#default-priority",
         question: "默认优先级是什么？",
         medium: "skill-mechanism",
         carrier: "isolated-context-run:subagent",
@@ -86,7 +86,7 @@ test("validateRecallData prefers case-level source_ref override", () => {
 
   assert.equal(
     report.caseReports[0].effectiveSourceRef,
-    "skills/isolated-context-run/SKILL.md#default-priority",
+    "skills-def/isolated-context-run/SKILL.md#default-priority",
   );
   assert.equal(report.caseReports[0].errors.length, 0);
 });
@@ -155,7 +155,7 @@ test("scoreAnswer does not treat negated must_not_include text as an overreach h
 // 场景：格式化单目标报告。预期：始终包含 runtime failures 摘要行（不再包含 run artifact 行）。
 test("formatRunEvalOutput always includes the runtime failures summary line", () => {
   const output = formatRunEvalOutput({
-    yamlPath: "skills/recall-eval/.recall/queue.yaml",
+    yamlPath: "skills-def/recall-eval/.recall/queue.yaml",
     carrierLabel: "`isolated-context-run:subagent`",
     integrityItems: [
       {
@@ -189,8 +189,8 @@ test("formatBatchRunEvalOutput distinguishes target summaries and embedded repor
     mode: "live",
     targets: [
       {
-        yamlPath: "skills/recall-eval/.recall/queue.yaml",
-        reportText: "1. Queue\n- `skills/recall-eval/.recall/queue.yaml`",
+        yamlPath: "skills-def/recall-eval/.recall/queue.yaml",
+        reportText: "1. Queue\n- `skills-def/recall-eval/.recall/queue.yaml`",
         summary: {
           directlyEvaluable: "`case-a`",
           refusedForMissingCarrier: "none",
@@ -213,7 +213,7 @@ test("formatBatchRunEvalOutput distinguishes target summaries and embedded repor
 
   assert.match(output, /Batch Recall Eval/);
   assert.match(output, /- mode: `live`/);
-  assert.match(output, /- `skills\/recall-eval\/.recall\/queue\.yaml`: directly evaluable=`case-a`/);
+  assert.match(output, /- `skills-def\/recall-eval\/.recall\/queue\.yaml`: directly evaluable=`case-a`/);
   assert.match(output, /## `\.recall\/queue\.yaml`/);
   assert.doesNotMatch(output, /run artifact/);
 });
@@ -229,10 +229,10 @@ test("resolveRecallInputPath discovers a repo-local queue from a target file", (
 
 // 场景：从目标目录发现本地队列。预期：解析到该目录下的 .recall/queue.yaml 且模式为 target_directory。
 test("resolveRecallInputPath discovers a target-local queue from a target directory", () => {
-  const resolved = resolveRecallInputPath("skills/recall-eval", cwd);
+  const resolved = resolveRecallInputPath("skills-def/recall-eval", cwd);
 
-  assert.equal(resolved.path, "skills/recall-eval/.recall/queue.yaml");
-  assert.equal(resolved.discovery.originalInputPath, "skills/recall-eval");
+  assert.equal(resolved.path, "skills-def/recall-eval/.recall/queue.yaml");
+  assert.equal(resolved.discovery.originalInputPath, "skills-def/recall-eval");
   assert.equal(resolved.discovery.mode, "target_directory");
 });
 
@@ -255,7 +255,7 @@ function makeValidCase(overrides = {}) {
 function makeValidQueue(overrides = {}) {
   return {
     version: 1,
-    source_ref: "skills/recall-eval/SKILL.md",
+    source_ref: "skills-def/recall-eval/SKILL.md",
     fallback_answer: "未明确",
     scoring: { "2": "full", "1": "partial", "0": "fail" },
     cases: [makeValidCase()],

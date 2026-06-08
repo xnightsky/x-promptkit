@@ -14,9 +14,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { loadProviders } from "../../skills/_shared/model-client.mjs";
-import { runRecallAgent } from "../../skills/recall-eval/scripts/model-agent.mjs";
-import { loadRecallYaml, validateRecallData, scoreAnswer } from "../../skills/recall-eval/scripts/lib.mjs";
+import { loadProviders } from "../../skills-def/_shared/model-client.mjs";
+import { runRecallAgent } from "../../skills-def/recall-eval/scripts/model-agent.mjs";
+import { loadRecallYaml, validateRecallData, scoreAnswer } from "../../skills-def/recall-eval/scripts/lib.mjs";
 
 // ── Self-skip gate ──
 // 筛掉 echo，只保留启用且带 key 的真实 provider；一个都没有则跳过整个套件。
@@ -30,7 +30,7 @@ function selectTokenProviders() {
 // ── 场景：live recall 全链路（真实 API） ──
 //   给定 一份可发现的 provider 矩阵（否则自动跳过）
 //         且其中至少有一个启用、带 key 的真实 provider（否则自动跳过）
-//         且 skills/recall-eval/.recall/queue.yaml 存在且 schema 合法
+//         且 skills-def/recall-eval/.recall/queue.yaml 存在且 schema 合法
 //   当   对队列中每个 case 调 runRecallAgent 现场执行
 //   那么 每个 case 得分应为满分(2)，回答必须命中 must_include 且避开 must_not_include
 
@@ -52,7 +52,7 @@ test("live recall evaluates all queue cases and scores full marks", async (t) =>
   // ── Gate 2: queue 加载与校验 ──
   let loaded;
   try {
-    loaded = loadRecallYaml("skills/recall-eval/.recall/queue.yaml");
+    loaded = loadRecallYaml("skills-def/recall-eval/.recall/queue.yaml");
   } catch (error) {
     t.skip(`cannot load recall queue: ${error.message}`);
     return;

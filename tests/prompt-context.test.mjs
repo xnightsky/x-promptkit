@@ -7,7 +7,7 @@ import YAML from "yaml";
 
 // _shared/prompt-context.mjs（三层拼装引擎 + context 层声明结构）的单元测试。
 // 风格：BDD（场景 / 预期）。
-// 结构权威是 skills/_shared/schemas/prompt-context-layers.schema.yaml；
+// 结构权威是 skills-def/_shared/schemas/prompt-context-layers.schema.yaml；
 // 这里同时锁定「样例文件与 schema 持续一致」这一约定。
 
 import {
@@ -15,7 +15,7 @@ import {
   normalizeContextLayers,
   validateContextLayers,
   validateContextSemantics,
-} from "../skills/_shared/prompt-context.mjs";
+} from "../skills-def/_shared/prompt-context.mjs";
 
 const cwd = process.cwd();
 
@@ -31,7 +31,7 @@ test("validateContextLayers accepts a fully specified declaration", () => {
 
 // 场景：_shared/examples 的样例文件。预期：始终通过 schema 校验（样例必须随结构定义维护）。
 test("validateContextLayers accepts the maintained example file", () => {
-  const examplePath = path.join(cwd, "skills", "_shared", "examples", "context-layers.example.yaml");
+  const examplePath = path.join(cwd, "skills-def", "_shared", "examples", "context-layers.example.yaml");
   const example = YAML.parse(fs.readFileSync(examplePath, "utf8"));
 
   assert.deepEqual(validateContextLayers(example), []);

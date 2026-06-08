@@ -99,5 +99,5 @@ Each case directory must contain exactly these files:
 
 - not the schema source of truth
 - not a runner implementation
-- not a replacement for `skills/isolated-context-run/EXAMPLES.md`
-- not a replacement for `skills/isolated-context-run-subagent/EXAMPLES.md`
+- not a replacement for `skills-def/isolated-context-run/EXAMPLES.md`
+- not a replacement for `skills-def/isolated-context-run-subagent/EXAMPLES.md`

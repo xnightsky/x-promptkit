@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { loadRecallYaml, validateRecallData } from "../../skills/recall-eval/scripts/lib.mjs";
+import { loadRecallYaml, validateRecallData } from "../../skills-def/recall-eval/scripts/lib.mjs";
 import { classifyFixturePath, formatFailures, walkRepoFiles } from "./lib.mjs";
 
 const rootDir = process.cwd();

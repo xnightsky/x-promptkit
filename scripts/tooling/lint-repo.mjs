@@ -29,7 +29,7 @@ const policyDocs = [
     requiredSnippets: ["npm run lint", "npm run verify", "注释"],
   },
   {
-    path: "skills/recall-eval/README.md",
+    path: "skills-def/recall-eval/README.md",
     requiredSnippets: ["npm run lint", "npm run check", "npm run verify"],
   },
 ];
@@ -72,7 +72,7 @@ for (const policyDoc of policyDocs) {
 const vendorSyncTargets = [
   {
     source: "runtime/codex-bridge",
-    vendor: "skills/codex-bridge-minimax-worker-installer/vendor/codex-bridge",
+    vendor: "skills-def/codex-bridge-minimax-worker-installer/vendor/codex-bridge",
   },
 ];
 

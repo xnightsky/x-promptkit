@@ -160,3 +160,7 @@ __pycache__/
 /.recall-replay.env.yaml
 /.recall-replay.env.yml
 /.recall-replay.env
+
+# npx skills add 生成的安装产物与 lockfile
+skills-lock.json
+/.*/skills/

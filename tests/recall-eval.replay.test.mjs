@@ -19,8 +19,8 @@ import {
 	buildReplayQueueFixture,
 	discoverReplayMatrixPath,
 	replayMatrixSearchDirs,
-} from "../skills/recall-eval/scripts/replay-matrix.mjs"
-import { callModel } from "../skills/_shared/model-runner.mjs"
+} from "../skills-def/recall-eval/scripts/replay-matrix.mjs"
+import { callModel } from "../skills-def/_shared/model-runner.mjs"
 
 // ───────────────────────────────────────────────────────────────────────────
 // 离线单元测试:provider 矩阵回放助手
@@ -374,8 +374,8 @@ test("discoverReplayMatrixPath falls back to the repo-root primary filename", (t
 //   那么 返回 [cwd, skillDir, homeDir](仓库根与 cwd 去重)
 test("replayMatrixSearchDirs lists cwd, repo root, skill dir, and home dir without duplicates", (t) => {
 	const { repo, homeDir } = makeSandbox(t)
-	// skillDir 放在仓库内部,贴近真实安装形态(skills/ 目录随仓库走)
-	const skillDir = join(repo, "skills", "recall-eval", "scripts")
+	// skillDir 放在仓库内部,贴近真实安装形态(skills-def/ 目录随仓库走)
+	const skillDir = join(repo, "skills-def", "recall-eval", "scripts")
 	mkdirSync(skillDir, { recursive: true })
 	const dirs = replayMatrixSearchDirs({
 		cwd: repo,

@@ -6,7 +6,7 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..");
 const sourceDir = path.join(repoRoot, "runtime", "codex-bridge");
 const targets = [
-  path.join(repoRoot, "skills", "codex-bridge-minimax-worker-installer", "vendor", "codex-bridge"),
+  path.join(repoRoot, "skills-def", "codex-bridge-minimax-worker-installer", "vendor", "codex-bridge"),
 ];
 
 for (const targetDir of targets) {

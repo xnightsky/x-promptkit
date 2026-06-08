@@ -12,7 +12,7 @@ import path from "node:path";
 
 const cwd = process.cwd();
 const node = process.execPath;
-const scriptsDir = path.join(cwd, "skills", "recall-eval", "scripts");
+const scriptsDir = path.join(cwd, "skills-def", "recall-eval", "scripts");
 
 // 在仓库根目录下以子进程方式运行指定脚本，返回 stdout。
 function runScript(scriptName, args = [], options = {}) {
@@ -31,17 +31,17 @@ function runScript(scriptName, args = [], options = {}) {
 // 场景：对合法的目标本地队列做 schema 校验。预期：输出 PASS 并回显路径。
 test("validate-schema passes for a target-local queue", () => {
   const output = runScript("validate-schema.mjs", [
-    "skills/recall-eval/.recall/queue.yaml",
+    "skills-def/recall-eval/.recall/queue.yaml",
   ]);
 
   assert.match(output, /PASS/);
-  assert.match(output, /skills\/recall-eval\/.recall\/queue.yaml/);
+  assert.match(output, /skills-def\/recall-eval\/.recall\/queue.yaml/);
 });
 
 // 场景：对任意路径但 schema 合法的 YAML 做校验。预期：PASS。
 test("validate-schema accepts arbitrary yaml paths when schema matches", () => {
   const output = runScript("validate-schema.mjs", [
-    "skills/recall-eval/examples/queue.example.yaml",
+    "skills-def/recall-eval/examples/queue.example.yaml",
   ]);
 
   assert.match(output, /PASS/);
@@ -50,7 +50,7 @@ test("validate-schema accepts arbitrary yaml paths when schema matches", () => {
 // 场景：带 context 层声明（队列级 + 用例级覆盖）的队列。预期：PASS。
 test("validate-schema accepts queue-level and case-level context declarations", () => {
   const output = runScript("validate-schema.mjs", [
-    "skills/recall-eval/.recall/queue-with-context-layers.yaml",
+    "skills-def/recall-eval/.recall/queue-with-context-layers.yaml",
   ]);
 
   assert.match(output, /PASS/);
@@ -61,7 +61,7 @@ test("validate-schema fails when an enabled global context layer has no path", (
   assert.throws(
     () =>
       runScript("validate-schema.mjs", [
-        "skills/recall-eval/.recall/broken-invalid-context.yaml",
+        "skills-def/recall-eval/.recall/broken-invalid-context.yaml",
       ]),
     (error) => {
       assert.equal(error.status, 1);
@@ -76,7 +76,7 @@ test("validate-schema fails when medium is missing", () => {
   assert.throws(
     () =>
       runScript("validate-schema.mjs", [
-        "skills/recall-eval/.recall/broken-missing-medium.yaml",
+        "skills-def/recall-eval/.recall/broken-missing-medium.yaml",
       ]),
     (error) => {
       assert.equal(error.status, 1);
@@ -91,7 +91,7 @@ test("validate-schema fails when carrier is missing", () => {
   assert.throws(
     () =>
       runScript("validate-schema.mjs", [
-        "skills/recall-eval/.recall/broken-missing-carrier.yaml",
+        "skills-def/recall-eval/.recall/broken-missing-carrier.yaml",
       ]),
     (error) => {
       assert.equal(error.status, 1);
@@ -106,7 +106,7 @@ test("validate-schema fails when effective source_ref is missing", () => {
   assert.throws(
     () =>
       runScript("validate-schema.mjs", [
-        "skills/recall-eval/.recall/broken-missing-source-ref.yaml",
+        "skills-def/recall-eval/.recall/broken-missing-source-ref.yaml",
       ]),
     (error) => {
       assert.equal(error.status, 1);
@@ -121,7 +121,7 @@ test("validate-schema fails when score_rule structure is invalid", () => {
   assert.throws(
     () =>
       runScript("validate-schema.mjs", [
-        "skills/recall-eval/.recall/broken-invalid-score-rule.yaml",
+        "skills-def/recall-eval/.recall/broken-invalid-score-rule.yaml",
       ]),
     (error) => {
       assert.equal(error.status, 1);
@@ -136,7 +136,7 @@ test("validate-schema fails when expected.must_include is missing", () => {
   assert.throws(
     () =>
       runScript("validate-schema.mjs", [
-        "skills/recall-eval/.recall/broken-missing-must-include.yaml",
+        "skills-def/recall-eval/.recall/broken-missing-must-include.yaml",
       ]),
     (error) => {
       assert.equal(error.status, 1);
@@ -149,7 +149,7 @@ test("validate-schema fails when expected.must_include is missing", () => {
 // 场景：用例级 source_ref 覆盖、队列级缺省。预期：PASS。
 test("validate-schema allows case-level source_ref override without queue-level source_ref", () => {
   const output = runScript("validate-schema.mjs", [
-    "skills/recall-eval/.recall/queue-with-case-source-override.yaml",
+    "skills-def/recall-eval/.recall/queue-with-case-source-override.yaml",
   ]);
 
   assert.match(output, /PASS/);
@@ -173,10 +173,10 @@ test("validate-schema discovers a target-local queue from a target file path", (
 
 // 场景：从目标目录路径发现本地队列。预期：PASS 并回显该目录下的 .recall/queue.yaml。
 test("validate-schema discovers a target-local queue from a target directory path", () => {
-  const output = runScript("validate-schema.mjs", ["skills/recall-eval"]);
+  const output = runScript("validate-schema.mjs", ["skills-def/recall-eval"]);
 
   assert.match(output, /PASS/);
-  assert.match(output, /skills\/recall-eval\/.recall\/queue\.yaml/);
+  assert.match(output, /skills-def\/recall-eval\/.recall\/queue\.yaml/);
 });
 
 // 场景：目标下找不到本地队列。预期：退出码 1 且给出清晰的缺失提示。
@@ -197,19 +197,19 @@ test("validate-schema reports a clear error when a target-local queue is missing
 // 场景：解析目标并打印生效的 source_ref。预期：包含用例级覆盖值。
 test("resolve-target prints effective source_ref values", () => {
   const output = runScript("resolve-target.mjs", [
-    "skills/recall-eval/.recall/queue-with-case-source-override.yaml",
+    "skills-def/recall-eval/.recall/queue-with-case-source-override.yaml",
   ]);
 
   assert.match(output, /override-by-case/);
-  assert.match(output, /skills\/isolated-context-run\/SKILL.md#default-priority/);
+  assert.match(output, /skills-def\/isolated-context-run\/SKILL.md#default-priority/);
 });
 
 // 场景：从目标目录发现队列并解析。预期：回显队列路径与队列级 source_ref。
 test("resolve-target discovers a target-local queue from a target directory", () => {
-  const output = runScript("resolve-target.mjs", ["skills/recall-eval"]);
+  const output = runScript("resolve-target.mjs", ["skills-def/recall-eval"]);
 
-  assert.match(output, /Queue: skills\/recall-eval\/.recall\/queue\.yaml/);
-  assert.match(output, /Queue source_ref: skills\/recall-eval\/SKILL\.md/);
+  assert.match(output, /Queue: skills-def\/recall-eval\/.recall\/queue\.yaml/);
+  assert.match(output, /Queue source_ref: skills-def\/recall-eval\/SKILL\.md/);
 });
 
 // 场景：通过 answers-file 对整个队列打分。预期：两个用例均 score=2 且进入 directly evaluable。
@@ -226,7 +226,7 @@ test("run-eval evaluates an entire queue from an answers-file", () => {
   );
 
   const output = runScript("run-eval.mjs", [
-    "skills/recall-eval/.recall/queue.yaml",
+    "skills-def/recall-eval/.recall/queue.yaml",
     "--answers-file",
     answersPath,
   ]);
@@ -264,7 +264,7 @@ test("run-eval discovers a target-local queue from a target file path", () => {
 // 场景：完全正确的答案。预期：score=2，并输出 Queue/Carrier 区块。
 test("run-eval scores a fully correct answer as 2", () => {
   const output = runScript("run-eval.mjs", [
-    "skills/recall-eval/.recall/queue.yaml",
+    "skills-def/recall-eval/.recall/queue.yaml",
     "--case",
     "recall_eval.reject_missing_medium",
     "--answer",
@@ -279,7 +279,7 @@ test("run-eval scores a fully correct answer as 2", () => {
 // 场景：命中禁止项（越界）的答案。预期：score=0。
 test("run-eval scores an overreaching answer as 0", () => {
   const output = runScript("run-eval.mjs", [
-    "skills/recall-eval/.recall/queue.yaml",
+    "skills-def/recall-eval/.recall/queue.yaml",
     "--case",
     "recall_eval.reject_missing_medium",
     "--answer",
@@ -307,7 +307,7 @@ test("run-eval executes live recall via echo provider and produces a report", ()
   const output = runScript(
     "run-eval.mjs",
     [
-      "skills/recall-eval/.recall/queue.yaml",
+      "skills-def/recall-eval/.recall/queue.yaml",
       "--case",
       "recall_eval.reject_missing_medium",
       "--live",
@@ -339,7 +339,7 @@ function makeLiveSandbox() {
     sandboxCwd,
     homeDir,
     // 子进程 cwd 是沙箱,队列路径必须用仓库根的绝对路径
-    queuePath: path.join(cwd, "skills", "recall-eval", ".recall", "queue.yaml"),
+    queuePath: path.join(cwd, "skills-def", "recall-eval", ".recall", "queue.yaml"),
     env: { HOME: homeDir, USERPROFILE: homeDir, RECALL_REPLAY_MATRIX: "" },
   };
 }
@@ -396,7 +396,7 @@ test("run-eval expands a ~ prefix in RECALL_REPLAY_MATRIX to the home directory"
 test("run-eval does not call live mode without --live when no direct answer is provided", () => {
   const output = runScript(
     "run-eval.mjs",
-    ["skills/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
+    ["skills-def/recall-eval/.recall/queue.yaml", "--case", "recall_eval.reject_missing_medium"],
   );
 
   assert.match(output, /not evaluated \| missing answer input/);
@@ -407,7 +407,7 @@ test("run-eval rejects mixing --live with direct answer input", () => {
   assert.throws(
     () =>
       runScript("run-eval.mjs", [
-        "skills/recall-eval/.recall/queue.yaml",
+        "skills-def/recall-eval/.recall/queue.yaml",
         "--case",
         "recall_eval.reject_missing_medium",
         "--live",
@@ -439,7 +439,7 @@ test("run-eval scores a whole live queue with echo provider", () => {
 
   const output = runScript(
     "run-eval.mjs",
-    ["skills/recall-eval/.recall/queue.yaml", "--live"],
+    ["skills-def/recall-eval/.recall/queue.yaml", "--live"],
     {
       env: {
         RECALL_REPLAY_MATRIX: matrixPath,
@@ -469,7 +469,7 @@ test("run-eval batches multiple queue targets in live mode with echo provider", 
 
   const output = runScript(
     "run-eval.mjs",
-    ["skills/recall-eval/.recall/queue.yaml", ".recall/queue.yaml", "--live"],
+    ["skills-def/recall-eval/.recall/queue.yaml", ".recall/queue.yaml", "--live"],
     {
       env: {
         RECALL_REPLAY_MATRIX: matrixPath,
@@ -486,7 +486,7 @@ test("run-eval rejects multiple queue targets without --live", () => {
   assert.throws(
     () =>
       runScript("run-eval.mjs", [
-        "skills/recall-eval/.recall/queue.yaml",
+        "skills-def/recall-eval/.recall/queue.yaml",
         ".recall/queue.yaml",
       ]),
     (error) => {
@@ -502,7 +502,7 @@ test("run-eval rejects combining --case with multiple queue targets", () => {
   assert.throws(
     () =>
       runScript("run-eval.mjs", [
-        "skills/recall-eval/.recall/queue.yaml",
+        "skills-def/recall-eval/.recall/queue.yaml",
         ".recall/queue.yaml",
         "--live",
         "--case",
@@ -521,7 +521,7 @@ test("run-eval prefers direct answers and scores correctly", () => {
   const output = runScript(
     "run-eval.mjs",
     [
-      "skills/recall-eval/.recall/queue.yaml",
+      "skills-def/recall-eval/.recall/queue.yaml",
       "--case",
       "recall_eval.reject_missing_medium",
       "--answer",
@@ -537,7 +537,7 @@ test("run-eval exits with an error when the selected case id does not exist", ()
   assert.throws(
     () =>
       runScript("run-eval.mjs", [
-        "skills/recall-eval/.recall/queue.yaml",
+        "skills-def/recall-eval/.recall/queue.yaml",
         "--case",
         "missing.case.id",
       ]),
@@ -554,7 +554,7 @@ test("run-eval reports integrity failures for invalid cases", () => {
   const output = runScript(
     "run-eval.mjs",
     [
-      "skills/recall-eval/.recall/broken-missing-carrier.yaml",
+      "skills-def/recall-eval/.recall/broken-missing-carrier.yaml",
       "--answer",
       "随便写点内容",
     ],

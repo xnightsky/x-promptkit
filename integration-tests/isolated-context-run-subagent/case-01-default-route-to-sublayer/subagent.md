@@ -6,7 +6,7 @@
 
 ## Input
 
-You are validating the skill contract in `skills/isolated-context-run/SKILL.md`.
+You are validating the skill contract in `skills-def/isolated-context-run/SKILL.md`.
 
 Answer the following request using the skill's required result structure:
 

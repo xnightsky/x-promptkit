@@ -19,7 +19,7 @@ test("extractRelativeMarkdownLinks keeps repo-local links and strips anchors", (
 });
 
 test("findAbsolutePathMatches reports local absolute path strings", () => {
-  const repoPath = ["/", "data/projects/x-promptkit/skills/recall-eval/SKILL.md"].join("");
+  const repoPath = ["/", "data/projects/x-promptkit/skills-def/recall-eval/SKILL.md"].join("");
   const tempPath = ["/", "tmp/workspace-123"].join("");
   const matches = findAbsolutePathMatches(`
 Use ${repoPath} for the contract.
@@ -30,11 +30,11 @@ Do not keep ${tempPath} in committed fixtures.
 });
 
 test("classifyFixturePath distinguishes recall queues from integration-test suites", () => {
-  assert.deepEqual(classifyFixturePath("skills/recall-eval/.recall/queue.yaml"), {
+  assert.deepEqual(classifyFixturePath("skills-def/recall-eval/.recall/queue.yaml"), {
     kind: "recall",
     expectValid: true,
   });
-  assert.deepEqual(classifyFixturePath("skills/recall-eval/.recall/broken-missing-medium.yaml"), {
+  assert.deepEqual(classifyFixturePath("skills-def/recall-eval/.recall/broken-missing-medium.yaml"), {
     kind: "recall",
     expectValid: false,
   });

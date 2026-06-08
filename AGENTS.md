@@ -17,7 +17,7 @@
 ### 读 docs
 
 - 任何结构性改动、契约调整或规范补充前，先读 `docs/README.md`，确认文档分组、入口与校验约定。
-- 涉及 skill 契约、queue/fixture 或集成编排时，补读对应 `skills/<name>/SKILL.md`、`skills/<name>/README.md` 与专题 README；发现文档与实现不一致时第一时间提示用户，不默认其中一方正确。
+- 涉及 skill 契约、queue/fixture 或集成编排时，补读对应 `skills-def/<name>/SKILL.md`、`skills-def/<name>/README.md` 与专题 README；发现文档与实现不一致时第一时间提示用户，不默认其中一方正确。
 - 尚未读取本次改动对应的必要文档时，不得直接声称方案已定、实现完成或可以交付。
 
 ### 写 docs
@@ -63,7 +63,7 @@
 
 ## skills 开发约束
 
-- 当任务是在本仓库内编写、修改、拆分、整理 `skills/` 下的 skill 文档、样例、说明或相关辅助文件时，不要自动套用面向常规产品开发的重流程原则。
+- 当任务是在本仓库内编写、修改、拆分、整理 `skills-def/` 下的 skill 文档、样例、说明或相关辅助文件时，不要自动套用面向常规产品开发的重流程原则。
 - 这类任务默认不启用以下 superpowers skills，除非用户明确要求：
   - `brainstorming`
   - `test-driven-development`
@@ -71,4 +71,4 @@
   - `requesting-code-review`
   - `verification-before-completion`
 - 这类任务也默认不强制执行“先写失败测试再改实现”这一原则；纯文档或纯 skill 契约调整不应为了形式补低价值字符串测试。
-- 对 `skills/` 的改动，优先做法是：直接检查仓库上下文、修改目标文档、核对相关引用与示例是否一致；只有当测试能够覆盖真实脚本、真实 fixture、真实解析/执行行为时，才新增测试。
+- 对 `skills-def/` 的改动，优先做法是：直接检查仓库上下文、修改目标文档、核对相关引用与示例是否一致；只有当测试能够覆盖真实脚本、真实 fixture、真实解析/执行行为时，才新增测试。
