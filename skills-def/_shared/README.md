@@ -23,15 +23,17 @@
 context:
   repo:
     enabled: true            # 必须显式布尔值：是否加载项目提示词
-    path: AGENTS.md          # 可省略；默认 AGENTS.md，相对调用方给定的解析基准目录
-    max_bytes: 8192          # 可选；正整数
+    path: AGENTS.md          # 可省略；默认 AGENTS.md。也可为有序列表（见下），相对解析基准目录
+    max_bytes: 8192          # 可选；正整数。列表形态下作用于「每个文件」
   global:
     enabled: true            # 必须显式布尔值：是否加载全局提示词
     path: ~/.claude/CLAUDE.md  # enabled 时必填——全局提示词没有跨平台默认路径
     max_bytes: 4096
 ```
 
-结构权威是 [schemas/prompt-context-layers.schema.yaml](./schemas/prompt-context-layers.schema.yaml)（独立 schema 文件，`schema-validator.mjs` 解释执行）；schema 表达不了的跨字段语义（global enabled 必须给 path）在 `prompt-context.mjs` 的 `validateContextSemantics`。本节只是 prose 镜像，不一致时以 schema + 单元测试为准并修文档。
+`path` 既可是单串，也可是有序文件列表（`string | string[]`），贴合「根 AGENTS.md + AGENTS.ai.md + 边界局部 AGENTS.*.md」多文件组合：列表按声明顺序读取、每个文件各自按 `max_bytes` 截断、拼接时在每段前标注来源路径（`<!-- <path> -->`）。
+
+结构权威是 [schemas/prompt-context-layers.schema.yaml](./schemas/prompt-context-layers.schema.yaml)（独立 schema 文件，`schema-validator.mjs` 解释执行；`path` 的 `string | string[]` 靠 `type: [string, array]` 联合表达）；schema 表达不了的跨字段语义（global enabled 必须给 path）在 `prompt-context.mjs` 的 `validateContextSemantics`。本节只是 prose 镜像，不一致时以 schema + 单元测试为准并修文档。
 
 `~` 前缀按 `os.homedir()` 展开（兼容 Windows 上 `HOME` 未设置的情况）；声明的层文件不存在时拼装静默跳过该层。
 

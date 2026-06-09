@@ -24,10 +24,17 @@ $defs:
     properties:
       enabled:
         type: boolean
-      # repo 层省略 path 时约定默认 AGENTS.md（相对调用方给定的解析基准目录）
+      # path 既可是单个文件，也可是有序文件列表（string | string[]）：
+      #   - 单串：一层指一个文件（repo 层省略 path 时约定默认 AGENTS.md，相对解析基准目录）
+      #   - 列表：按序读取、各文件各自按 max_bytes 截断，拼接时在每个文件前标注来源路径
+      #     （贴合「根 AGENTS.md + AGENTS.ai.md + 边界局部 AGENTS.*.md」这类多文件组合）
       path:
-        type: string
-        pattern: "\\S"
+        type: [string, array]
+        pattern: "\\S"        # path 为字符串时：必须含非空白字符
+        minItems: 1           # path 为数组时：至少一项
+        items:
+          type: string
+          pattern: "\\S"      # 数组每项：必须含非空白字符
       max_bytes:
         type: integer
         minimum: 1

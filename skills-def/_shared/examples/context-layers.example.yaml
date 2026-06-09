@@ -5,9 +5,15 @@
 # 或作为独立文件由调用方读取后传给 prompt-context 引擎。
 repo:
   enabled: true            # 必须显式布尔值：是否加载项目提示词
-  path: AGENTS.md          # 可省略；默认 AGENTS.md，相对调用方给定的解析基准目录
-  max_bytes: 8192          # 可选；正整数，超出部分按 UTF-8 字节截断
+  # path 可为单串，或有序文件列表（string | string[]）。
+  # 列表形态贴合「根 AGENTS.md + AGENTS.ai.md + 边界局部 AGENTS.*.md」多文件组合：
+  #   按声明顺序读取，每个文件各自按 max_bytes 截断，拼接时在每段前标注来源路径。
+  # 单串形态等价于一项列表；省略 path 时 repo 层默认 AGENTS.md，相对解析基准目录。
+  path:
+    - AGENTS.md
+    - AGENTS.ai.md
+  max_bytes: 8192          # 可选；正整数，列表形态下作用于「每个文件」，超出按 UTF-8 字节截断
 global:
   enabled: true            # 必须显式布尔值：是否加载全局提示词
-  path: ~/.claude/CLAUDE.md  # enabled 时必填——全局提示词没有跨平台默认路径
+  path: ~/.claude/CLAUDE.md  # enabled 时必填——全局提示词没有跨平台默认路径；同样支持列表形态
   max_bytes: 4096

@@ -2,6 +2,21 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.9.0
+
+prompt-context 的 `context.*.path` 支持单文件或有序文件列表（`string | string[]`）。
+
+### Added
+
+- schema-validator：`type` 支持联合（一组类型名，标准 JSON Schema `type: [..]`）——类型相关关键字按值的运行时类型与声明允许类型择一触发；单类型 schema 逐字节零回归。
+- prompt-context：`context.repo|global.path` 接受 `string | string[]`。列表按声明顺序读取、**每个文件各自按 `max_bytes` 截断**、拼接时在每段前标注来源路径（`<!-- <path> -->`，用声明里的原始路径串，不暴露绝对路径）；贴合「根 AGENTS.md + AGENTS.ai.md + 边界局部 AGENTS.*.md」多文件组合。单串形态输出与历史逐字节一致。
+- 单测 +11：联合类型接受/退化拒绝、多文件按序拼接 + 逐文件截断 + 来源标注、缺文件跳过、归一过滤空项、global 列表 path 语义；新增 `tests/schema-validator.test.mjs` 锁联合类型与向后兼容回归。
+
+### Changed
+
+- `schemas/prompt-context-layers.schema.yaml`：`path` 放宽为 `type: [string, array]` + `pattern` + `minItems` + `items`。
+- `_shared` 文档与示例（`README.md`、`context-layers.example.yaml`）、`recall-author/SKILL.md` 的 context 段补列表形态语义；prompt-context 顶部输出模板补多 path 示例。
+
 ## v0.8.0
 
 recall-eval 具名字段裁决（`expected.decision`）：双极累加 + knockout 否决。

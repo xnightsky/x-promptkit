@@ -234,17 +234,31 @@ trigger:
 context:
   repo:
     enabled: true              # 显式布尔值
-    path: AGENTS.md            # 可选；默认 AGENTS.md
-    max_bytes: 8192            # 可选；正整数
+    path: AGENTS.md            # 可选；默认 AGENTS.md。也可写成有序列表（见下）
+    max_bytes: 8192            # 可选；正整数。列表形态下作用于「每个文件」
   global:
     enabled: true
     path: ~/.pi/agent/AGENTS.md # enabled 时必填
     max_bytes: 4096
 ```
 
+`path` 既可是单串，也可是有序文件列表（`string | string[]`），贴合「根 `AGENTS.md` + `AGENTS.ai.md` + 边界局部 `AGENTS.*.md`」这类多文件组合：
+
+```yaml
+context:
+  repo:
+    enabled: true
+    path:                      # 列表按声明顺序读取
+      - AGENTS.md
+      - AGENTS.ai.md
+    max_bytes: 8192            # 每个文件各自按 max_bytes 截断
+```
+
+列表形态语义：按序读取、**每个文件各自按 `max_bytes` 截断**、拼接时在每段前标注来源路径（`<!-- <path> -->`，用声明里的原始路径串）；缺失/空文件自动跳过。
+
 **关键规则**：
 - `enabled` 必须是显式布尔值，不能省略
-- `global.enabled: true` → `path` 必填（全局提示词无跨平台默认路径）
+- `global.enabled: true` → `path` 必填（全局提示词无跨平台默认路径；列表含 ≥1 项即满足）
 - case 级 `context` **整块覆盖**队列级，不做深合并
 - 自测队列的 `context` 路径必须指向手写 fixture（`fake-*.md`），不依赖真实提示词
 

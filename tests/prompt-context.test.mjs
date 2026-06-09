@@ -142,3 +142,82 @@ test("buildSystemPrompt truncates layer content beyond maxBytes", () => {
 
   assert.match(prompt, /### Repo Context\n\nabcd(?!e)/);
 });
+
+// ── path 列表（string | string[]） ──
+
+// 场景：path 为有序列表。预期：schema 通过（联合类型）。
+test("validateContextLayers accepts a list of paths", () => {
+  const errors = validateContextLayers({
+    repo: { enabled: true, path: ["AGENTS.md", "AGENTS.ai.md"], max_bytes: 8192 },
+  });
+
+  assert.deepEqual(errors, []);
+});
+
+// 场景：path 为空数组 / 含空白项 / 非 string|array。预期：分别命中 minItems / pattern / type 报错。
+test("validateContextLayers rejects degenerate path lists", () => {
+  assert.deepEqual(validateContextLayers({ repo: { enabled: true, path: [] } }), [
+    "`context.repo.path` must be a non-empty array",
+  ]);
+  assert.deepEqual(validateContextLayers({ repo: { enabled: true, path: ["AGENTS.md", "  "] } }), [
+    "missing `context.repo.path[1]`",
+  ]);
+  assert.deepEqual(validateContextLayers({ repo: { enabled: true, path: 123 } }), [
+    "`context.repo.path` must be a string or an array",
+  ]);
+});
+
+// 场景：global 启用且给 path 列表。预期：跨字段语义放行（列表含可用项即满足「必须给 path」）。
+test("validateContextSemantics accepts a global path list", () => {
+  assert.deepEqual(
+    validateContextSemantics({ global: { enabled: true, path: ["~/a.md", "~/b.md"] } }),
+    [],
+  );
+  // 空数组等同未给 path：仍按缺失报。
+  assert.deepEqual(validateContextSemantics({ global: { enabled: true, path: [] } }), [
+    "missing `context.global.path` (no cross-platform default for the global prompt)",
+  ]);
+});
+
+// 场景：声明里 path 为列表且含空白项。预期：归一化过滤空白项，列表原样透传给 config.path。
+test("normalizeContextLayers passes through a cleaned path list", () => {
+  const normalized = normalizeContextLayers({
+    repo: { enabled: true, path: ["AGENTS.md", "  ", "AGENTS.ai.md"] },
+  });
+
+  assert.deepEqual(normalized, {
+    repo: { enabled: true, path: ["AGENTS.md", "AGENTS.ai.md"] },
+  });
+});
+
+// 场景：repo path 为多文件列表。预期：按声明顺序拼接、各文件各自按 maxBytes 截断、每段前标注来源路径。
+test("buildSystemPrompt assembles an ordered, per-file-truncated, source-labeled path list", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "prompt-context-list-"));
+  fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "ROOT-abcdef");
+  fs.writeFileSync(path.join(tempDir, "AGENTS.ai.md"), "AI-uvwxyz");
+
+  const prompt = buildSystemPrompt({
+    repo: { enabled: true, path: ["AGENTS.md", "AGENTS.ai.md"], maxBytes: 5 },
+    cwd: tempDir,
+  });
+
+  // 各文件各自截断到 5 字节（ROOT- / AI-uv），按序拼接，每段前有来源标注。
+  assert.match(
+    prompt,
+    /### Repo Context\n\n<!-- AGENTS\.md -->\nROOT-\n\n<!-- AGENTS\.ai\.md -->\nAI-uv/,
+  );
+});
+
+// 场景：path 列表里某文件缺失（空内容）。预期：跳过该段，不留空标注。
+test("buildSystemPrompt skips missing files within a path list", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "prompt-context-list-miss-"));
+  fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "only-root");
+
+  const prompt = buildSystemPrompt({
+    repo: { enabled: true, path: ["missing.md", "AGENTS.md"], cwd: tempDir },
+    cwd: tempDir,
+  });
+
+  assert.match(prompt, /### Repo Context\n\n<!-- AGENTS\.md -->\nonly-root/);
+  assert.doesNotMatch(prompt, /missing\.md/);
+});

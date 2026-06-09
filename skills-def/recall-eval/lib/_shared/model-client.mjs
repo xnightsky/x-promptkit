@@ -1,4 +1,4 @@
-// synced from skills-def\_shared\model-client.mjs @ 42db5c7+uncommitted
+// synced from skills-def\_shared\model-client.mjs @ e4b69de+uncommitted
 // DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/model-client.mjs
 //

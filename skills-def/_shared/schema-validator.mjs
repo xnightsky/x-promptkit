@@ -1,33 +1,38 @@
 // skills-def/_shared/schema-validator.mjs
-//
-// 极简 JSON Schema 子集校验器：让仓库内的 yaml 数据结构以独立 schema 文件
-// （类 JSON Schema 形态）作为结构权威，校验代码只消费 schema，
-// 不再手写逐字段 shape 检查。
-//
-// 能力边界（机制层）：只实现仓库 schema 文件实际用到的关键字子集——
-//   type / required / properties /
-//   additionalProperties（false=禁止开放 key；或一个子 schema=约束每个开放 key 的值）/
-//   minProperties / items / minItems / minimum / pattern / $ref / $defs
-// 刻意不支持 if-then、oneOf 等组合关键字；schema 表达不了的跨字段语义
-// （例如「global.enabled 时必须给 path」）留在调用方代码里。
-//
-// BDD：
-//   Given  value 符合 schema
-//   When   validateAgainstSchema
-//   Then   返回 []（空数组 = 合法）。
-//   Given  object 缺一个 required key
-//   When   校验
-//   Then   返回一条错误，format(相对路径) 渲染为 "missing `<key>`"。
-//   Given  additionalProperties 是子 schema、对象含未在 properties 声明的开放 key
-//   When   校验
-//   Then   每个开放 key 的「值」都按该子 schema 递归校验（decision 块靠此约束维度内形状）。
-//   Given  object 属性数 < minProperties
-//   When   校验
-//   Then   报 "`<path>` must have at least N properties"。
-//
-// 报错文案是对外契约的一部分（召回 fixture、EXAMPLES.md 与测试断言依赖
-// "missing `medium`"、"`score_rule` must be an object" 这类固定格式），
-// 调整格式前先核对 skills-def/recall-eval 的契约文档与测试。
+
+/*
+  极简 JSON Schema 子集校验器：让仓库内的 yaml 数据结构以独立 schema 文件
+  （类 JSON Schema 形态）作为结构权威，校验代码只消费 schema，
+  不再手写逐字段 shape 检查。
+
+  能力边界（机制层）：只实现仓库 schema 文件实际用到的关键字子集——
+    type / required / properties /
+    additionalProperties（false=禁止开放 key；或一个子 schema=约束每个开放 key 的值）/
+    minProperties / items / minItems / minimum / pattern / $ref / $defs
+  `type` 既可是单个类型名，也可是一组类型名（联合，标准 JSON Schema 的 `type: [..]`）：
+    值匹配其中任意一个即通过，类型相关关键字（pattern/items/minimum/...）按值的运行时
+    类型与声明允许类型（declaredAllows）择一触发——藉此表达 `string | array` 这类形态。
+  刻意不支持 if-then、oneOf 等组合关键字；schema 表达不了的跨字段语义
+  （例如「global.enabled 时必须给 path」）留在调用方代码里。
+
+  BDD：
+    Given  value 符合 schema
+    When   validateAgainstSchema
+    Then   返回 []（空数组 = 合法）。
+    Given  object 缺一个 required key
+    When   校验
+    Then   返回一条错误，format(相对路径) 渲染为 "missing `<key>`"。
+    Given  additionalProperties 是子 schema、对象含未在 properties 声明的开放 key
+    When   校验
+    Then   每个开放 key 的「值」都按该子 schema 递归校验（decision 块靠此约束维度内形状）。
+    Given  object 属性数 < minProperties
+    When   校验
+    Then   报 "`<path>` must have at least N properties"。
+
+  报错文案是对外契约的一部分（召回 fixture、EXAMPLES.md 与测试断言依赖
+  "missing `medium`"、"`score_rule` must be an object" 这类固定格式），
+  调整格式前先核对 skills-def/recall-eval 的契约文档与测试。
+*/
 
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
@@ -62,7 +67,10 @@ function joinPath(path, key) {
   return path ? `${path}.${key}` : String(key);
 }
 
+// `type` 可为单个类型名，或一组类型名（联合，标准 JSON Schema 的 `type: [..]`）。
+// 联合 = 值匹配其中任意一个即通过（用于表达 `string | array` 这类形态）。
 function typeMatches(value, type) {
+  if (Array.isArray(type)) return type.some((t) => typeMatches(value, t));
   switch (type) {
     case "object": return isPlainObject(value);
     case "array": return Array.isArray(value);
@@ -75,12 +83,21 @@ function typeMatches(value, type) {
 }
 
 function typeLabel(type) {
+  if (Array.isArray(type)) return type.map(typeLabel).join(" or ");
   return type === "object" ? "an object"
     : type === "array" ? "an array"
       : type === "string" ? "a string"
         : type === "boolean" ? "a boolean"
           : type === "integer" ? "an integer"
             : "a number";
+}
+
+// schema 声明是否允许某具体类型 t（供联合类型下按需触发类型相关关键字）。
+// 约定：未显式给 `type` 时返回 false——保持「无 type 则不触发该类型关键字」旧语义，
+// 因此把守卫从 `schema.type === t` 换成 declaredAllows(schema, t) 对单类型 schema 完全等价。
+function declaredAllows(schema, t) {
+  if (schema.type === undefined) return false;
+  return Array.isArray(schema.type) ? schema.type.includes(t) : schema.type === t;
 }
 
 // 错误对象同时携带 path 与 format：调用方可用 format 以「相对路径」重渲染
@@ -129,7 +146,7 @@ function walk(value, schema, path, ctx) {
     return; // 类型不符时不再深入，避免派生噪音错误
   }
 
-  if (schema.type === "string" && schema.pattern !== undefined) {
+  if (declaredAllows(schema, "string") && typeof value === "string" && schema.pattern !== undefined) {
     if (!new RegExp(schema.pattern).test(value)) {
       // 约定：pattern "\S"（非空串）失败按「缺失」报——沿用召回契约里
       // 空白字符串等同字段缺失的旧语义。其他 pattern 按通用文案报。
@@ -141,11 +158,16 @@ function walk(value, schema, path, ctx) {
     }
   }
 
-  if ((schema.type === "integer" || schema.type === "number") && schema.minimum !== undefined && value < schema.minimum) {
+  if (
+    (declaredAllows(schema, "integer") || declaredAllows(schema, "number")) &&
+    typeof value === "number" &&
+    schema.minimum !== undefined &&
+    value < schema.minimum
+  ) {
     pushError(ctx, path, (p) => `\`${p}\` must be >= ${schema.minimum}`);
   }
 
-  if (schema.type === "object") {
+  if (declaredAllows(schema, "object") && isPlainObject(value)) {
     if (schema.minProperties !== undefined && Object.keys(value).length < schema.minProperties) {
       pushError(
         ctx,
@@ -182,7 +204,7 @@ function walk(value, schema, path, ctx) {
     }
   }
 
-  if (schema.type === "array") {
+  if (declaredAllows(schema, "array") && Array.isArray(value)) {
     if (schema.minItems !== undefined && value.length < schema.minItems) {
       pushError(
         ctx,
