@@ -2,6 +2,22 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.10.0
+
+recall-eval `skill_trigger.permissions`：glob 模式 allow/deny 命令权限配置。
+
+### Added
+
+- recall-eval：`skill_trigger.permissions` —— `mode` / `allow` / `deny` 三字段，`allow`/`deny` 为 glob 模式列表，`deny` 优先于 `allow`；`globMatch` + `createShellChecker(permissions)` 高阶函数生成 shell 命令校验器，`runSkillTriggerAgent` 接收 `permissions` 参数；`evaluate-queue` 从 `data.skill_trigger` 读取并透传 `permissions` / `max_steps` / `timeout_ms`。
+- schema：`recall-queue.schema.yaml` 新增 `$defs/permissions`（`mode`/`allow`/`deny`）与 `skill_trigger` 顶层字段，结构权威落 schema。
+- fixtures + 集成测试：`skill-trigger-permissions` 4-case token ittest（allow / deny / subshell / default）及对应 prompts；新增 `iitest:token:skill-trigger-permissions` 脚本。
+- 单测 +18：`tests/shell-checker.test.mjs` 覆盖 glob 匹配 / merge / override / deny 各分支。
+
+### Changed
+
+- `model-agent.mjs`：`DEFAULT_WHITELIST` → `DEFAULT_ALLOW_PATTERNS`（改为 glob 模式）。
+- `recall-author/SKILL.md`：队列结构全景展开所有子字段，新增 `skill_trigger` 文档小节。
+
 ## v0.9.0
 
 prompt-context 的 `context.*.path` 支持单文件或有序文件列表（`string | string[]`）。

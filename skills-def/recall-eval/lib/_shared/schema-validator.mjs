@@ -1,4 +1,4 @@
-// synced from skills-def\_shared\schema-validator.mjs @ e4b69de+uncommitted
+// synced from skills-def\_shared\schema-validator.mjs @ 39260ad
 // DO NOT EDIT — run `npm run recall:sync-shared` to regenerate
 // skills-def/_shared/schema-validator.mjs
 
