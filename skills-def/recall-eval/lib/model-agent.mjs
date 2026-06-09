@@ -73,11 +73,24 @@ export async function runRecallAgent({ sourceRef, question, provider, context, m
   return { ok: true, answer: result.answer };
 }
 
-// ── skill-trigger-v1：白名单 shell agent ──
+// ── skill-trigger-v1：权限控制 shell agent ──
 
-const DEFAULT_WHITELIST = [
-  "node", "npm", "npx", "ls", "cat", "grep", "echo", "head", "tail",
-  "wc", "find", "git log", "git diff", "git status",
+// 默认允许的命令 glob patterns（Claude Code 风格通配符匹配）。
+// 用户通过 queue.yaml 的 skill_trigger.permissions 可追加或覆盖。
+export const DEFAULT_ALLOW_PATTERNS = [
+  "node *", "node",
+  "npm *", "npm",
+  "npx *", "npx",
+  "ls *", "ls",
+  "cat *",
+  "grep *",
+  "echo *", "echo",
+  "head *", "tail *",
+  "wc *",
+  "find *",
+  "git log *", "git log",
+  "git diff *", "git diff",
+  "git status *", "git status",
 ]
 
 // 从 SKILL.md 的 YAML frontmatter 解析 name / description
@@ -101,14 +114,84 @@ function readSkillMeta(skillPath, baseDir) {
   }
 }
 
+/**
+ * 简易 glob 匹配：仅支持 `*` 通配符（匹配任意字符序列，含空格）。
+ * 不引入外部依赖；覆盖 recall-eval 沙箱内的命令匹配需求。
+ *
+ * 例：globMatch("uv run pytest tests/", "uv run *") === true
+ *     globMatch("ls", "ls *") === false（"ls" 没有尾部参数）
+ *     globMatch("ls", "ls") === true
+ */
+export function globMatch(text, pattern) {
+  // 把 pattern 按 * 分割成字面片段，逐段匹配
+  const parts = pattern.split("*")
+  if (parts.length === 1) return text === pattern // 无通配符 → 严格相等
+
+  let pos = 0
+  for (let i = 0; i < parts.length; i++) {
+    const seg = parts[i]
+    if (i === 0) {
+      // 首段必须是前缀
+      if (!text.startsWith(seg)) return false
+      pos = seg.length
+    } else if (i === parts.length - 1) {
+      // 末段必须是后缀
+      if (!text.endsWith(seg)) return false
+      // 末段可以是空串（pattern 以 * 结尾），此时 endsWith("") 永远 true
+      if (seg.length > 0 && text.length - pos < seg.length) return false
+    } else {
+      // 中间段：找第一个出现位置
+      const idx = text.indexOf(seg, pos)
+      if (idx === -1) return false
+      pos = idx + seg.length
+    }
+  }
+  return true
+}
+
+/**
+ * 创建命令权限检查器。
+ *
+ * @param {object} [permissions] - skill_trigger.permissions 配置
+ * @param {string} [permissions.mode="merge"] - "merge"（追加到默认）| "override"（替换默认）
+ * @param {string[]} [permissions.allow] - 允许的 glob patterns
+ * @param {string[]} [permissions.deny] - 拒绝的 glob patterns（优先级高于 allow）
+ * @returns {(command: string) => boolean}
+ */
+export function createShellChecker(permissions = {}) {
+  const { mode = "merge", allow = [], deny = [] } = permissions
+
+  // 合并 allow patterns：merge 模式追加到默认，override 模式只用用户声明
+  const effectiveAllow = mode === "override"
+    ? [...allow]
+    : [...DEFAULT_ALLOW_PATTERNS, ...allow]
+
+  return (command) => {
+    const trimmed = command.trim()
+    if (!trimmed) return false
+
+    // 清理无害的 stderr 重定向后缀
+    const cleaned = trimmed
+      .replace(/\s*2>\/?dev\/null\s*$/, "")
+      .replace(/\s*2>&1\s*$/, "")
+      .trim()
+
+    if (!cleaned) return false
+
+    // deny 优先：命中任一 deny pattern → BLOCK
+    if (deny.some((p) => globMatch(cleaned, p))) return false
+
+    // allow 匹配：命中任一 allow pattern → ALLOW
+    if (effectiveAllow.some((p) => globMatch(cleaned, p))) return true
+
+    // 未命中 → BLOCK
+    return false
+  }
+}
+
+// 向后兼容：无配置时等价于旧 isShellAllowed 行为（仅 DEFAULT_ALLOW_PATTERNS）
 function isShellAllowed(command) {
-  const trimmed = command.trim()
-  if (!trimmed) return false
-  // 允许无害的后缀：2>/dev/null, 2>&1
-  const cleaned = trimmed.replace(/\s*2>\/?dev\/null\s*$/, "").replace(/\s*2>&1\s*$/, "").trim()
-  // 禁止管道、重定向、后台等
-  if (/[;|>`$(){}\\]/.test(cleaned)) return false
-  return DEFAULT_WHITELIST.some((prefix) => cleaned.startsWith(prefix))
+  return createShellChecker()(command)
 }
 
 function parseToolCalls(text) {
@@ -134,11 +217,15 @@ function parseToolCalls(text) {
  * @param {string} [opts.baseDir]
  * @param {number} [opts.maxSteps=5]
  * @param {number} [opts.timeoutMs=30000]
+ * @param {object} [opts.permissions] - 命令权限配置（来自 queue.yaml skill_trigger.permissions）
+ * @param {string} [opts.permissions.mode="merge"] - "merge" | "override"
+ * @param {string[]} [opts.permissions.allow] - 允许的 glob patterns
+ * @param {string[]} [opts.permissions.deny] - 拒绝的 glob patterns
  * @returns {Promise<{ok: boolean, toolCalls?: Array, finalAnswer?: string, reason?: string}>}
  */
 export async function runSkillTriggerAgent({
   availableSkills = [], question, provider, baseDir = process.cwd(),
-  maxSteps = 5, timeoutMs = 30000,
+  maxSteps = 5, timeoutMs = 30000, permissions,
 }) {
   // 解析候选技能目录：自动读 SKILL.md frontmatter（name/description），显式覆盖优先
   const resolvedSkills = availableSkills.map((s) => {
@@ -149,6 +236,15 @@ export async function runSkillTriggerAgent({
       path: s.path,
     }
   })
+
+  // 构造权限检查器
+  const shellChecker = createShellChecker(permissions)
+
+  // 计算生效的 allow patterns（用于 prompt 告知模型）
+  const { mode = "merge", allow: userAllow = [] } = permissions || {}
+  const effectiveAllowForPrompt = mode === "override"
+    ? userAllow
+    : [...DEFAULT_ALLOW_PATTERNS, ...userAllow]
 
   // 用 buildSystemPrompt 构造 system prompt，包含候选技能目录
   const rawPrompt = buildSystemPrompt({
@@ -165,12 +261,12 @@ export async function runSkillTriggerAgent({
       ].join("\n"),
       afterSkills: [
         "",
-        `Allowed commands: ${DEFAULT_WHITELIST.join(", ")}`,
+        `Allowed command patterns: ${effectiveAllowForPrompt.join(", ")}`,
         "To run a command, output:",
         "<tool_call>",
         '{"command": "<your command here>"}',
         "</tool_call>",
-        "Pipes, redirects, and shell metacharacters (except 2>/dev/null, 2>&1) are forbidden.",
+        "Commands are matched against glob patterns (* = any characters).",
         "After you have gathered enough information, give your final answer.",
       ].join("\n"),
     },
@@ -208,7 +304,7 @@ export async function runSkillTriggerAgent({
 
     // 执行 tool calls
     for (const call of calls) {
-      if (!isShellAllowed(call.command)) {
+      if (!shellChecker(call.command)) {
         messages.push({ role: "assistant", content: answer })
         messages.push({
           role: "user",

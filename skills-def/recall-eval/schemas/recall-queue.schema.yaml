@@ -28,6 +28,19 @@ properties:
       "0": { $ref: "#/$defs/non_empty_string" }
       "1": { $ref: "#/$defs/non_empty_string" }
       "2": { $ref: "#/$defs/non_empty_string" }
+  # skill-trigger 模式的队列级配置（可选，缺省使用内置默认值）
+  skill_trigger:
+    type: object
+    additionalProperties: false
+    properties:
+      permissions:
+        $ref: "#/$defs/permissions"
+      max_steps:
+        type: integer
+        minimum: 1
+      timeout_ms:
+        type: integer
+        minimum: 1000
   cases:
     type: array
     minItems: 1
@@ -41,6 +54,22 @@ $defs:
     type: array
     items:
       $ref: "#/$defs/non_empty_string"
+  # 命令权限配置（glob pattern 匹配，类 Claude Code 风格）。
+  # 当前仅用于 skill_trigger；未来可复用于其他需要命令沙箱的场景。
+  permissions:
+    type: object
+    additionalProperties: false
+    properties:
+      mode:
+        type: string
+        enum: [merge, override]
+        # merge（默认）：用户 patterns 追加到内置默认；override：完全替换
+      allow:
+        type: array
+        items: { $ref: "#/$defs/non_empty_string" }
+      deny:
+        type: array
+        items: { $ref: "#/$defs/non_empty_string" }
   case:
     type: object
     required: [id, question, medium, expected, score_rule, tags, source_scope]

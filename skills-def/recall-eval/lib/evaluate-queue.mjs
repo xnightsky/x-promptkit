@@ -113,8 +113,10 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
         continue;
       }
 
-      // skill-trigger 模式：白名单 shell 自主执行
+      // skill-trigger 模式：权限控制 shell 自主执行
       if (caseReport.caseValue?.medium === "skill-trigger") {
+        // 从队列顶层 skill_trigger.permissions 读取权限配置
+        const skillTriggerConfig = data.skill_trigger || {}
         const triggerResult = await runSkillTriggerAgent({
           availableSkills: Array.isArray(caseReport.caseValue?.available_skills)
             ? caseReport.caseValue.available_skills
@@ -122,6 +124,9 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
           question: caseReport.caseValue.question,
           provider,
           baseDir: sourceBaseDir,
+          maxSteps: skillTriggerConfig.max_steps ?? undefined,
+          timeoutMs: skillTriggerConfig.timeout_ms ?? undefined,
+          permissions: skillTriggerConfig.permissions ?? undefined,
         });
 
         if (!triggerResult.ok) {

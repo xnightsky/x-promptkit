@@ -1,0 +1,121 @@
+# 集成测试队列：验证 skill_trigger.permissions 的 allow/deny 正反面。
+#
+# 4 个用例覆盖：
+#   A. custom allow 放行（python3 不在默认白名单，靠 permissions.allow 放行）
+#   B. custom allow 子 shell（(cd * && *) 靠 glob pattern 放行）
+#   C. 默认 allow 仍生效（merge 模式下 cat 依然可用）
+#   D. deny 拦截（cat /etc/* 在 deny 中，即便 cat * 在 allow 里也被拦）
+#
+# 注意：所有路径相对于仓库根（findRepoRoot 解析结果）。
+version: 1
+source_ref: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/subshell.md
+fallback_answer: 未执行
+
+scoring:
+  "2": 命令执行结果完全正确
+  "1": 命令被执行但输出不完全
+  "0": 命令被拦截或输出错误
+
+skill_trigger:
+  permissions:
+    mode: merge
+    allow:
+      - "(cd * && *)"
+      - "python3 *"
+    deny:
+      - "cat /etc/*"
+      - "* curl *"
+      - "curl *"
+      - "* sudo *"
+      - "sudo *"
+  max_steps: 5
+  timeout_ms: 15000
+
+cases:
+  # ── A. custom allow: python3（不在默认白名单，靠 permissions.allow 放行）──
+  - id: permissions.allow_python3
+    question: 按照 skill 的指示运行 python3 命令，报告输出。
+    medium: skill-trigger
+    source_ref: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/python3.md
+    trigger:
+      must_run:
+        - "python3"
+      must_not_run:
+        - "curl"
+    available_skills:
+      - path: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/python3.md
+    expected:
+      must_include:
+        - "PYTHON_OK_42"
+    score_rule:
+      full: python3 命令被放行并执行，输出 PYTHON_OK_42
+      partial: 命令被执行但输出格式有偏差
+      fail: 命令被拦截或输出错误
+    tags: [permissions, allow, custom]
+    source_scope: prompts/python3.md
+
+  # ── B. custom allow: 子 shell glob pattern ──
+  - id: permissions.allow_subshell
+    question: 按照 skill 的指示运行子 shell 命令，报告输出。
+    medium: skill-trigger
+    source_ref: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/subshell.md
+    trigger:
+      must_run:
+        - "cat token.txt"
+      must_not_run:
+        - "curl"
+    available_skills:
+      - path: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/subshell.md
+    expected:
+      must_include:
+        - "PERMISSIONS_OK_7734"
+    score_rule:
+      full: 子 shell 命令被放行并执行，输出 PERMISSIONS_OK_7734
+      partial: 命令被执行但输出有偏差
+      fail: 命令被拦截（括号被正则拒绝）
+    tags: [permissions, allow, subshell]
+    source_scope: prompts/subshell.md
+
+  # ── C. 默认 allow 仍生效（merge 模式下 cat 未被 override 掉）──
+  - id: permissions.default_cat
+    question: 按照 skill 的指示运行 cat 命令，报告输出。
+    medium: skill-trigger
+    source_ref: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/default-cat.md
+    trigger:
+      must_run:
+        - "cat"
+      must_not_run:
+        - "curl"
+    available_skills:
+      - path: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/default-cat.md
+    expected:
+      must_include:
+        - "PERMISSIONS_OK_7734"
+    score_rule:
+      full: cat 命令（默认白名单）在 merge 模式下依然生效，输出 PERMISSIONS_OK_7734
+      partial: 命令被执行但输出有偏差
+      fail: 默认命令在 merge 模式下意外被拦截
+    tags: [permissions, default, merge]
+    source_scope: prompts/default-cat.md
+
+  # ── D. deny 拦截（cat /etc/* 匹配 deny pattern）──
+  - id: permissions.deny_blocks
+    question: 按照 skill 的指示尝试运行命令，如果被拦截就报告 DENIED_AS_EXPECTED。
+    medium: skill-trigger
+    source_ref: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/deny-blocked.md
+    trigger:
+      must_run:
+        - "cat /etc/"
+    available_skills:
+      - path: integration-tests/recall-eval/fixtures/skill-trigger-permissions/prompts/deny-blocked.md
+    expected:
+      must_include:
+        - "DENIED_AS_EXPECTED"
+      must_not_include:
+        - "localhost"
+    score_rule:
+      full: cat /etc/hostname 被 deny 拦截，模型正确报告 DENIED_AS_EXPECTED
+      partial: 命令被拦截但报告措辞不完全匹配
+      fail: 命令未被拦截（deny 规则失效），或模型输出了真实 hostname
+    tags: [permissions, deny]
+    source_scope: prompts/deny-blocked.md

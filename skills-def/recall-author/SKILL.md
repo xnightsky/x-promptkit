@@ -84,7 +84,22 @@ queue.yaml
 ├── source_ref           # 被评测提示词路径（case 可覆盖）
 ├── fallback_answer      # 评分兜底
 ├── context              # [可选] 提示词层声明
+│   ├── repo             # [可选] 项目提示词层
+│   │   ├── enabled      # boolean，是否加载
+│   │   ├── path         # [可选] 文件路径（string | string[]）
+│   │   └── max_bytes    # [可选] 截断字节数
+│   └── global           # [可选] 全局提示词层
+│       ├── enabled      # boolean，是否加载
+│       ├── path         # 当 enabled=true 时必填
+│       └── max_bytes    # [可选] 截断字节数
 ├── scoring              # { "0": ..., "1": ..., "2": ... }
+├── skill_trigger        # [可选] skill-trigger 模式的执行配置
+│   ├── permissions      # [可选] 命令权限
+│   │   ├── mode         # merge（默认）| override
+│   │   ├── allow        # 允许的 glob patterns
+│   │   └── deny         # 拒绝的 glob patterns（优先级高于 allow）
+│   ├── max_steps        # [可选] 最大交互轮次（默认 5）
+│   └── timeout_ms       # [可选] 单命令超时（默认 30000）
 └── cases[]
     ├── id               # 唯一 ID
     ├── question         # 问题文本
@@ -93,9 +108,15 @@ queue.yaml
     ├── source_scope     # 缩小答案面
     ├── source_ref       # [可选] case 级覆盖
     ├── fallback_answer  # [可选] case 级覆盖
-    ├── context          # [可选] 整块覆盖队列级
+    ├── context          # [可选] 整块覆盖队列级（结构同队列级 context）
     ├── trigger          # [可选] skill-trigger 专用
-    ├── available_skills # [可选] skill-trigger 专用
+    │   ├── must_run     # 必须触发的命令子串（至少 1 项）
+    │   └── must_not_run # [可选] 禁止运行的命令子串
+    ├── available_skills # [可选] skill-trigger 候选技能目录
+    │   └── []
+    │       ├── path     # 技能文件路径
+    │       ├── name     # [可选] 显示名
+    │       └── desc     # [可选] 描述
     ├── variants         # [可选] 变体
     ├── expected
     │   ├── must_include      # 必含关键词（至少 1 个）
@@ -220,8 +241,43 @@ trigger:
     - "npm run recall:validate"
     - "queue.yaml"
   must_not_run:
-    - "rm"
+    - "curl"
 ```
+
+### `skill_trigger` — 队列级执行配置（可选）
+
+控制 skill-trigger 模式下模型可执行的命令范围。缺省使用内置默认 patterns。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `permissions` | object | 命令权限配置 |
+| `permissions.mode` | string | `merge`（默认，追加到内置 patterns）\| `override`（完全替换） |
+| `permissions.allow` | array | 允许的 glob patterns（`*` 匹配任意字符） |
+| `permissions.deny` | array | 拒绝的 glob patterns（优先级高于 allow） |
+| `max_steps` | integer | 最大交互轮次（默认 5） |
+| `timeout_ms` | integer | 单命令执行超时（默认 30000ms） |
+
+**示例**：
+
+```yaml
+skill_trigger:
+  permissions:
+    mode: merge
+    allow:
+      - "(cd * && *)"       # 子 shell 范式
+      - "python3 *"
+      - "uv *"
+    deny:
+      - "cat /etc/*"        # 即便 cat * 在默认里，/etc/ 下仍被拦
+      - "* sudo *"
+  max_steps: 10
+  timeout_ms: 15000
+```
+
+**内置默认 allow patterns**（mode=merge 时自动包含）：
+`node *`, `npm *`, `npx *`, `ls *`, `cat *`, `grep *`, `echo *`, `head *`, `tail *`, `wc *`, `find *`, `git log *`, `git diff *`, `git status *`（以及各自的无参形式）。
+
+**匹配规则**：deny 优先 → allow 匹配 → 未命中则 BLOCK。
 
 ### `context` — 提示词层声明
 
