@@ -2,6 +2,23 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.12.0
+
+recall-eval 决策裁决接入 AI judge：具名维度可由裁判模型批量打分。
+
+### Added
+
+- recall-eval：judge pool 结构——决策维度可引用裁判项；未被引用的 judge 项隐式参与，裁决映射缺省时按缺席处理。
+- `runJudgeAgent`：批量裁决 agent，统一组装 prompt 并解析裁判模型返回的逐维度 verdict。
+- decision 归一化支持 verdict 引用与缺省映射；新增对 decision 结构（引用合法性、约束）的完整校验。
+- 设计文档 `docs/specs/2026-06-11-decision-judge-verdict-design.md`、`docs/specs/2026-06-10-grading-result-unification-design.md`。
+- selftest 队列 `skills-def/recall-eval/.recall/selftest-judge.yaml`；recall-author / recall-eval 的 SKILL.md 补 judge 契约与写作小节。
+- 单测：覆盖 verdict 解析、基于 AI 裁决的打分与新增 judge 校验分支。
+
+### Changed
+
+- `evaluate-queue` / `lib.mjs` / `model-agent.mjs`：决策打分链路接入 judge verdict，`recall-queue.schema.yaml` 扩展 judge 相关字段（结构权威落 schema）。
+
 ## v0.11.0
 
 移除 codex-bridge 运行时与 minimax_worker 集成。
