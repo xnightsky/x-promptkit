@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import path from "node:path";
-import { createHash } from "node:crypto";
 
 import { findAbsolutePathMatches, formatFailures, walkRepoFiles } from "./lib.mjs";
 
@@ -63,38 +61,6 @@ for (const policyDoc of policyDocs) {
   for (const snippet of policyDoc.requiredSnippets) {
     if (!content.includes(snippet)) {
       failures.push(`${policyDoc.path}: missing required policy snippet \`${snippet}\``);
-    }
-  }
-}
-
-// Vendor directories must stay in sync with their upstream source. Drift
-// between runtime/ and vendored copies causes silent behavioral divergence.
-const vendorSyncTargets = [
-  {
-    source: "runtime/codex-bridge",
-    vendor: "skills-def/codex-bridge-minimax-worker-installer/vendor/codex-bridge",
-  },
-];
-
-for (const { source, vendor } of vendorSyncTargets) {
-  const sourceDir = path.join(rootDir, source);
-  const vendorDir = path.join(rootDir, vendor);
-  if (!fs.existsSync(vendorDir)) {
-    failures.push(`${vendor}: vendor directory missing (run \`npm run sync:codex-bridge-runtime\`)`);
-    continue;
-  }
-  const sourceFiles = walkRepoFiles(sourceDir, { ignoredDirs: new Set(["node_modules"]) });
-  for (const relFile of sourceFiles) {
-    const srcPath = path.join(sourceDir, relFile);
-    const vndPath = path.join(vendorDir, relFile);
-    if (!fs.existsSync(vndPath)) {
-      failures.push(`${vendor}/${relFile}: missing in vendor (run \`npm run sync:codex-bridge-runtime\`)`);
-      continue;
-    }
-    const srcHash = createHash("md5").update(fs.readFileSync(srcPath)).digest("hex");
-    const vndHash = createHash("md5").update(fs.readFileSync(vndPath)).digest("hex");
-    if (srcHash !== vndHash) {
-      failures.push(`${vendor}/${relFile}: out of sync with ${source}/${relFile}`);
     }
   }
 }

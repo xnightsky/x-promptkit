@@ -72,7 +72,6 @@
 - 安装指南:[`skills-def/INSTALL.md`](./skills-def/INSTALL.md)
 - 文档总入口:[`docs/README.md`](./docs/README.md)
 - 集成测试入口:[`integration-tests/README.md`](./integration-tests/README.md)
-- Codex bridge runtime 入口:[`runtime/codex-bridge/`](./runtime/codex-bridge/)
 - 需要让 AI run 使用额外 skill 时，在调用时通过 `skill_entries` 注入
 
 ## 开发与校验
