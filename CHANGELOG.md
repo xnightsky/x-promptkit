@@ -2,6 +2,22 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.11.0
+
+移除 codex-bridge 运行时与 minimax_worker 集成。
+
+### Removed
+
+- `runtime/codex-bridge/`：in-repo 维护的 codex-bridge 运行时源整体删除。
+- `skills-def/codex-bridge-minimax-worker-installer/`、`codex-bridge-minimax-worker-loader/`：两个 `minimax_worker` 安装/启动 skill 及 vendored 副本。
+- `scripts/tooling/sync-codex-bridge-runtime.mjs` 及 `package.json` 的 `sync:codex-bridge-runtime` 脚本。
+- `tests/codex-bridge-runtime.test.mjs` 单测。
+
+### Changed
+
+- `lint-repo.mjs`：移除 runtime→vendor 一致性校验块及随之失效的 `path`/`createHash` 导入。
+- `README.md`：去掉「Codex bridge runtime 入口」常用入口行。
+
 ## v0.10.0
 
 recall-eval `skill_trigger.permissions`：glob 模式 allow/deny 命令权限配置。
