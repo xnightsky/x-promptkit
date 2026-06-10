@@ -131,7 +131,9 @@ Optional fields:
 - `variants`
 - `expected.should_include`
 - `expected.must_not_include`
-- `expected.decision` (named-field adjudication; see `decision` Rule)
+- `expected.judge` (named verdict pool — declaring it already participates in scoring; see `judge` Rule)
+- `expected.decision` (named-field adjudication, the fine-tuning lane; see `decision` Rule)
+- `judge` at queue level (grader / timeout execution config, mirroring `skill_trigger`)
 - `fallback_answer`
 - `source_ref` as a case-level override
 - `context` at queue level, and as a case-level whole-block override
@@ -291,35 +293,92 @@ Scoring guidance:
 
 ## `decision` Rule
 
-`expected.decision` is an optional named-field adjudication block for routing-style
-recall: it scores whether the answer named the right value per dimension — something the
-keyword buckets cannot express. Dimension names are author-defined; the contract only
-fixes the per-dimension shape `{ eq, from?, weight?, knockout? }` (machine authority:
-`schemas/recall-queue.schema.yaml`).
+`expected.decision` is the named-field adjudication block and the **single scoring exit**
+for named verdicts: a static machine (±weight accumulation + knockout veto) whose score is
+deterministic and auditable given its inputs. It is also the **fine-tuning lane** — without
+it, a declared judge pool still participates under defaults (see `judge` Rule). Dimension
+names are author-defined; the per-dimension shape is
+`{ eq | one_of | verdict, from?, weight?, knockout?, absent? }` (machine authority:
+`schemas/recall-queue.schema.yaml`; design authority:
+`docs/specs/2026-06-11-decision-judge-verdict-design.md`).
+
+Each dimension declares **exactly one** matcher:
+
+- `eq: <literal>` — extract the actual value from the answer (default convention is a line
+  `<dim>: <value>`; a `from` capture-group regex overrides it), then compare trimmed,
+  case-insensitive
+- `one_of: [<literal>, ...]` — same extraction, hit when the value equals any set member
+- `verdict: judge.<name>` (or a list — hit when ANY referenced verdict passes) — the hit
+  comes from the named entry of the `expected.judge` pool; the `judge.` prefix is
+  mandatory; `from` is forbidden on verdict dimensions
 
 Per-dimension scoring is analytic, bipolar, and accumulated:
 
-- extract the dimension's actual value from the answer — default convention is a line
-  `<dim>: <value>`; a `from` capture-group regex overrides it
-- actual `== eq` (trimmed, case-insensitive) → `+weight` (default `weight` is `2`)
-- present but `!= eq` → `-weight` (counter-effect)
-- absent → `0` (no effect — deliberately distinct from a wrong value)
-- the case's decision score is the sum across dimensions; it is unbounded (not capped to ±2)
+- hit → `+weight` (default `weight` is `2`); present-but-wrong / verdict fail → `-weight`
+- absent → mapped by `absent: zero | pass | fail` (default `zero` = present with zero
+  contribution; `pass`/`fail` treat absence as an explicit yes/no before scoring)
+- the case's decision score is the sum across dimensions; it is unbounded (not capped)
+- coverage `(evaluated/total)` is always reported; decision scores with different
+  coverage are NOT comparable
 
 `knockout` is a hard veto on top of the accumulation:
 
-- a `knockout: true` dimension that is not hit forces the whole case to `FAIL`,
-  regardless of the accumulated sum
+- a `knockout: true` dimension that is not hit (after the absent mapping) forces the whole
+  case to `FAIL`, regardless of the accumulated sum
 
 Boundaries:
 
+- the AI never outputs a score: judge produces named boolean verdicts only, and the
+  decision static machine is the only place numbers come from
+- environment failures (no grader / judge call failed / unparseable response) never reach
+  the scorer — the case is marked `not evaluated` beforehand
 - `decision` is an answer-content assertion scored on the content line (`scoreAnswer`); it
   does not replace or touch skill-trigger verification (`scoreTriggerCase`)
 - the decision score and the content buckets are reported side by side and are NOT merged
-  into a single headline score in v1
-- absent `decision` → scoring is byte-identical to the current `0/1/2` behavior
-- only `eq` is supported in v1; an AND-over-a-set requirement is expressed as multiple
-  single-value dimensions, so `one_of`/`not_eq` are intentionally out of scope
+  into a single headline score
+- no judge pool and no `decision` → scoring is byte-identical to the keyword-bucket-only
+  behavior
+
+## `judge` Rule
+
+`expected.judge` is a **named verdict pool**: each entry is one verification criterion
+(`<name>: { rubric }`) judged by the AI. It exists for things the substring layer
+**structurally cannot express** (equivalent paraphrases; "did the answer correctly explain
+*why*"). Design authority: `docs/specs/2026-06-11-decision-judge-verdict-design.md`.
+
+The contract in one line: **the AI only produces named boolean verdicts (pass/fail); all
+numbers come from the `decision` static machine.** To amplify the AI, raise the `weight` of
+the dimension referencing it — never let it output a score.
+
+Declaring the pool already scores (default participation):
+
+- every pool entry NOT referenced by any `decision` dimension becomes an implicit
+  dimension `{ verdict: judge.<name>, weight: 2, knockout: false, absent: zero }`
+- `decision` is only needed for fine-tuning: amplifying (`weight`), vetoing
+  (`knockout`), OR-combining (`verdict: [judge.a, judge.b]`), or literal-field
+  extraction (`eq`/`one_of`/`from`)
+- referenced entries follow their tuned dimension; unreferenced ones keep the default —
+  both can coexist in one case (merge semantics)
+
+Execution (`runJudgeAgent`, policy `judge-v1`):
+
+- one batched model call per case: the answer plus ALL pool entries as a numbered
+  criteria list; the model must return strict JSON
+  `{ "<name>": { "pass": true|false, "reason": "..." } }` covering every name
+- queue-level `judge` config: `grader` (provider id, defaults to the recall provider) and
+  `timeout_ms`
+- parsing is lenient per entry (boolean shorthand, `true/yes/pass/y` string coercion);
+  an unrecognizable or missing entry = an absent verdict — **absence never passes**, so
+  the "model omits pass → default pass" trap structurally cannot exist
+
+Failure layering:
+
+- a verdict `fail` is a content failure: `-weight`, and `FAIL` on a knockout dimension
+- a missing single verdict (the judge ran but skipped an entry) is content-side absence:
+  it goes through the dimension's `absent` mapping
+- no grader / judge call failed / unparseable response is an **environment failure**: the
+  case is marked `not evaluated` before scoring — environment failures never lower a
+  recall score
 
 ## Output
 

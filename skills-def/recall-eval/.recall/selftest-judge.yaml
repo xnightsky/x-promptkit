@@ -1,0 +1,65 @@
+# judge 裁定池正例自测队列（schema/跨字段校验用，不在默认回归里 live 跑）。
+# 覆盖三种形态：①只写池零精调（缺省隐式参与 ±2）；②半精调（精调+缺省混合）；
+# ③裁定 OR + knockout + absent 映射。设计权威：
+# docs/specs/2026-06-11-decision-judge-verdict-design.md。
+# 自测隔离：source_ref 指向手写 fake-routing-prompt.md，不碰真实提示词。
+version: 1
+source_ref: fake-routing-prompt.md   # 相对本 yaml 所在的 .recall/ 目录解析
+fallback_answer: "无法判断。"
+
+scoring:
+  "0": "未命中"
+  "1": "部分命中"
+  "2": "完整命中"
+
+# 队列级 judge 执行配置（grader 缺省同被测 provider，这里只示例 timeout 覆盖）
+judge:
+  timeout_ms: 30000
+
+cases:
+  # ① 只写池、零 decision：每条裁定缺省隐式参与（weight 2、无否决、absent zero）
+  - id: judge-default-participation
+    question: "用户说『帮我写一个新的召回队列』，该走哪个 skill？为什么？"
+    medium: skill-mechanism
+    source_scope: "写新队列 → recall-author"
+    expected:
+      must_include:
+        - recall-author
+      judge:
+        ownership: { rubric: "是否说明『写新队列』属于 author（编写）侧而非 eval（执行）侧？" }
+        no_invention: { rubric: "是否没有臆造仓库里不存在的字段或入口？" }
+    score_rule:
+      full: "选对 skill 且两条裁定均通过"
+      partial: "选对但部分裁定未过"
+      fail: "选错 skill 或裁定全败"
+    tags:
+      - judge
+      - selftest
+      - default-participation
+
+  # ② 半精调 + ③ 裁定 OR/knockout/absent：字面维与裁定引用维混用
+  - id: judge-tuned-wiring
+    question: "用户说『修一下这个 queue 的 schema 报错』。逐行输出 chosen_skill，并解释理由。"
+    medium: skill-mechanism
+    source_scope: "修报错 → recall-author / fix"
+    expected:
+      must_include:
+        - recall-author
+      judge:
+        ownership: { rubric: "是否说明修 schema 报错归 author（编写）侧处理？" }
+        no_invention: { rubric: "是否没有臆造仓库里不存在的字段或入口？" }
+        polite: { rubric: "措辞是否礼貌克制？" }
+        concise: { rubric: "是否简洁不绕弯？" }
+      decision:
+        chosen_skill: { eq: recall-author, knockout: true }            # 字面维：行约定抽取
+        reasoning: { verdict: judge.ownership, weight: 3 }             # 裁定引用 + 放大
+        no_invention: { verdict: judge.no_invention, knockout: true }  # 裁定 + 刹车
+        style_ok: { verdict: [judge.polite, judge.concise], weight: 1, absent: fail }  # OR + 缺席视为 no
+    score_rule:
+      full: "skill 选对且 reasoning/no_invention 裁定通过"
+      partial: "skill 对但部分裁定未过"
+      fail: "skill 选错或 no_invention 失格（knockout）"
+    tags:
+      - judge
+      - selftest
+      - tuned

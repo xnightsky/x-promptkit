@@ -71,6 +71,8 @@ npm run recall:validate -- path/to/your-queue.yaml
 |-------|---------|---------|
 | 测 agent 是否记住某条规则 | `medium: skill-mechanism`, `must_include` 写规则关键词 | 上面最小骨架 |
 | 测 agent 是否触发特定命令 | `medium: skill-trigger`, `trigger.must_run` | [`queue.example.yaml`](../recall-eval/examples/queue.example.yaml) |
+| 测「子串表达不了」的题（等价改写、解释对不对） | `expected.judge` 裁定池（声明即打分） | [`judge` 段](#judge--具名裁定池声明即打分)、[`selftest-judge.yaml`](../recall-eval/.recall/selftest-judge.yaml) |
+| 给某条判断放大权重 / 装刹车 / OR 组合 | `decision` 精调（`weight` / `knockout` / `verdict: [...]`） | [`decision` 段](#decision--具名字段裁决精调链路--唯一打分出口) |
 | 控制评测时加载哪些提示词 | `context` 块 | [context 层声明](#context-层声明) |
 | case 指向不同提示词源 | case 级 `source_ref` 覆盖队列级 | [`queue-with-case-source-override.yaml`](../recall-eval/.recall/queue-with-case-source-override.yaml) |
 | 只检查结构不跑评测 | `npm run recall:validate` | [校验](#校验) |
@@ -93,6 +95,7 @@ queue.yaml
 │       ├── path         # 当 enabled=true 时必填
 │       └── max_bytes    # [可选] 截断字节数
 ├── scoring              # { "0": ..., "1": ..., "2": ... }
+├── judge                # [可选] judge 执行配置（grader / timeout_ms）
 ├── skill_trigger        # [可选] skill-trigger 模式的执行配置
 │   ├── permissions      # [可选] 命令权限
 │   │   ├── mode         # merge（默认）| override
@@ -122,7 +125,9 @@ queue.yaml
     │   ├── must_include      # 必含关键词（至少 1 个）
     │   ├── any_must_include  # OR 语义：至少命中 1 个
     │   ├── should_include    # 加分项
-    │   └── must_not_include  # 红线：命中即 overreach
+    │   ├── must_not_include  # 红线：命中即 overreach
+    │   ├── judge             # [可选] 具名裁定池：<名>: { rubric }，声明即参与打分
+    │   └── decision          # [可选] 精调链路：<维名>: { eq|one_of|verdict, from, weight, knockout, absent }
     ├── score_rule
     │   ├── full    # 2 分标准
     │   ├── partial # 1 分标准
@@ -142,6 +147,7 @@ queue.yaml
 | `scoring` | object | ✅ | `"0"` / `"1"` / `"2"` 三档的自然语言说明 |
 | `cases` | array | ✅ | 评测用例列表，至少 1 个 |
 | `context` | object | 可选 | repo/global 提示词层声明 |
+| `judge` | object | 可选 | judge 执行配置：`grader`（裁判 provider id，缺省同被测）/ `timeout_ms` |
 
 **`source_ref` 继承规则**：
 - 队列级写了 → case 自动继承
@@ -175,6 +181,7 @@ queue.yaml
 | `any_must_include` | array | 可选 | **OR 语义**：至少命中其中 1 项即满足 |
 | `should_include` | array | 可选 | 加分项；缺了不致命但影响满分 |
 | `must_not_include` | array | 可选 | **红线**：一旦命中 = overreach 或错误回想 |
+| `judge` | object | 可选 | **具名裁定池**：一条判断依据一项，**声明即参与打分**；见 [`judge` 段](#judge--具名裁定池声明即打分) |
 
 **`must_include` vs `any_must_include` 选型指南**：
 
@@ -183,37 +190,105 @@ queue.yaml
 | 答案必须同时包含 A、B、C | `must_include: [A, B, C]`（AND 语义） |
 | 答案只要提到 A 或 B 或 C 之一即可 | `any_must_include: [A, B, C]`（OR 语义） |
 
-### `decision` — 具名字段裁决（可选）
+### `decision` — 具名字段裁决（精调链路 + 唯一打分出口）
 
-给「路由类」召回打分：判答案在某个**具名维度**上选的值对不对——关键词桶判不了的东西
-（如「该走的 skill 是不是 `recall-author`」）。维度名**自定义**，契约只约束每维形状
-`{ eq, from?, weight?, knockout? }`（结构权威：`../recall-eval/schemas/recall-queue.schema.yaml`）。
+给「路由类」召回打分：判答案在某个**具名维度**上选/答得对不对。它是**唯一打分出口**
+（静态机：±weight 累加 + knockout 否决），也是**精调链路**——只写 `judge` 池不写 decision
+照样打分（缺省隐式参与），要改权重/装刹车/OR 组合/抽字面字段时才写它。维度名**自定义**，
+每维形状 `{ eq | one_of | verdict, from?, weight?, knockout?, absent? }`
+（结构权威：`../recall-eval/schemas/recall-queue.schema.yaml`；设计权威：
+`docs/specs/2026-06-11-decision-judge-verdict-design.md`）。
 
-| 维度内字段 | 必填 | 语义 |
+**命中器（每维恰一）**：
+
+| 命中器 | 机器 | hit 判定 |
 |------|------|------|
-| `eq` | ✅ | 期望的具名值（trim 后大小写不敏感精确相等） |
-| `from` | 可选 | 抽取实际值的正则（含 1 个捕获组）；不写走约定 `<维度名>: <值>` 行 |
-| `weight` | 可选 | 分值量级；命中 +weight / 答错 -weight / 没答 0；缺省 `2` |
-| `knockout` | 可选 | `true` 时该维未命中 → 整题 FAIL（无视累加）；缺省 `false` |
+| `eq: <字面串>` | 字面机：从答案抽实际值 | `got == eq`（trim、大小写不敏感） |
+| `one_of: [<字面>, ...]` | 字面机 | `got ∈ 集合`（任一等值） |
+| `verdict: judge.<池键>` | 裁定机：查 judge 裁定表 | 裁定 = pass |
+| `verdict: [judge.<a>, judge.<b>]` | 裁定机 OR | 任一 pass → ✓ |
 
-**打分**：各维度带符号贡献**求和**（不封顶，三维各 +2 → +5），这是「油门」；`knockout`
-是「刹车」——装了它的维度答错，整题直接出局，压过累加。
+`verdict` 值**强制 `judge.` 前缀**（不带=校验报错）；verdict 维禁 `from`。
+
+**其余字段（缺省表 B）**：
+
+| 字段 | 缺省 | 语义 |
+|------|------|------|
+| `from` | 行约定 `^<维名>: <值>$` | 抽取实际值的正则（含 1 个捕获组）；仅字面维 |
+| `weight` | `2` | 命中 +weight / 答错 −weight |
+| `knockout` | `false` | `true` 时该维非命中 → 整题 FAIL（无视累加） |
+| `absent` | `zero` | 缺席映射：`zero`=在场零出力 / `pass`=视为 yes / `fail`=视为 no |
+
+**打分**：三态（✓/✗/∅）先过 `absent` 映射，再进静态机求和（不封顶，可为负）；`knockout`
+是「刹车」——装了它的维度非命中，整题直接出局，压过累加。报告强制带 coverage
+`(evaluated/total)`：**不同 coverage 的 decision 分不可比**。
 
 ```yaml
 expected:
   must_include: [recall-author]
+  judge:
+    ownership: { rubric: "是否说明归 author 侧?" }
+    polite:    { rubric: "措辞礼貌?" }
+    concise:   { rubric: "简洁?" }
   decision:
-    chosen_skill: { eq: recall-author, knockout: true }  # 选错 skill 直接失格
-    answer_mode:  { eq: fix }                            # weight 缺省 2
-    answer_depth: { eq: L2, weight: 1 }                  # 次要维度，1 分
+    chosen_skill: { eq: recall-author, knockout: true }       # 字面：选错直接失格
+    skill_family: { one_of: [recall-author, recall-eval] }    # 字面 OR
+    reasoning:    { verdict: judge.ownership, weight: 3 }     # 裁定引用 + 放大
+    style_ok:     { verdict: [judge.polite, judge.concise], absent: fail }  # 裁定 OR + 缺席视为 no
 ```
 
 **写作要点**：
 
-- 维度名自取，别复用任何「固定词表」——契约不预设维度名。
-- 「要同时满足多项」（AND）拆成**多条单值维度**即可，不需要 `one_of`；单值还逼你把标准写准。
-- 想「错了扣分但能救」用 `weight`；想「错了直接出局」用 `knockout`。
-- `decision` 与内容桶（`must_include` 等）**并列计分、互不覆盖**；不写 `decision` 则完全等同今天。
+- 维度名自取，契约不预设词表；字面维的维名参与行约定抽取，verdict 维的维名纯计分标签。
+- 「同时满足多项」（AND）拆成**多条维度**各给 weight；「任一说法都算」用 `one_of`（字面）
+  或 `verdict: [...]`（裁定）。
+- 想「错了扣分但能救」用 `weight`；想「错了直接出局」用 `knockout`；想「不答也算错」用
+  `absent: fail`。
+- `decision` 与内容桶（`must_include` 等）**并列计分、互不覆盖**；无池且不写 `decision`
+  则完全等同今天。
+
+### `judge` — 具名裁定池（声明即打分）
+
+给「子串结构上表达不了」的题用：等价改写、判断「是否正确解释了为什么」这类非关键词的东西。
+形态是**具名裁定池**：一条判断依据一项 `<名>: { rubric }`，由 `runJudgeAgent`（policy
+`judge-v1`）一个 case **一次批量调用**逐项裁出 pass/fail。
+
+**核心契约一句话：AI 只产出具名布尔裁定，分数恒由 `decision` 静态机出口。** 想放大 AI，
+就放大引用它那一维的 `weight`——永远不让它出分。（结构权威：
+`../recall-eval/schemas/recall-queue.schema.yaml`；设计权威：
+`docs/specs/2026-06-11-decision-judge-verdict-design.md`）
+
+| 位置 | 字段 | 语义 |
+|------|------|------|
+| `expected.judge.<名>` | `rubric`（必填） | 这条依据验什么（judge 的提问） |
+| 队列级 `judge` | `grader` / `timeout_ms`（均可选） | 裁判 provider（缺省同被测）与调用超时 |
+
+**声明即参与（缺省表 A）**：池里没被任何 `decision` 维引用的项，自动成为隐式维
+`{ verdict: judge.<名>, weight: 2, 无否决, absent: zero }` ——也就是说**只写池就已经在打分**
+（每条 pass +2 / fail −2 / 缺席 0），`decision` 只在要精调时才写。
+
+```yaml
+# 最简形态：只写池，零 decision —— 全部缺省参与
+expected:
+  must_include: [recall-author]
+  judge:
+    ownership:    { rubric: "是否说明『写新队列』属于 author 侧?" }
+    no_invention: { rubric: "是否没有臆造仓库里不存在的字段?" }
+
+# 精调形态：引用项听精调，未引用项仍缺省参与
+expected:
+  judge:
+    ownership: { rubric: "..." }
+    polite:    { rubric: "..." }
+    concise:   { rubric: "..." }
+  decision:
+    reasoning: { verdict: judge.ownership, weight: 3 }            # 放大
+    style_ok:  { verdict: [judge.polite, judge.concise] }         # OR：任一 pass 即命中
+```
+
+**失败分层**：裁定 fail = 内容失败（−weight / knockout 失格）；judge 跑了但漏答某项 =
+内容侧缺席（走该维 `absent` 映射）；无 grader / 调用失败 / 回答不可解析 = **环境失败**,
+整 case 标 `not evaluated`，不进打分机、不压分。
 
 ### `score_rule` — 三档评分标准
 
@@ -348,8 +423,10 @@ context:
 | case 缺 `source_scope` | schema FAIL | schema case.required |
 | `source_ref` 无处可解析 | integrity FAIL | lib.mjs 跨字段语义 |
 | `skill-trigger` 缺 `trigger.must_run` | integrity FAIL | lib.mjs 跨字段语义 |
+| `verdict` 引用的池键不存在 / 不带 `judge.` 前缀 | integrity FAIL | lib.mjs 跨字段语义 |
+| 一维声明的命中器不是恰一（`eq`/`one_of`/`verdict`） | integrity FAIL | lib.mjs 跨字段语义 |
 
-### 五条铁律
+### 七条铁律
 
 1. **`medium` 必须显式写**，不从 `source_scope` 或题面推断
 2. **`carrier` 可选，缺省 `"direct"`**：v0.6.0 起 carrier 解析层已下线
@@ -357,13 +434,15 @@ context:
 4. **不从目录反推 source**：队列放哪和它测谁没有隐式关系
 5. **`context` 整块覆盖不深合并**：case 级 context 直接替换队列级
 6. **自测队列隔离**：自测 context 路径指向手写 fixture，不依赖真实提示词变化
+7. **AI 不出分**：judge 只产出具名布尔裁定（pass/fail），分数恒由 `decision` 静态机出口；放大 AI = 放大对应维的 `weight`
 
 ### 打分策略选择
 
-| 策略 | 适用场景 | must_include 写法 |
+| 策略 | 适用场景 | 写法 |
 |------|---------|------------------|
-| 子串匹配 | 答案形式确定、词表固定 | 精确关键词，问题里钉死作答词表 |
-| 自然语言 | 答案有多种等价表述 | 语义描述，靠 `score_rule` 定义边界 |
+| 子串匹配 | 答案形式确定、词表固定 | `must_include` 精确关键词，问题里钉死作答词表 |
+| 具名字段（字面） | 答案按 `<维名>: <值>` 行作答、值可枚举 | `decision` 字面维（`eq` / `one_of`），可配 `weight`/`knockout` |
+| AI 裁定 | 答案有多种等价表述、要判「解释对不对」这类非关键词内容 | `expected.judge` 池（声明即打分 ±2）；要放大/刹车再加 `decision` 精调 |
 
 子串匹配型示例（问题里钉死词表）：
 ```yaml
@@ -430,6 +509,23 @@ expected:
     - 只有加分项  # must_include 是必填
 ```
 
+### ❌ `verdict` 不带 `judge.` 前缀
+
+```yaml
+expected:
+  judge:
+    ownership: { rubric: "..." }
+  decision:
+    reasoning: { verdict: ownership }  # 必须写 judge.ownership → 校验 FAIL
+```
+
+### ❌ 一维同时声明两个命中器
+
+```yaml
+decision:
+  d: { eq: recall-author, verdict: judge.ownership }  # eq/one_of/verdict 恰一 → 校验 FAIL
+```
+
 ## 目录关系
 
 ```
@@ -464,7 +560,8 @@ recall-author/                 # ← 本目录
 2. 看 `context` → 知道评测时加载了哪些提示词层
 3. 逐个 case 读 `question` + `source_scope` → 知道每道题考什么
 4. 逐个 case 读 `score_rule` → 知道评判标准
-5. 检查有无 `medium: skill-trigger` 的 case → 知道哪些需要触发命令
+5. 看 `expected.judge` 池与 `decision` 接线 → 知道哪些判断交给 AI 裁定、谁被放大（`weight`）、谁装了刹车（`knockout`）、未被引用的池项按缺省 ±2 默默参与
+6. 检查有无 `medium: skill-trigger` 的 case → 知道哪些需要触发命令
 
 ## 参考
 

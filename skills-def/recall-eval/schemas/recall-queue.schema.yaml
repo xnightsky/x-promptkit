@@ -28,6 +28,17 @@ properties:
       "0": { $ref: "#/$defs/non_empty_string" }
       "1": { $ref: "#/$defs/non_empty_string" }
       "2": { $ref: "#/$defs/non_empty_string" }
+  # judge 的队列级执行配置（可选，对称 skill_trigger 先例）。
+  # grader：裁判 provider id，缺省同被测 provider（一个 case 一次调用一个裁判）；
+  # timeout_ms：judge 调用超时，覆盖 provider 缺省。
+  judge:
+    type: object
+    additionalProperties: false
+    properties:
+      grader: { $ref: "#/$defs/non_empty_string" }
+      timeout_ms:
+        type: integer
+        minimum: 1000
   # skill-trigger 模式的队列级配置（可选，缺省使用内置默认值）
   skill_trigger:
     type: object
@@ -119,20 +130,43 @@ $defs:
           any_must_include: { $ref: "#/$defs/string_list" }
           should_include: { $ref: "#/$defs/string_list" }
           must_not_include: { $ref: "#/$defs/string_list" }
-          # 具名字段裁决（双极累加 + knockout 否决）。维度名由作者自定义，
-          # 契约只约束「每维 eq/from/weight/knockout」这一形状；判分语义在 lib.mjs。
+          # 具名裁定池（AI judge）：一条判断依据一项，声明即参与打分
+          # （未被 decision 引用的项 = 缺省隐式维 weight 2 / 无否决；被引用则按精调维计分）。
+          # AI 只产出布尔裁定（pass/fail），打分恒由 decision 静态机出口。
+          # 设计权威：docs/specs/2026-06-11-decision-judge-verdict-design.md。
+          judge:
+            type: object
+            minProperties: 1
+            additionalProperties:        # key = 裁定名（开放，由 verdict: judge.<键> 引用）
+              type: object
+              required: [rubric]
+              additionalProperties: false
+              properties:
+                rubric: { $ref: "#/$defs/non_empty_string" }  # 这条依据验什么（judge 的提问）
+          # 具名字段裁决（精调链路；双极累加 + knockout 否决）。维度名由作者自定义；
+          # 每维 eq / one_of / verdict 三种命中器恰一（恰一约束与 verdict 引用解析等
+          # 跨字段语义在 lib.mjs；schema 子集表达不了 oneOf）。
           decision:
             type: object
             minProperties: 1
             additionalProperties:        # key = 自定义维度名（开放）
               type: object
-              required: [eq]
-              additionalProperties: false  # 维度内仅许这 4 键
+              additionalProperties: false  # 维度内仅许声明键
               properties:
-                eq: { $ref: "#/$defs/non_empty_string" }      # 期望具名值
-                from: { $ref: "#/$defs/non_empty_string" }    # 抽取正则；缺省走约定
+                eq: { $ref: "#/$defs/non_empty_string" }      # 字面等值期望
+                one_of:                                        # 字面 OR：任一等值即命中
+                  type: array
+                  minItems: 1
+                  items: { $ref: "#/$defs/non_empty_string" }
+                verdict:                                       # 裁定引用：强制 judge.<池键> 前缀；
+                  type: [string, array]                        # 数组 = 任一 pass 即命中
+                  pattern: "\\S"
+                  minItems: 1
+                  items: { $ref: "#/$defs/non_empty_string" }
+                from: { $ref: "#/$defs/non_empty_string" }    # 抽取正则（仅字面维）；缺省走行约定
                 weight: { type: integer, minimum: 1 }         # 分值量级 ±weight；缺省 2
-                knockout: { type: boolean }                    # 未命中即整题 FAIL；缺省 false
+                knockout: { type: boolean }                    # 非命中即整题 FAIL；缺省 false
+                absent: { $ref: "#/$defs/non_empty_string" }  # 缺席映射 zero|pass|fail（枚举在 lib 兜底）；缺省 zero
       score_rule:
         type: object
         required: [full, partial, fail]

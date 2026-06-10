@@ -62,12 +62,13 @@ if (batchMode && selectedCaseId !== null) {
 // ── Provider（live 模式） ──
 
 let provider = null;
+let providerPool = [];   // 全列表透传：队列级 judge.grader 按名解析需要
 if (liveMode) {
-  const providers = loadEnabledProviders();
-  if (providers.length === 0) {
+  providerPool = loadEnabledProviders();
+  if (providerPool.length === 0) {
     console.log("SKIP: no active provider available for live recall."); process.exit(0);
   }
-  provider = providers[0];
+  provider = providerPool[0];
 }
 
 // ── 运行 ──
@@ -76,7 +77,7 @@ if (liveMode) {
   const results = [];
   for (const p of yamlPaths) {
     try {
-      results.push(await evaluateQueueTarget(p, { provider, liveMode, selectedCaseId, answer, answerFile, answersFile }));
+      results.push(await evaluateQueueTarget(p, { provider, providers: providerPool, liveMode, selectedCaseId, answer, answerFile, answersFile }));
     } catch (error) {
       console.log(error.message);
       process.exit(1);

@@ -8,7 +8,7 @@ import path from "node:path";
 // 用 echo provider（离线短路，回显完整 prompt）验证 prompt 拼装行为：
 // 纯 fake、不消耗真实 AI token，按测试边界约定属于单元测试。
 
-import { runRecallAgent } from "../skills-def/recall-eval/lib/model-agent.mjs";
+import { runRecallAgent, runJudgeAgent } from "../skills-def/recall-eval/lib/model-agent.mjs";
 
 const ECHO_PROVIDER = { api: "echo", model: "unit-test" };
 
@@ -90,4 +90,38 @@ test("runRecallAgent reports a missing source_ref instead of guessing", async ()
 
   assert.equal(result.ok, false);
   assert.match(result.reason, /source_ref not found: MISSING\.md/);
+});
+
+// ── runJudgeAgent（judge-v1 裁定 agent，批量单发）──
+
+// 场景：echo provider 回显完整批量裁定 prompt。预期：ok，output 与全部裁定项清单都进了 prompt。
+test("runJudgeAgent assembles a batch verdict prompt carrying output and criteria", async () => {
+  const result = await runJudgeAgent({
+    output: "被评判的答案文本",
+    items: [
+      { name: "ownership", rubric: "是否说明归属?" },
+      { name: "tone_ok", rubric: "语气是否克制?" },
+    ],
+    provider: ECHO_PROVIDER,
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.answer, /policy: judge-v1/);
+  assert.match(result.answer, /<Output>\n被评判的答案文本\n<\/Output>/);
+  assert.match(result.answer, /1\. ownership: 是否说明归属\?/);
+  assert.match(result.answer, /2\. tone_ok: 语气是否克制\?/);
+});
+
+// 场景：无 grader provider。预期：ok=false，原因明确（evaluate-queue 据此走环境拦截）。
+test("runJudgeAgent refuses without a grader provider", async () => {
+  const result = await runJudgeAgent({ output: "x", items: [{ name: "a", rubric: "r" }], provider: null });
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /no grader provider/);
+});
+
+// 场景：裁定项清单为空。预期：ok=false，不发起调用（池非空才该走到这里）。
+test("runJudgeAgent refuses an empty items list", async () => {
+  const result = await runJudgeAgent({ output: "x", items: [], provider: ECHO_PROVIDER });
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /items are empty/);
 });

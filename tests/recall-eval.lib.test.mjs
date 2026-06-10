@@ -11,6 +11,7 @@ const cwd = process.cwd();
 import {
   formatBatchRunEvalOutput,
   formatRunEvalOutput,
+  parseJudgeVerdicts,
   resolveRecallInputPath,
   scoreAnswer,
   validateRecallData,
@@ -515,4 +516,341 @@ test("scoreAnswer treats 不做/不会 prefixes as negation for must_not_include
   // 非否定形态仍要按命中禁止项计 0 分
   const overreach = scoreAnswer(report.caseReports[0], "整块覆盖后再做深合并。");
   assert.equal(overreach.score, 0);
+});
+
+// ── parseJudgeVerdicts（judge 批量裁决 → 具名裁定表）──
+
+// 场景：规范对象形态。预期：逐键取出 pass/reason。
+test("parseJudgeVerdicts reads a well-formed verdict map", () => {
+  const r = parseJudgeVerdicts('{"ownership":{"pass":true,"reason":"说清了"},"tone_ok":{"pass":false,"reason":"夸大"}}');
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.verdicts.ownership, { pass: true, reason: "说清了" });
+  assert.deepEqual(r.verdicts.tone_ok, { pass: false, reason: "夸大" });
+});
+
+// 场景：布尔简写（值不是对象）。预期：容忍为 pass 布尔。
+test("parseJudgeVerdicts tolerates boolean shorthand values", () => {
+  const r = parseJudgeVerdicts('{"a": true, "b": false}');
+  assert.equal(r.verdicts.a.pass, true);
+  assert.equal(r.verdicts.b.pass, false);
+});
+
+// 场景：pass 是字符串 "yes"。预期：兜底转 true。
+test("parseJudgeVerdicts coerces a string pass like yes", () => {
+  const r = parseJudgeVerdicts('{"a":{"pass":"yes"}}');
+  assert.equal(r.verdicts.a.pass, true);
+});
+
+// 场景：值形态无法识别（数字）。预期：该键丢弃 = 裁定缺席，永不放行。
+test("parseJudgeVerdicts drops an unrecognizable verdict value", () => {
+  const r = parseJudgeVerdicts('{"a": 1, "b": {"pass": true}}');
+  assert.equal(r.ok, true);
+  assert.equal(r.verdicts.a, undefined);
+  assert.equal(r.verdicts.b.pass, true);
+});
+
+// 场景：JSON 包在 ```json 围栏 + 前后散文里。预期：仍能抽出。
+test("parseJudgeVerdicts extracts JSON from fenced prose", () => {
+  const r = parseJudgeVerdicts('裁定如下：\n```json\n{"a":{"pass":true}}\n```\n以上。');
+  assert.equal(r.ok, true);
+  assert.equal(r.verdicts.a.pass, true);
+});
+
+// 场景：无 JSON。预期：ok=false（evaluate-queue 据此走环境拦截 not evaluated）。
+test("parseJudgeVerdicts fails when no JSON object is present", () => {
+  const r = parseJudgeVerdicts("抱歉我无法以 JSON 作答");
+  assert.equal(r.ok, false);
+});
+
+// ── verdict 维打分（裁定机三态 + 缺席映射 + coverage）──
+// 注：直接构造归一化后的 decision 维（normalizeDecision 的产物形态），
+// verdict 字段已是剥过 judge. 前缀的池键数组。
+
+function makeVerdictCaseReport(dims) {
+  return {
+    expected: {
+      mustInclude: ["recall-author"],
+      shouldInclude: [],
+      mustNotInclude: [],
+      decision: dims,
+    },
+    scoreRule: { full: "full", partial: "partial", fail: "fail" },
+  };
+}
+
+// 场景：裁定 pass。预期：+weight，coverage 1/1。
+test("scoreAnswer verdict dim contributes +weight on pass", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "reasoning", eq: null, oneOf: null, verdict: ["ownership"], from: null, weight: 3, knockout: false, absent: "zero" },
+    ]),
+    "recall-author",
+    { verdicts: { ownership: { pass: true, reason: "" } } },
+  );
+  assert.equal(scored.decision.score, 3);
+  assert.equal(scored.decision.evaluated, 1);
+  assert.equal(scored.decision.total, 1);
+});
+
+// 场景：裁定 fail。预期：−weight（反效果）。
+test("scoreAnswer verdict dim contributes -weight on fail", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "reasoning", eq: null, oneOf: null, verdict: ["ownership"], from: null, weight: 3, knockout: false, absent: "zero" },
+    ]),
+    "recall-author",
+    { verdicts: { ownership: { pass: false, reason: "" } } },
+  );
+  assert.equal(scored.decision.score, -3);
+});
+
+// 场景：裁定缺席（表里没有该键）。预期：在场零出力——0 贡献但计入 coverage 分母。
+test("scoreAnswer verdict dim stays present with zero weight when absent", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "reasoning", eq: null, oneOf: null, verdict: ["ownership"], from: null, weight: 3, knockout: false, absent: "zero" },
+    ]),
+    "recall-author",
+    { verdicts: {} },
+  );
+  assert.equal(scored.decision.score, 0);
+  assert.equal(scored.decision.evaluated, 0);
+  assert.equal(scored.decision.total, 1);
+  assert.equal(scored.decision.perDim[0].got, null);
+});
+
+// 场景：裁定 OR（任一 pass 即命中）。预期：a fail + b pass → ✓。
+test("scoreAnswer verdict OR hits when any referenced verdict passes", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "style_ok", eq: null, oneOf: null, verdict: ["polite", "concise"], from: null, weight: 1, knockout: false, absent: "zero" },
+    ]),
+    "recall-author",
+    { verdicts: { polite: { pass: false, reason: "" }, concise: { pass: true, reason: "" } } },
+  );
+  assert.equal(scored.decision.score, 1);
+});
+
+// 场景：knockout 裁定维 fail。预期：整题 decision=FAIL（内容否决）。
+test("scoreAnswer verdict knockout fail forces decision FAIL", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "no_invention", eq: null, oneOf: null, verdict: ["no_invention"], from: null, weight: 2, knockout: true, absent: "zero" },
+    ]),
+    "recall-author",
+    { verdicts: { no_invention: { pass: false, reason: "" } } },
+  );
+  assert.equal(scored.decision.score, "FAIL");
+  assert.equal(scored.decision.knockout, "no_invention");
+});
+
+// 场景：缺席映射 absent: fail。预期：缺席视为 no → −weight，且映射后算已评估。
+test("scoreAnswer absent:fail maps an absent verdict to a miss", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "strict", eq: null, oneOf: null, verdict: ["strict"], from: null, weight: 2, knockout: false, absent: "fail" },
+    ]),
+    "recall-author",
+    { verdicts: {} },
+  );
+  assert.equal(scored.decision.score, -2);
+  assert.equal(scored.decision.evaluated, 1);
+});
+
+// 场景：缺席映射 absent: pass。预期：缺席视为 yes → +weight。
+test("scoreAnswer absent:pass maps an absent verdict to a hit", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "lenient", eq: null, oneOf: null, verdict: ["lenient"], from: null, weight: 2, knockout: false, absent: "pass" },
+    ]),
+    "recall-author",
+    { verdicts: {} },
+  );
+  assert.equal(scored.decision.score, 2);
+});
+
+// 场景：字面维 one_of 集合。预期：抽到的值命中任一集合成员即 +weight。
+test("scoreAnswer literal one_of hits on any set member", () => {
+  const scored = scoreAnswer(
+    makeVerdictCaseReport([
+      { name: "skill_family", eq: null, oneOf: ["recall-author", "recall-eval"], verdict: null, from: null, weight: 2, knockout: false, absent: "zero" },
+    ]),
+    "recall-author\nskill_family: recall-eval",
+    {},
+  );
+  assert.equal(scored.decision.score, 2);
+});
+
+// ── 缺省参与（judge 池声明即打分；缺省表 A）──
+
+// 场景：只写池、不写 decision。预期：每条池项成为隐式维（weight 2 无否决），照常打分。
+test("validateRecallData generates implicit dims for an unreferenced judge pool", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["context"],
+            judge: {
+              ownership: { rubric: "归属说清了吗?" },
+              tone_ok: { rubric: "语气克制吗?" },
+            },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.equal(report.isValid, true);
+  const dims = report.caseReports[0].expected.decision;
+  assert.equal(dims.length, 2);
+  assert.deepEqual(dims.map((d) => d.name).sort(), ["ownership", "tone_ok"]);
+  assert.equal(dims[0].weight, 2);
+  assert.equal(dims[0].knockout, false);
+
+  const scored = scoreAnswer(report.caseReports[0], "context 已说明", {
+    verdicts: { ownership: { pass: true, reason: "" }, tone_ok: { pass: false, reason: "" } },
+  });
+  assert.equal(scored.decision.score, 0); // +2 −2：缺省表 A 的 ±2
+  assert.equal(scored.decision.evaluated, 2);
+});
+
+// 场景：半精调——池 2 项只精调 1 项。预期：精调项听精调，未引用项仍缺省参与。
+test("normalizeDecision merges explicit tuning with default participation", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["context"],
+            judge: {
+              ownership: { rubric: "归属?" },
+              tone_ok: { rubric: "语气?" },
+            },
+            decision: {
+              reasoning: { verdict: "judge.ownership", weight: 3 },
+            },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.equal(report.isValid, true);
+  const dims = report.caseReports[0].expected.decision;
+  assert.equal(dims.length, 2); // 显式 reasoning(3) + 隐式 tone_ok(2)
+  const explicit = dims.find((d) => d.name === "reasoning");
+  const implicit = dims.find((d) => d.name === "tone_ok");
+  assert.equal(explicit.weight, 3);
+  assert.deepEqual(explicit.verdict, ["ownership"]);
+  assert.equal(implicit.weight, 2);
+  assert.equal(implicit.implicit, true);
+});
+
+// ── decision×judge 跨字段校验 ──
+
+// 场景：verdict 引用了池里不存在的键。预期：missing expected.judge.<键>。
+test("validateRecallData rejects a verdict reference missing from the pool", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["x"],
+            judge: { ownership: { rubric: "r" } },
+            decision: { d: { verdict: "judge.nonexistent" } },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.ok(report.caseReports[0].errors.some((e) => e.includes("missing `expected.judge.nonexistent`")));
+});
+
+// 场景：verdict 不带 judge. 前缀。预期：报强制前缀错误（寻址必须显式）。
+test("validateRecallData rejects a verdict reference without the judge. prefix", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["x"],
+            judge: { ownership: { rubric: "r" } },
+            decision: { d: { verdict: "ownership" } },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.ok(report.caseReports[0].errors.some((e) => e.includes("must use the `judge.<name>` form")));
+});
+
+// 场景：一维同时声明 eq 与 verdict。预期：恰一约束报错。
+test("validateRecallData rejects a dim declaring both eq and verdict", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["x"],
+            judge: { ownership: { rubric: "r" } },
+            decision: { d: { eq: "a", verdict: "judge.ownership" } },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.ok(report.caseReports[0].errors.some((e) => e.includes("exactly one of eq/one_of/verdict")));
+});
+
+// 场景：verdict 维带 from。预期：报错（裁定维不抽值，from 无意义）。
+test("validateRecallData rejects from on a verdict dim", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["x"],
+            judge: { ownership: { rubric: "r" } },
+            decision: { d: { verdict: "judge.ownership", from: "x(\\S+)" } },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.ok(report.caseReports[0].errors.some((e) => e.includes("cannot use `from`")));
+});
+
+// 场景：absent 非法枚举。预期：报 zero/pass/fail 枚举错误。
+test("validateRecallData rejects an invalid absent mapping", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["x"],
+            judge: { ownership: { rubric: "r" } },
+            decision: { d: { verdict: "judge.ownership", absent: "skip" } },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.ok(report.caseReports[0].errors.some((e) => e.includes("absent must be one of zero/pass/fail")));
+});
+
+// 场景：孤儿池项（未被任何维引用）。预期：合法——缺省隐式参与者，不报错。
+test("validateRecallData accepts an unreferenced judge pool entry as default participation", () => {
+  const report = validateRecallData(
+    makeValidQueue({
+      cases: [
+        makeValidCase({
+          expected: {
+            must_include: ["x"],
+            judge: { ownership: { rubric: "r" }, extra: { rubric: "r2" } },
+            decision: { d: { verdict: "judge.ownership" } },
+          },
+        }),
+      ],
+    }),
+  );
+  assert.equal(report.caseReports[0].errors.length, 0);
 });

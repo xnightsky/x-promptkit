@@ -9,6 +9,7 @@
 import {
   formatRunEvalOutput,
   loadRecallYaml,
+  parseJudgeVerdicts,
   readAnswerInput,
   readAnswersFile,
   scoreAnswer,
@@ -17,15 +18,17 @@ import {
 } from "./lib.mjs";
 import { dirname } from "node:path";
 import { findRepoRoot } from "./_shared/model-client.mjs";
-import { runRecallAgent, runSkillTriggerAgent } from "./model-agent.mjs";
+import { runJudgeAgent, runRecallAgent, runSkillTriggerAgent } from "./model-agent.mjs";
 
 // 把 scoreAnswer 返回的 decision 累加分格式化成报告后缀。
-// 无 decision → 空串（内容线行为不变）；有则并列展示总分与逐维度命中。
+// 无 decision → 空串（内容线行为不变）；有则并列展示总分、coverage 与逐维命中。
+// coverage 红线：不同 coverage 的 decision 分不可比，故 (evaluated/total) 强制展示。
 function formatDecisionSuffix(decision) {
   if (!decision) return "";
+  const coverage = `(${decision.evaluated}/${decision.total})`;
   const head = decision.score === "FAIL"
-    ? `decision=FAIL(knockout @${decision.knockout})`
-    : `decision=${decision.score >= 0 ? "+" : ""}${decision.score}`;
+    ? `decision=FAIL(knockout @${decision.knockout}) ${coverage}`
+    : `decision=${decision.score >= 0 ? "+" : ""}${decision.score} ${coverage}`;
   const dims = decision.perDim
     .map((d) => {
       const sign = d.contribution >= 0 ? "+" : "";
@@ -35,6 +38,43 @@ function formatDecisionSuffix(decision) {
     })
     .join(" ");
   return ` | ${head} | ${dims}`;
+}
+
+// 解析 grader provider：队列级 judge.grader 指名时从已启用 provider 列表按名查，
+// 找不到或未指名则回落被测 provider（一个 case 一次调用一个裁判）。
+function resolveGrader(provider, providers, judgeConfig) {
+  const graderId = judgeConfig && typeof judgeConfig.grader === "string" ? judgeConfig.grader : null;
+  if (graderId) {
+    const hit = (providers ?? []).find((p) => (p.name ?? p.id) === graderId);
+    if (hit) return hit;
+  }
+  return provider ?? null;
+}
+
+// judge 裁定获取（设计 §9）：池非空 → 一次批量调用 → 具名裁定表。
+// 环境失败（无 grader / 调用失败 / 回答不可解析）不进打分机——返回 { failed }，
+// 由调用方把整 case 标 not evaluated（「环境失败不压分」的既有红线）。
+// judge 成功跑了但漏答的键不在表里 = 内容侧缺席，由打分机按 absent 映射处理。
+async function collectVerdicts(caseReport, answerText, { provider, providers, judgeConfig }) {
+  const pool = caseReport.expected.judgePool;
+  if (!pool) return { verdicts: {} };
+
+  const grader = resolveGrader(provider, providers, judgeConfig);
+  if (!grader) {
+    return { failed: "judge required but no grader available" };
+  }
+  const items = Object.entries(pool).map(([name, rubric]) => ({ name, rubric }));
+  const jr = await runJudgeAgent({
+    output: answerText,
+    items,
+    provider: grader,
+    maxRetries: 2,
+    timeoutMs: judgeConfig?.timeout_ms,
+  });
+  if (!jr.ok) return { failed: jr.reason };
+  const parsed = parseJudgeVerdicts(jr.answer);
+  if (!parsed.ok) return { failed: parsed.reason };
+  return { verdicts: parsed.verdicts };
 }
 
 /**
@@ -58,6 +98,7 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
     answer = null,
     answerFile = null,
     answersFile = null,
+    providers = [],   // 已启用 provider 全列表（队列级 judge.grader 按名解析用）
   } = opts;
 
   let loadedQueue;
@@ -166,7 +207,18 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
       continue;
     }
 
-    const scored = scoreAnswer(caseReport, resolvedAnswerText);
+    // judge 裁定获取（池非空才真正调用）；环境失败 → 整 case not evaluated，不进打分机
+    const collected = await collectVerdicts(caseReport, resolvedAnswerText, {
+      provider,
+      providers,
+      judgeConfig: data.judge,
+    });
+    if (collected.failed) {
+      caseItems.push({ id: caseReport.id, result: `not evaluated | ${collected.failed}` });
+      runtimeFailures.push(`\`${caseReport.id}\` ${collected.failed}`);
+      continue;
+    }
+    const scored = scoreAnswer(caseReport, resolvedAnswerText, { verdicts: collected.verdicts });
     caseItems.push({ id: caseReport.id, result: `score=${scored.score} | ${scored.rationale}${formatDecisionSuffix(scored.decision)}` });
     directlyEvaluable.push(`\`${caseReport.id}\``);
   }

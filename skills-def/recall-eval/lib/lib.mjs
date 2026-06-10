@@ -175,28 +175,78 @@ function normalizeExpected(caseValue) {
     return { mustInclude: [], shouldInclude: [], mustNotInclude: [] };
   }
 
+  const judgePool = normalizeJudgePool(expected.judge);
   return {
     mustInclude: normalizeStringList(expected.must_include),
     anyMustInclude: normalizeStringList(expected.any_must_include),  // 至少命中一项
     shouldInclude: normalizeStringList(expected.should_include),
     mustNotInclude: normalizeStringList(expected.must_not_include),
-    decision: normalizeDecision(expected.decision),  // 具名字段裁决；缺省 undefined
+    judgePool,  // 具名裁定池 { 键: rubric }；缺省 undefined
+    // decision 接收池：未被引用的池项生成缺省隐式维（声明即参与打分）
+    decision: normalizeDecision(expected.decision, judgePool),
   };
 }
 
-// 归一化 decision 块：{ 维度名: {eq,from,weight,knockout} } → [{name,eq,from,weight,knockout}]。
-// shape 合法性由 schema 保证，这里只做缺省补齐（weight=2、knockout=false）供打分消费。
-function normalizeDecision(decision) {
-  if (!decision || typeof decision !== "object" || Array.isArray(decision)) {
+// 归一化具名裁定池：{ 键: {rubric} } → { 键: rubric 文本 }。shape 由 schema 保证。
+function normalizeJudgePool(judge) {
+  if (!judge || typeof judge !== "object" || Array.isArray(judge)) {
     return undefined;
   }
-  const dims = Object.entries(decision).map(([name, spec]) => ({
-    name,
-    eq: typeof spec?.eq === "string" ? spec.eq : "",
-    from: typeof spec?.from === "string" ? spec.from : null,
-    weight: Number.isInteger(spec?.weight) && spec.weight >= 1 ? spec.weight : 2,
-    knockout: spec?.knockout === true,
-  }));
+  const pool = {};
+  for (const [name, spec] of Object.entries(judge)) {
+    if (isNonEmptyString(spec?.rubric)) pool[name] = spec.rubric.trim();
+  }
+  return Object.keys(pool).length > 0 ? pool : undefined;
+}
+
+// verdict 引用值 → 剥掉强制的 judge. 前缀得池键；非法形态返回 null（恰一/前缀校验在
+// validateRecallData 报错，这里宽容处理保证打分函数可独立测试）。
+function stripVerdictRef(ref) {
+  if (typeof ref !== "string") return null;
+  return ref.startsWith("judge.") && ref.length > "judge.".length ? ref.slice("judge.".length) : null;
+}
+
+// 归一化 decision 块（精调链路）+ 缺省隐式维（声明即参与）：
+//   显式维：{ 维名: {eq|one_of|verdict, from, weight, knockout, absent} } → 数组项
+//   隐式维：池里未被任何显式维引用的裁定 → { verdict:[键], weight 2, 无否决, absent zero }
+// 命中器恰一/前缀/引用存在等合法性在 validateRecallData 报错；这里宽容归一化，
+// 保证打分函数可独立测试。缺省补齐：weight=2、knockout=false、absent=zero。
+function normalizeDecision(decision, judgePool) {
+  const dims = [];
+  const referenced = new Set();
+  if (decision && typeof decision === "object" && !Array.isArray(decision)) {
+    for (const [name, spec] of Object.entries(decision)) {
+      const verdictRefs = typeof spec?.verdict === "string"
+        ? [spec.verdict]
+        : Array.isArray(spec?.verdict) ? spec.verdict : null;
+      // 引用统一剥 judge. 前缀存池键；非法前缀项丢弃（校验层已报错）
+      const verdictKeys = verdictRefs
+        ? verdictRefs.map(stripVerdictRef).filter((key) => key !== null)
+        : null;
+      if (verdictKeys) for (const key of verdictKeys) referenced.add(key);
+      dims.push({
+        name,
+        eq: typeof spec?.eq === "string" ? spec.eq : null,
+        oneOf: Array.isArray(spec?.one_of) ? spec.one_of.filter(isNonEmptyString) : null,
+        verdict: verdictKeys && verdictKeys.length > 0 ? verdictKeys : null,
+        from: typeof spec?.from === "string" ? spec.from : null,
+        weight: Number.isInteger(spec?.weight) && spec.weight >= 1 ? spec.weight : 2,
+        knockout: spec?.knockout === true,
+        absent: spec?.absent === "pass" || spec?.absent === "fail" ? spec.absent : "zero",
+      });
+    }
+  }
+  // 缺省参与：未被精调引用的池项各生成一个隐式维（维名=池键，缺省表 A 的 ±2 由此兑现）
+  if (judgePool) {
+    for (const key of Object.keys(judgePool)) {
+      if (!referenced.has(key)) {
+        dims.push({
+          name: key, eq: null, oneOf: null, verdict: [key],
+          from: null, weight: 2, knockout: false, absent: "zero", implicit: true,
+        });
+      }
+    }
+  }
   return dims.length > 0 ? dims : undefined;
 }
 
@@ -274,6 +324,44 @@ export function validateRecallData(data, yamlDir) {
     if (caseValue?.medium === "skill-trigger") {
       if (!caseValue?.trigger || typeof caseValue.trigger !== "object" || !Array.isArray(caseValue.trigger.must_run) || caseValue.trigger.must_run.length === 0) {
         caseErrors.push("skill-trigger medium requires a non-empty trigger.must_run list");
+      }
+    }
+
+    // decision×judge 跨字段（schema 子集表达不了恰一/枚举/引用关系，在此兜底）：
+    //   每维命中器(eq/one_of/verdict)恰一；verdict 强制 judge.<池键> 前缀且键必须存在于池；
+    //   verdict 维禁 from；absent 限 zero/pass/fail 三枚举。
+    //   孤儿池项不报错——未被引用的裁定是缺省隐式参与者（见 normalizeDecision / 设计 §8）。
+    const rawDecision = caseValue?.expected?.decision;
+    const rawJudgePool = caseValue?.expected?.judge;
+    const poolKeys = rawJudgePool && typeof rawJudgePool === "object" && !Array.isArray(rawJudgePool)
+      ? Object.keys(rawJudgePool)
+      : [];
+    if (rawDecision && typeof rawDecision === "object" && !Array.isArray(rawDecision)) {
+      for (const [dimName, spec] of Object.entries(rawDecision)) {
+        if (!spec || typeof spec !== "object" || Array.isArray(spec)) continue; // shape 由 schema 报
+        const matchers = ["eq", "one_of", "verdict"].filter((k) => spec[k] !== undefined);
+        if (matchers.length !== 1) {
+          caseErrors.push(`decision \`${dimName}\` must declare exactly one of eq/one_of/verdict`);
+        }
+        if (spec.verdict !== undefined) {
+          if (spec.from !== undefined) {
+            caseErrors.push(`decision \`${dimName}\` with verdict cannot use \`from\``);
+          }
+          const refs = typeof spec.verdict === "string" ? [spec.verdict]
+            : Array.isArray(spec.verdict) ? spec.verdict : [];
+          for (const ref of refs) {
+            if (typeof ref !== "string") continue; // items shape 由 schema 报
+            const key = stripVerdictRef(ref);
+            if (key === null) {
+              caseErrors.push(`decision \`${dimName}\`.verdict must use the \`judge.<name>\` form (got \`${ref}\`)`);
+            } else if (!poolKeys.includes(key)) {
+              caseErrors.push(`missing \`expected.judge.${key}\``);
+            }
+          }
+        }
+        if (spec.absent !== undefined && !["zero", "pass", "fail"].includes(spec.absent)) {
+          caseErrors.push(`decision \`${dimName}\`.absent must be one of zero/pass/fail`);
+        }
       }
     }
 
@@ -411,29 +499,62 @@ function extractDecisionValue(answerText, name, fromRegex) {
   return match[1] !== undefined ? match[1].trim() : null;
 }
 
-// 双极累加打分（analytic rubric）：逐维度 命中=+weight / 答错=-weight / 缺席=0，求和。
-// 任一 knockout 维度未命中 → 整题 FAIL（无视累加）。perDim 供报告逐维度展示。
-function scoreDecision(decisionDims, answerText) {
+// decision 静态打分机（唯一打分出口，设计 §7）：
+// 逐维 三态(✓/✗/∅) → 缺席映射(absent) → +weight / −weight / 0 累加；
+// 任一 knockout 维非✓ → 整题 FAIL（压过求和）。
+// 缺席者在场零出力：进 perDim 与 coverage 分母，不出权重。
+// 环境失败不会到达这里——evaluate-queue 在跑分前拦截为 not evaluated，
+// 所以本函数看到的缺席永远是内容侧的（答案没写该行 / judge 跑了但漏答某项）。
+function scoreDecision(decisionDims, answerText, verdicts = {}) {
   const perDim = [];
   let knockoutFail = null;
   let sum = 0;
+  let evaluated = 0;
   for (const dim of decisionDims) {
-    const got = extractDecisionValue(answerText, dim.name, dim.from);
-    const hit = got !== null && normalizeText(got) === normalizeText(dim.eq);
-    // 命中=+weight（达标）；答了但不对=-weight（反效果）；没答=0（无效果）
-    const contribution = hit ? dim.weight : got === null ? 0 : -dim.weight;
-    perDim.push({ name: dim.name, want: dim.eq, got, hit, weight: dim.weight, contribution });
+    let state; // "hit" | "miss" | "absent"
+    let got;
+    if (Array.isArray(dim.verdict) && dim.verdict.length > 0) {
+      // 裁定机（OR 真值表）：任一 pass → ✓；无 pass 且 ≥1 fail → ✗；全缺席 → ∅
+      const states = dim.verdict.map((key) => verdicts[key]?.pass);
+      if (states.some((s) => s === true)) { state = "hit"; got = "pass"; }
+      else if (states.some((s) => s === false)) { state = "miss"; got = "fail"; }
+      else { state = "absent"; got = null; }
+    } else {
+      // 字面机：from 正则或行约定抽值，再与 eq / one_of 等值比对（trim+大小写不敏感）
+      got = extractDecisionValue(answerText, dim.name, dim.from);
+      if (got === null) {
+        state = "absent";
+      } else {
+        const targets = Array.isArray(dim.oneOf) && dim.oneOf.length > 0 ? dim.oneOf : [dim.eq];
+        state = targets.some((t) => normalizeText(got) === normalizeText(t ?? "")) ? "hit" : "miss";
+      }
+    }
+    // 缺席映射（进打分机前执行）：pass=缺席视为 yes；fail=视为 no；zero=在场零出力
+    if (state === "absent" && dim.absent === "pass") state = "hit";
+    else if (state === "absent" && dim.absent === "fail") state = "miss";
+
+    const hit = state === "hit";
+    const contribution = hit ? dim.weight : state === "miss" ? -dim.weight : 0;
+    if (state !== "absent") evaluated += 1;
+    const want = Array.isArray(dim.verdict) && dim.verdict.length > 0
+      ? `judge:${dim.verdict.join("|")}`
+      : Array.isArray(dim.oneOf) && dim.oneOf.length > 0 ? dim.oneOf.join("|") : dim.eq;
+    perDim.push({ name: dim.name, want, got, hit, weight: dim.weight, contribution });
     if (dim.knockout && !hit && knockoutFail === null) knockoutFail = dim.name;
     sum += contribution;
   }
+  // coverage：不同 coverage 的 decision 分不可比（红线），渲染层强制展示 evaluated/total
   return knockoutFail !== null
-    ? { score: "FAIL", knockout: knockoutFail, perDim }
-    : { score: sum, perDim };
+    ? { score: "FAIL", knockout: knockoutFail, perDim, evaluated, total: decisionDims.length }
+    : { score: sum, perDim, evaluated, total: decisionDims.length };
 }
 
 // 依据 expected 与 score_rule 给答案打分:命中禁止项=0;must 全中=2;部分命中=1。
-// 若用例声明了 decision 块，额外返回 decision 累加分（与内容分并列，不并入 headline）。
-export function scoreAnswer(caseReport, answerText) {
+// 若用例有 decision 维（显式精调或 judge 池隐式参与），额外返回 decision 累加分
+// （与内容分并列，不并入 headline）。opts.verdicts 为 judge 批量调用的具名裁定表，
+// 由 evaluate-queue 注入；离线/无裁定时缺省空表（verdict 维按缺席处理）。
+export function scoreAnswer(caseReport, answerText, opts = {}) {
+  const { verdicts = {} } = opts;
   const normalizedAnswer = normalizeText(answerText);
   const mustHits = caseReport.expected.mustInclude.filter((item) =>
     normalizedAnswer.includes(item.toLowerCase()),
@@ -478,11 +599,70 @@ export function scoreAnswer(caseReport, answerText) {
     missingMust,
     mustNotHits,
   };
-  // decision 块存在时附带累加分；不存在则 result 无 decision 字段，老用例逐字节不变。
+  // decision 维存在时附带累加分；不存在则 result 无 decision 字段，老用例逐字节不变。
   if (caseReport.expected.decision) {
-    result.decision = scoreDecision(caseReport.expected.decision, answerText);
+    result.decision = scoreDecision(caseReport.expected.decision, answerText, verdicts);
   }
   return result;
+}
+
+// ── AI judge 裁定解析（verdict：具名布尔裁定，分数恒由 decision 静态机出口）──
+
+// 从文本中抽取第一个「平衡」的 JSON 对象：容忍 ```json 围栏与前后散文，
+// 用括号配平 + 字符串态机扫描，避免贪婪正则把后续花括号一起吞掉。
+// 抽不出或 JSON.parse 失败 → null（按「无裁决」处理，不抛）。
+function extractFirstJsonObject(text) {
+  const s = String(text ?? "");
+  const start = s.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(s.slice(start, i + 1)); } catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
+// 解析 judge 批量回答 → 具名裁定表 { 键: {pass, reason} }（设计 §9 的兜底口全集）。
+// 逐键宽容：
+//   值是对象   → raw = 值.pass，reason = 值.reason；
+//   值是布尔   → raw = 值（简写容忍）；
+//   raw 布尔   → pass = raw；raw 字符串 → ^(true|yes|pass|y)$ 大小写不敏感兜底；
+//   其余形态   → 该键丢弃（= 该裁定缺席）。
+// 清单里有、回答里没有的键自然不在表里 = 缺席。缺席永远不等于 pass——
+// 「默认放行」陷阱在结构上不存在（verdict 必须显式判 pass 才 +weight）。
+// 抽不出 JSON / parse 失败 → { ok:false }，evaluate-queue 据此走环境拦截（not evaluated）。
+export function parseJudgeVerdicts(text) {
+  const obj = extractFirstJsonObject(text);
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+    return { ok: false, reason: "judge response not parseable as JSON" };
+  }
+  const verdicts = {};
+  for (const [name, value] of Object.entries(obj)) {
+    const raw = value && typeof value === "object" && !Array.isArray(value) ? value.pass : value;
+    let pass;
+    if (typeof raw === "boolean") pass = raw;
+    else if (typeof raw === "string") pass = /^(true|yes|pass|y)$/i.test(raw.trim());
+    else continue; // 无法识别 → 该裁定缺席
+    const reason = value && typeof value === "object" && typeof value.reason === "string" ? value.reason : "";
+    verdicts[name] = { pass, reason };
+  }
+  return { ok: true, verdicts };
 }
 
 // ── skill-trigger 评分 ──

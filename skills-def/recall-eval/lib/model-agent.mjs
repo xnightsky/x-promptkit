@@ -1,15 +1,18 @@
 // skills-def/recall-eval/lib/model-agent.mjs
 //
-// recall-eval 的模型代理：两种模式
-//   - runRecallAgent: clean-context-v1（知识召回）
-//   - runSkillTriggerAgent: skill-trigger-v1（白名单 shell）
+// recall-eval 的模型代理：三种动态 agent
+//   - runRecallAgent:       clean-context-v1（知识召回，单发）
+//   - runSkillTriggerAgent: skill-trigger-v1（白名单 shell，多步 agentic）
+//   - runJudgeAgent:        judge-v1（AI 评判，单发）—— Tier-1 判分载体
 //
-// 不做打分、不管队列。传输与拼装委托给 _shared/model-client。
+// 不做打分、不管队列。传输与拼装委托给 _shared/model-client / model-runner。
+// 三者同构：拼 prompt → 调模型 → 返回 { ok, answer/reason }；判分归 lib.mjs。
 
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { isAbsolute, resolve } from "node:path";
 import { createClient } from "./_shared/model-client.mjs";
+import { callModel } from "./_shared/model-runner.mjs";
 import { buildSystemPrompt, normalizeContextLayers } from "./_shared/prompt-context.mjs";
 
 /**
@@ -342,4 +345,59 @@ export async function runSkillTriggerAgent({
 
   // 达到 maxSteps 上限
   return { ok: true, toolCalls, finalAnswer: "(max steps reached)" }
+}
+
+// ── judge-v1：AI 裁定 agent（批量单发）──
+
+// judge 的固定裁定 prompt：一个 case 全部裁定项（键+rubric 编号清单）一次调用，
+// 强制模型按键名回填 { "<键>": {"pass": bool, "reason": str} } 严格 JSON；
+// few-shot 一正一负锚定形态。AI 只产出布尔裁定，分数恒由 decision 静态机出口
+// （设计权威：docs/specs/2026-06-11-decision-judge-verdict-design.md §9）。
+// 解析（含兜底口）不在这里，归 lib.mjs 的 parseJudgeVerdicts——本文件只负责传输。
+export function buildJudgePrompt({ output, items }) {
+  const list = items.map((item, i) => `${i + 1}. ${item.name}: ${item.rubric}`).join("\n");
+  const system = [
+    "policy: judge-v1",
+    "You are verifying an answer against a list of named criteria.",
+    "For EVERY listed criterion, decide pass (the criterion holds for the answer) or fail.",
+    'Respond with ONLY a JSON object: { "<criterion-name>": { "pass": true|false, "reason": "<short>" }, ... }',
+    "Include every listed criterion name exactly once. No prose outside the JSON object.",
+    "",
+    "Example:",
+    "<Output>Hello world</Output>",
+    "Criteria:",
+    "1. greeting: Content contains a greeting",
+    "2. pirate_free: Does not speak like a pirate",
+    '{"greeting": {"pass": true, "reason": "contains Hello"}, "pirate_free": {"pass": true, "reason": "no pirate speech"}}',
+  ].join("\n");
+  const user = `<Output>\n${output}\n</Output>\nCriteria:\n${list}`;
+  return { system, user };
+}
+
+/**
+ * 运行一次 judge agent：给定被测答案 + 裁定项清单 → 一次调模型 → 返回原始裁决文本。
+ * 与 runRecallAgent 同构（单发、只传输、不打分）；裁决解析在 lib.parseJudgeVerdicts。
+ *
+ * @param {object} opts
+ * @param {string} opts.output      - 被评判的答案文本
+ * @param {Array<{name:string, rubric:string}>} opts.items - 裁定项清单（judge 池展平）
+ * @param {object} opts.provider    - grader provider（含已解析 apikey）
+ * @param {number} [opts.maxRetries=1]
+ * @param {number} [opts.timeoutMs] - 覆盖 provider 缺省超时（队列级 judge.timeout_ms）
+ * @returns {Promise<{ok: boolean, answer?: string, reason?: string}>}
+ */
+export async function runJudgeAgent({ output, items, provider, maxRetries = 1, timeoutMs }) {
+  if (!provider) return { ok: false, reason: "no grader provider" };
+  if (!Array.isArray(items) || items.length === 0) {
+    return { ok: false, reason: "judge items are empty" };
+  }
+  const effectiveProvider = timeoutMs ? { ...provider, timeout_ms: timeoutMs } : provider;
+  const { system, user } = buildJudgePrompt({ output: output ?? "", items });
+  const prompt = `${system}\n\n---\n\n${user}`;
+  try {
+    const answer = await callModel(effectiveProvider, prompt, { maxRetries });
+    return { ok: true, answer };
+  } catch (error) {
+    return { ok: false, reason: `judge call failed: ${error.message}` };
+  }
 }
