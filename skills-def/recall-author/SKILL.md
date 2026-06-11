@@ -358,6 +358,18 @@ skill_trigger:
 
 **匹配规则**：deny 优先 → allow 匹配 → 未命中则 BLOCK。
 
+### `$SKILL_DIR` — skill 自带资源自定位
+
+skill-trigger 跑命令时 cwd = **仓库根**（所以 `tools/`、`doc/` 这类**仓库级**相对路径照常解析）。
+当用例只有**单一候选 skill** 时，runner 额外注入环境变量 `$SKILL_DIR` = 该 skill 自己的目录
+（即它 `SKILL.md` 所在目录）。
+
+- skill **自带资源**（`references/`、`scripts/`、`EXAMPLES.md`）在 skill 目录下、不在仓库根——
+  被测 skill 的 SKILL.md 里应用 `$SKILL_DIR/references/...`、`python "$SKILL_DIR/scripts/foo.py"` 引用，
+  **不要**写裸 `references/...`（从仓库根 cwd 解析不到、会 `No such file`）。
+- 多候选 skill（如 disambiguation 用例）时 `$SKILL_DIR` **不注入**（会有歧义）；这类用例只做路由/断言、不读 bundled 资源。
+- 注意这是“评测时让弱模型也能稳定定位附件”的确定性手段；强 agent 通常会自己补全完整路径，可不依赖它。
+
 ### `context` — 提示词层声明
 
 控制评测时**是否加载**项目提示词（repo 层）和全局提示词（global 层）。

@@ -9,21 +9,18 @@ description: Use when this repository needs recall queue policy validation or ev
 
 Turn "did the recall answer the right thing" into a stable queue-driven evaluation contract.
 
-This skill defines the queue contract, carrier preconditions, clean-context policy, and output shape. The official minimal runner lives in `scripts/` and is part of the supported path for this contract.
+This skill defines the queue contract, the clean-context policy, and the output shape. The official minimal runner lives in `scripts/` and is part of the supported path for this contract.
 
-Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation, carrier handling, and scoring output shape.
+Use [EXAMPLES.md](./EXAMPLES.md) as the companion corpus for queue validation and scoring output shape.
 
 ## Scope
 
 - Define how answer content from a recall queue should be validated and scored
 - Bind each recall yaml to an explicit prompt target through `source_ref`
 - Let each queue or case declare explicitly whether the repo prompt and the global prompt are loaded (`context` block)
-- Detect queue-definition gaps, especially missing `medium` or missing `carrier`
-- Require recall to be bound to an explicit carrier before evaluator runtime can execute
-- Refuse execution when no carrier can be resolved
+- Detect queue-definition gaps, especially a missing `medium`, or (for `skill-trigger`) a missing `trigger.must_run`/`must_not_run`
 - Define the fixed live recall clean-context policy
 - Point callers to the official minimal runner and its artifacts
-- Do not replace the carrier-selection layer itself
 
 ## Official Minimal Runner
 
@@ -39,9 +36,8 @@ Use these entrypoints as the supported baseline instead of re-assembling ad hoc 
 Runner responsibilities:
 
 - validate queue integrity before scoring
-- resolve effective carrier and refuse unresolved execution
 - surface live recall results inline in the report without persisting to disk
-- separate queue-definition failure, carrier/runtime failure, and content-score failure in the final report
+- separate queue-definition failure, runtime/environment failure, and content-score failure in the final report
 
 Do not treat `recall-eval` as "schema only" when these runner entrypoints are available in the repository.
 
@@ -78,12 +74,11 @@ This is only a convention. Any yaml path is acceptable if it matches the recall 
 ## Default Workflow
 
 1. Read the target queue.
-2. Validate each case for minimum required fields, especially `medium` and `carrier`.
+2. Validate each case for minimum required fields, especially `medium` (and, for `medium: skill-trigger`, a `trigger.must_run`/`must_not_run`).
 3. If any required field is missing, refuse evaluation for that case and report the exact gap.
-4. Resolve the execution carrier.
-5. Hand the validated queue and resolved carrier contract to the evaluator runtime.
-6. Let the evaluator runtime obtain or accept the answer text.
-7. Let the evaluator runtime score the answer against `question`, `expected`, and `score_rule`, then report results.
+4. Hand the validated queue to the evaluator runtime.
+5. Let the evaluator runtime obtain or accept the answer text.
+6. Let the evaluator runtime score the answer against `question`, `expected`, and `score_rule`, then report results.
 
 ## Queue Authoring Minimum Boundary
 
@@ -120,15 +115,16 @@ Each queue case must include:
 - `id`
 - `question`
 - `medium`
-- `carrier`
 - `expected.must_include`
 - `score_rule`
 - `tags`
 - `source_scope`
+- for `medium: skill-trigger`: a `trigger` block declaring `must_run` (GREEN — should trigger) and/or `must_not_run` (RED — should NOT trigger / should not overreach); at least one of the two
 
 Optional fields:
 
 - `variants`
+- `carrier` (DEPRECATED since v0.6.0 — carrier-resolution layer retired; optional, defaults to `direct`; the runtime never requires it)
 - `expected.should_include`
 - `expected.must_not_include`
 - `expected.judge` (named verdict pool — declaring it already participates in scoring; see `judge` Rule)
@@ -170,22 +166,27 @@ If `medium` is missing:
 - do not auto-fill a value
 - report the missing case and require the queue to be fixed first
 
-## `carrier` Rule
+## Skill-trigger execution & `$SKILL_DIR`
 
-`carrier` must declare where recall is executed. The current conversation is not an implicit carrier.
+For `medium: skill-trigger`, the runner executes the agent's whitelisted shell commands
+with cwd = the repo root (so repo-level paths like `tools/`, `doc/` resolve). When exactly
+one candidate skill is in play, it also exports the env var `$SKILL_DIR` = that skill's own
+directory (the directory containing its `SKILL.md`).
 
-Resolution order:
+- A skill's **bundled** resources (`references/`, `scripts/`, `EXAMPLES.md`) live under the
+  skill directory, NOT the repo root — reference them as `$SKILL_DIR/references/...` or
+  `python "$SKILL_DIR/scripts/foo.py"`. A bare `references/...` will not resolve from the
+  repo-root cwd.
+- With multiple candidate skills (e.g. disambiguation cases) `$SKILL_DIR` is intentionally
+  left unset (it would be ambiguous); those cases route/assert and do not read bundled files.
 
-1. Caller-specified `carrier`
-2. Queue case `carrier`
-3. Otherwise unresolved
+## `carrier` Rule (DEPRECATED since v0.6.0)
 
-Refusal rules:
-
-- If no carrier can be resolved, refuse execution.
-- Do not run recall directly in the current session as a fallback.
-- Do not do partial queue checking and then keep evaluating without a carrier.
-- When refusing, return the gap plus the recommended default carrier.
+The carrier-resolution layer was retired in v0.6.0. `carrier` is now an **optional** case
+field that defaults to `direct`; the runtime no longer resolves a carrier and never refuses
+execution for a missing one. Live execution is governed by the clean-context-v1 policy
+(below), not by a carrier binding. Any "carrier required / resolve carrier / refuse without
+carrier" wording elsewhere in this document is historical and does not gate execution.
 
 ## `context` Rule
 
@@ -234,30 +235,22 @@ The `context` block does not weaken this policy: declared layers are injected in
 prompt surface before the run, while the policy keeps forbidding tools, search, and
 fresh reads at answer time.
 
-If the carrier request or bridge contract supports structured fields, pass this policy explicitly instead of relying on ad hoc prompt prose.
+If the execution adapter supports structured fields, pass this policy explicitly instead of relying on ad hoc prompt prose.
 
 Do not compare scores from two live runs unless they used the same clean-context policy.
 
-## Carrier Defaults And Overrides
+## Carrier Defaults And Overrides (DEPRECATED since v0.6.0)
 
-Default carrier:
-
-
-Rules:
-
-- Treat the default carrier as the recommended binding supplied by the caller layer, not as an implicit local fallback inside `recall-eval`.
-- If the caller explicitly sets another carrier, that override wins.
-- If the queue sets a carrier and the caller does not, use the queue value.
-- If a provided carrier is unavailable in the environment, report carrier resolution failure instead of silently downgrading to the current session.
-- Do not treat this skill as the live execution layer; carrier execution belongs to the evaluator runtime or adapter layer.
+The carrier layer is retired (see the `carrier` Rule above). Live execution uses the recall
+provider directly under clean-context-v1; there is no carrier to resolve, default, or
+override. This section is kept only as historical context.
 
 ## Environment Failure Layering
 
 Keep these layers separate:
 
 - queue-definition failure: broken yaml or missing required fields such as `medium`
-- carrier-resolution failure: no carrier, unsupported carrier, or carrier unavailable before execution starts
-- runtime environment failure: carrier exists, but bridge / transport / rate limit / host limits break execution after start
+- runtime environment failure: bridge / transport / rate limit / host limits / empty model response break execution
 - content failure: an answer was produced and scored poorly against `expected` and `score_rule`
 
 Runtime environment failure must not lower the recall score by itself. Mark the case `not evaluated` instead of treating it as a bad answer.
@@ -271,8 +264,8 @@ Recommended runtime subclasses:
 
 Recommended retry budget in the official runner:
 
-- `rate_limited`: up to 2 retries on the same carrier path
-- `bridge_stream_closed`: 1 retry on the same carrier path
+- `rate_limited`: up to 2 retries on the same provider path
+- `bridge_stream_closed`: 1 retry on the same provider path
 - `thread_limit`: 0 automatic retries; wait for capacity first
 - `environment_failure`: 0 automatic retries unless the caller supplies a host-specific retry rule
 
@@ -333,7 +326,9 @@ Boundaries:
 - environment failures (no grader / judge call failed / unparseable response) never reach
   the scorer — the case is marked `not evaluated` beforehand
 - `decision` is an answer-content assertion scored on the content line (`scoreAnswer`); it
-  does not replace or touch skill-trigger verification (`scoreTriggerCase`)
+  does not replace or touch the skill-trigger gate itself (`must_run`/`must_not_run`). For
+  `medium: skill-trigger` cases the judge pool / `decision` DO apply — to the agent's final
+  answer, after the trigger gate passes (`scoreTriggerCase` forwards verdicts into `scoreAnswer`)
 - the decision score and the content buckets are reported side by side and are NOT merged
   into a single headline score
 - no judge pool and no `decision` → scoring is byte-identical to the keyword-bucket-only
@@ -382,13 +377,12 @@ Failure layering:
 
 ## Output
 
-Always include these five sections:
+Always include these four sections:
 
 1. Queue
-2. Carrier
-3. Integrity Check
-4. Case Results
-5. Summary
+2. Integrity Check
+3. Case Results
+4. Summary
 
 Recommended format:
 
@@ -396,19 +390,15 @@ Recommended format:
 1. Queue
 - `<path>`
 
-2. Carrier
-- `<carrier>`
-
-3. Integrity Check
+2. Integrity Check
 - `<case-id>`: pass | <reason>
 - `<case-id>`: fail | <reason>
 
-4. Case Results
+3. Case Results
 - `<case-id>`: score=<0|1|2> | <short result>
 
-5. Summary
+4. Summary
 - directly evaluable: ...
-- refused for missing carrier: ...
 - queue fixes required: ...
 - runtime failures: ...
 ```
@@ -420,7 +410,7 @@ Do not tie validation to `integration-tests`.
 Preferred layers:
 
 - schema and integrity validation from any compatible yaml fixture
-- carrier-resolution validation from explicit carrier and missing-carrier cases
+- skill-trigger validation from `must_run` (GREEN) and `must_not_run` (RED) cases
 - scoring validation from deterministic self-test cases
 
 Use standalone yaml fixtures for schema and scoring helpers. Use `integration-tests` when the evaluation needs initialized workspace state, task execution, or prompt-based child-agent recall.
@@ -445,11 +435,9 @@ These are evaluator runtime entrypoints that implement the contract defined here
 
 - Do not treat the queue as a black-box runner spec
 - Do not use `source_scope` as a substitute for `medium`
-- Do not use the current context as a substitute for `carrier`
 - Do not skip queue integrity checks just because the prompt looks obvious
 - Do not confuse skill-trigger verification with answer-content evaluation
 - Do not invent extra-repo knowledge when the rule source is undefined
-- Without an execution carrier, refuse evaluation instead of degrading locally
 - Do not let `recall-eval` absorb live runtime, persistence, batch scheduling, or external adapter responsibilities
 
 ## Reference Points

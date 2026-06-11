@@ -2,6 +2,23 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.12.2
+
+recall-eval skill-trigger 注入 `$SKILL_DIR`，让 skill 自带资源可自定位；并把 recall-eval/recall-author 文档里大量过时表述（已下线的 carrier、`must_run` 必填、五段输出）修正到位。
+
+### Added
+
+- skill-trigger 执行：单一候选 skill 时注入环境变量 `$SKILL_DIR` = 该 skill 的 `SKILL.md` 所在目录（`model-agent.mjs` 的 `execSync` env）。skill 自带资源用 `$SKILL_DIR/references/...`、`python "$SKILL_DIR/scripts/foo.py"` 自定位引用即可解析；cwd 仍是仓库根，仓库级 `tools/`/`doc/` 路径不受影响；多候选 skill 时不注入（避免歧义）。prompt 同步告知 agent 该变量。
+
+### Changed
+
+- 文档去陈旧（recall-eval/SKILL.md、recall-author/SKILL.md）：
+  - `carrier` 标注为 v0.6.0 已下线、可选、缺省 `direct`、runtime 不再解析/拒绝——清掉 Scope / Default Workflow / Carrier Defaults / Environment Failure / Restrictions / 案例必填项里的“carrier 必填/必须解析否则拒绝”表述。
+  - skill-trigger 用例必填项由“`must_run`”更正为“`must_run` 和/或 `must_not_run` 至少其一”。
+  - Output 由“五段含 Carrier”更正为运行器实际输出的“四段（Queue / Integrity / Case Results / Summary）”。
+  - 明确 judge 裁定池 / `decision` 对 skill-trigger 用例同样生效（作用于触发门通过后的最终答案）。
+  - 新增 `$SKILL_DIR` 自定位约定小节。
+
 ## v0.12.1
 
 recall-eval RED 层落地为 skill-trigger + `must_not_run` 越界检测；judge 裁定池接入 skill-trigger 用例。

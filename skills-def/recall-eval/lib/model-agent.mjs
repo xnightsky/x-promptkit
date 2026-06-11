@@ -10,7 +10,7 @@
 
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, resolve, dirname } from "node:path";
 import { createClient } from "./_shared/model-client.mjs";
 import { callModel } from "./_shared/model-runner.mjs";
 import { buildSystemPrompt, normalizeContextLayers } from "./_shared/prompt-context.mjs";
@@ -240,6 +240,16 @@ export async function runSkillTriggerAgent({
     }
   })
 
+  // SKILL_DIR：单一候选 skill 时，把它自己的目录（= 该 SKILL.md 所在目录）暴露给被执行命令，
+  // 供 skill 自带资源用 `$SKILL_DIR/references/...`、`python "$SKILL_DIR/scripts/foo.py"` 这种
+  // 自定位引用解析；cwd 仍是仓库根，故仓库级路径（tools/、doc/）照常工作，两类不再打架。
+  // 多候选时不设（路由/消歧场景本就不读 bundled 资源，避免 SKILL_DIR 指向错的 skill）。
+  const skillEnv = {};
+  if (resolvedSkills.length === 1) {
+    const sp = resolvedSkills[0].path;
+    skillEnv.SKILL_DIR = dirname(isAbsolute(sp) ? sp : resolve(baseDir, sp));
+  }
+
   // 构造权限检查器
   const shellChecker = createShellChecker(permissions)
 
@@ -274,6 +284,7 @@ export async function runSkillTriggerAgent({
         '{"command": "<your command here>"}',
         "</tool_call>",
         "Commands are matched against glob patterns (* = any characters).",
+        "If env var $SKILL_DIR is set, a skill's bundled files (references/, scripts/, EXAMPLES.md) live under it — read them via \"$SKILL_DIR/references/...\" or python \"$SKILL_DIR/scripts/...\", not relative to your current working directory.",
         "After you have gathered enough information, give your final answer.",
       ].join("\n"),
     },
@@ -324,6 +335,7 @@ export async function runSkillTriggerAgent({
       try {
         const stdout = execSync(call.command, {
           cwd: baseDir,
+          env: { ...process.env, ...skillEnv },
           timeout: timeoutMs,
           encoding: "utf8",
           maxBuffer: 1024 * 1024,
