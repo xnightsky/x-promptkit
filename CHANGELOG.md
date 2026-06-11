@@ -2,6 +2,20 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.12.1
+
+recall-eval RED 层落地为 skill-trigger + `must_not_run` 越界检测；judge 裁定池接入 skill-trigger 用例。
+
+### Added
+
+- recall-eval：skill-trigger 用例支持仅声明 `trigger.must_not_run` 的 RED 形态（断言「不应触发 / 不应越界读取工作区外 skill 文件」）；`recall-queue.schema.yaml` 将 trigger 改为 `must_run` / `must_not_run` 二者 `anyOf` 至少其一，integrity 同步放宽。
+- `evaluate-queue`：skill-trigger 分支接入 `collectVerdicts`，`expected.judge` 裁定池现对 skill-trigger 用例生效（无池时零开销），补足 `must_run` 子串证明不了的语义校验（如「是否真的读懂了附件内容」）。
+
+### Changed
+
+- `model-agent.mjs`：`skill-trigger-v1` system prompt 收紧——只考虑列表内 skill，禁止 grep/搜索仓库或读取列表外 skill 文件，降低 RED 越界误触发。
+- `recall-author/SKILL.md`：修正 `trigger` 字段表 / 决策树 / 报错表中「`must_run` 必填」的过时表述，改为「`must_run` 或 `must_not_run` 至少其一」。
+
 ## v0.12.0
 
 recall-eval 决策裁决接入 AI judge：具名维度可由裁判模型批量打分。

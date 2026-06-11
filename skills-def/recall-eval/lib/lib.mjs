@@ -320,10 +320,16 @@ export function validateRecallData(data, yamlDir) {
       caseErrors.push(...validateContextSemantics(caseValue.context));
     }
 
-    // skill-trigger 模式必须提供 trigger 块
+    // skill-trigger 模式必须提供 trigger 块，且至少声明一种断言：
+    //   - GREEN 用例：must_run（应触发的命令子串）
+    //   - RED   用例：must_not_run（不应触发/不应越界读取的命令子串）
+    // 运行时 scoreTriggerCase 对二者均支持（must_run 缺省即跳过触发匹配，只校验 must_not_run）。
     if (caseValue?.medium === "skill-trigger") {
-      if (!caseValue?.trigger || typeof caseValue.trigger !== "object" || !Array.isArray(caseValue.trigger.must_run) || caseValue.trigger.must_run.length === 0) {
-        caseErrors.push("skill-trigger medium requires a non-empty trigger.must_run list");
+      const trigger = caseValue?.trigger;
+      const hasMustRun = !!trigger && Array.isArray(trigger.must_run) && trigger.must_run.length > 0;
+      const hasMustNotRun = !!trigger && Array.isArray(trigger.must_not_run) && trigger.must_not_run.length > 0;
+      if (!trigger || typeof trigger !== "object" || (!hasMustRun && !hasMustNotRun)) {
+        caseErrors.push("skill-trigger medium requires a non-empty trigger.must_run or trigger.must_not_run list");
       }
     }
 
@@ -673,7 +679,7 @@ export function parseJudgeVerdicts(text) {
  *       trigger.must_not_run 是否被触发,
  *       finalAnswer 是否符合 expected。
  */
-export function scoreTriggerCase(caseReport, { toolCalls, finalAnswer }) {
+export function scoreTriggerCase(caseReport, { toolCalls, finalAnswer }, { verdicts } = {}) {
   const commands = (toolCalls ?? []).map((tc) => tc.command ?? "").join("\n")
   const trigger = caseReport.caseValue?.trigger ?? {}
   const mustRun = Array.isArray(trigger.must_run) ? trigger.must_run : []
@@ -712,8 +718,8 @@ export function scoreTriggerCase(caseReport, { toolCalls, finalAnswer }) {
     }
   }
 
-  // trigger 通过，检查输出
-  const outputScore = scoreAnswer(caseReport, finalAnswer ?? "")
+  // trigger 通过，检查输出（带上 judge 裁定池：子串证明不了的语义校验交给 decision 静态机）
+  const outputScore = scoreAnswer(caseReport, finalAnswer ?? "", { verdicts })
   return {
     ...outputScore,
     triggerMatches,

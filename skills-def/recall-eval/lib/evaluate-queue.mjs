@@ -176,9 +176,23 @@ export async function evaluateQueueTarget(yamlPath, opts = {}) {
           continue;
         }
 
-        // 用 scoreTriggerCase 打触发分 + 输出分
-        const triggerScored = scoreTriggerCase(caseReport, triggerResult);
-        caseItems.push({ id: caseReport.id, result: `score=${triggerScored.score} | ${triggerScored.rationale} | tc=${triggerResult.toolCalls?.length ?? 0}` });
+        // judge 裁定池（若 expected.judge 非空）：trigger 通过后对最终答案做具名裁定，
+        // 补足 must_run 子串证明不了的语义校验（如"是否真的读懂了附件内容"）。
+        // 无池时 collectVerdicts 直接返回空裁定、不调用 grader，零额外开销。
+        const collected = await collectVerdicts(caseReport, triggerResult.finalAnswer ?? "", {
+          provider,
+          providers,
+          judgeConfig: data.judge,
+        });
+        if (collected.failed) {
+          caseItems.push({ id: caseReport.id, result: `not evaluated | ${collected.failed}` });
+          runtimeFailures.push(`\`${caseReport.id}\` ${collected.failed}`);
+          continue;
+        }
+
+        // 用 scoreTriggerCase 打触发分 + 输出分（含 judge 裁定）
+        const triggerScored = scoreTriggerCase(caseReport, triggerResult, { verdicts: collected.verdicts });
+        caseItems.push({ id: caseReport.id, result: `score=${triggerScored.score} | ${triggerScored.rationale}${formatDecisionSuffix(triggerScored.decision)} | tc=${triggerResult.toolCalls?.length ?? 0}` });
         if (triggerScored.score >= 2) directlyEvaluable.push(`\`${caseReport.id}\``);
         continue;
       }

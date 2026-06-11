@@ -90,16 +90,23 @@ $defs:
       medium: { $ref: "#/$defs/non_empty_string" }
       carrier: { $ref: "#/$defs/non_empty_string" }
       source_scope: { $ref: "#/$defs/non_empty_string" }
-      # skill-trigger 模式：必须触发的命令（子串匹配）
+      # skill-trigger 模式：必须触发的命令（子串匹配）。
+      # GREEN 用例用 must_run 断言「应触发」；RED 用例用 must_not_run 断言「不应触发/不应越界读」。
+      # 至少声明 must_run / must_not_run 其一（anyOf）。
       trigger:
         type: object
-        required: [must_run]
+        anyOf:
+          - required: [must_run]
+          - required: [must_not_run]
         properties:
           must_run:
             type: array
             minItems: 1
             items: { $ref: "#/$defs/non_empty_string" }
-          must_not_run: { $ref: "#/$defs/string_list" }
+          must_not_run:
+            type: array
+            minItems: 1
+            items: { $ref: "#/$defs/non_empty_string" }
       # skill-trigger 候选技能目录（缺省从 source_ref 构造）
       available_skills:
         type: array

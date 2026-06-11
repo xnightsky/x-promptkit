@@ -304,8 +304,12 @@ expected:
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `must_run` | array | ✅ | 必须触发的命令子串列表（至少 1 项） |
-| `must_not_run` | array | 可选 | 禁止运行的命令子串 |
+| `must_run` | array | △ | 必须触发的命令子串列表（GREEN 用例用；至少 1 项） |
+| `must_not_run` | array | △ | 禁止运行/不应越界读取的命令子串（RED 用例用；至少 1 项） |
+
+> `must_run` 与 `must_not_run` **至少声明其一**（anyOf）：GREEN 用例用 `must_run` 断言「应触发」，
+> RED 用例用 `must_not_run` 断言「不应触发 / 不应越界读取工作区外 skill 文件」。
+> 运行时 `scoreTriggerCase` 对二者均支持——`must_run` 缺省即跳过触发匹配、只校验 `must_not_run`。
 
 **示例**：
 
@@ -401,9 +405,9 @@ context:
 │   → medium: skill-mechanism
 │   → 评分靠 must_include 子串匹配
 │
-├── agent 是否会主动触发特定命令/工具
+├── agent 是否会主动触发特定命令/工具（GREEN）或不应越界触发/读取（RED）
 │   → medium: skill-trigger
-│   → 额外需要 trigger.must_run
+│   → GREEN：trigger.must_run（应触发）；RED：trigger.must_not_run（不应触发）；至少其一
 │   → 可选 available_skills 声明候选技能
 │
 └── agent 是否记住了全局知识（跨项目的长期记忆）
@@ -422,7 +426,7 @@ context:
 | case 缺 `expected.must_include` | schema FAIL | schema case.expected.required |
 | case 缺 `source_scope` | schema FAIL | schema case.required |
 | `source_ref` 无处可解析 | integrity FAIL | lib.mjs 跨字段语义 |
-| `skill-trigger` 缺 `trigger.must_run` | integrity FAIL | lib.mjs 跨字段语义 |
+| `skill-trigger` 既无 `trigger.must_run` 也无 `trigger.must_not_run` | integrity FAIL | lib.mjs 跨字段语义 |
 | `verdict` 引用的池键不存在 / 不带 `judge.` 前缀 | integrity FAIL | lib.mjs 跨字段语义 |
 | 一维声明的命中器不是恰一（`eq`/`one_of`/`verdict`） | integrity FAIL | lib.mjs 跨字段语义 |
 

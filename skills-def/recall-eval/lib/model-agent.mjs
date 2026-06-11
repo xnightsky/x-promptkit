@@ -261,6 +261,10 @@ export async function runSkillTriggerAgent({
         "",
         "You are evaluating which skill to trigger. Pick the best skill from the list,",
         "then cat its path to read the full documentation, and follow its instructions.",
+        "Only consider the skills explicitly listed above. Do NOT search, glob, or grep the",
+        "repository/filesystem for other skills or documentation that are not in this list,",
+        "and do NOT read skill files outside the listed paths. If none of the listed skills",
+        "fits the request, say so explicitly instead of looking elsewhere.",
       ].join("\n"),
       afterSkills: [
         "",
