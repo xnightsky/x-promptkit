@@ -1,0 +1,8 @@
+{
+  "name": "dev",
+  "version": "0.1.0",
+  "author": {
+    "name": "x-promptkit"
+  },
+  "description": "x-promptkit dev 模块的 Claude Code 侧插件：承载 /dev:* 斜杠命令，当前 /dev:pi = 把任务交接给 pi CLI 加速落地"
+}
