@@ -23,7 +23,8 @@
     "recall:sync-shared": "node skills-def/recall-eval/scripts/sync-shared.mjs",
     "recall:validate": "node skills-def/recall-eval/scripts/validate-schema.mjs",
     "recall:resolve": "node skills-def/recall-eval/scripts/resolve-target.mjs",
-    "recall:run": "node skills-def/recall-eval/scripts/run-eval.mjs"
+    "recall:run": "node skills-def/recall-eval/scripts/run-eval.mjs",
+    "install:dev-plugin": "node scripts/install-dev-plugin.mjs"
   },
   "dependencies": {
     "yaml": "^2.8.3"
