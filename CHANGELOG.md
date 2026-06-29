@@ -2,6 +2,22 @@
 
 本文件记录仓库级版本发布，不记录每一条普通提交。版本采用 SemVer 风格，git tag 采用 `vX.Y.Z`。
 
+## v0.13.0
+
+新增 dev 插件：Claude Code `/dev:pi` 斜杠命令 + 独立 `claude plugin` 安装轨道。
+
+### Added
+
+- `extensions/claude-code/dev/`：Claude Code dev 插件（marketplace `x-promptkit-dev`），承载 `/dev:pi`——把任务交接给 `pi` CLI 落地（复杂度超标自动拆段串行喂）。
+- `scripts/install-dev-plugin.mjs`：dev 插件安装器，薄包装 `claude plugin`，支持项目级 / `--repo <path>` / `--global` 安装与 `--remove` 卸载；`npm run install:dev-plugin` 入口。
+- 单测 `tests/install-dev-plugin.test.mjs`：覆盖 argv 解析与 scope 计划。
+- 设计文档 `docs/specs/2026-06-30-dev-pi-plugin-design.md`。
+
+### Changed
+
+- `README.md` / `docs/README.md`：新增 Claude Code 斜杠命令（dev 插件）安装入口与说明。
+- `package-lock.json`：根 `version` 与 `package.json` 对齐。
+
 ## v0.12.2
 
 recall-eval skill-trigger 注入 `$SKILL_DIR`，让 skill 自带资源可自定位；并把 recall-eval/recall-author 文档里大量过时表述（已下线的 carrier、`must_run` 必填、五段输出）修正到位。
