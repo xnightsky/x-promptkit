@@ -67,6 +67,14 @@
 - 先看 `SKILL.md`，确认后端选择逻辑、命令模板和禁止项
 - 再看 `EXAMPLES.md`，确认典型输入输出和反例
 
+## Claude Code 斜杠命令（dev 插件）
+
+`/dev:pi`（把任务交接给 `pi` CLI）由 `extensions/claude-code/dev/` 的 Claude Code 插件提供。它走 `claude plugin` 安装，**不走 `npx skills`**（后者只认 SKILL.md）：
+
+- 装进当前 / 指定 repo：`node scripts/install-dev-plugin.mjs [--repo <path>]`
+- 全机安装：`node scripts/install-dev-plugin.mjs --global`
+- 详情见 [`extensions/claude-code/dev/README.md`](./extensions/claude-code/dev/README.md)
+
 ## 常用入口
 
 - 安装指南:[`skills-def/INSTALL.md`](./skills-def/INSTALL.md)

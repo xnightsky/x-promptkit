@@ -26,6 +26,7 @@
 - [specs/2026-06-05-recall-eval-dynamic-agent-design.md](specs/2026-06-05-recall-eval-dynamic-agent-design.md)
 - [specs/2026-06-06-recall-context-layers-design.md](specs/2026-06-06-recall-context-layers-design.md)
 - [specs/2026-06-09-named-decision-adjudication-design.md](specs/2026-06-09-named-decision-adjudication-design.md)
+- [specs/2026-06-30-dev-pi-plugin-design.md](specs/2026-06-30-dev-pi-plugin-design.md)
 
 ## 约定
 

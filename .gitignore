@@ -164,3 +164,7 @@ __pycache__/
 # npx skills add 生成的安装产物与 lockfile
 skills-lock.json
 /.*/skills/
+
+# Claude Code 插件本地安装态：install-dev-plugin.mjs 装进本仓(project scope)时会写 .claude/settings.json，
+# 属本机安装产物、不入库。
+.claude/
