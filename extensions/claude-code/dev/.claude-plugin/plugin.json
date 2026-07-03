@@ -4,5 +4,5 @@
   "author": {
     "name": "x-promptkit"
   },
-  "description": "x-promptkit dev 模块的 Claude Code 侧插件：承载 /dev:* 斜杠命令，当前 /dev:pi = 把任务交接给 pi CLI 加速落地"
+  "description": "x-promptkit dev 模块的 Claude Code 侧插件：承载 /dev:* 斜杠命令，当前 /dev:pi = 交接任务给 pi CLI、/dev:cursor = 交接任务给 cursor-agent CLI"
 }

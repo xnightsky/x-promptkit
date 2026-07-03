@@ -10,7 +10,7 @@
     {
       "name": "dev",
       "source": "./",
-      "description": "x-promptkit dev 模块 CC 插件：/dev:* 命令（含 /dev:pi 交接任务给 pi CLI）"
+      "description": "x-promptkit dev 模块 CC 插件：/dev:* 命令（/dev:pi 交接任务给 pi CLI、/dev:cursor 交接任务给 cursor-agent CLI）"
     }
   ]
 }

@@ -1,8 +1,9 @@
 # dev 插件（Claude Code）
 
-x-promptkit dev 模块的 Claude Code 侧插件，承载 `/dev:*` 斜杠命令。当前唯一命令：
+x-promptkit dev 模块的 Claude Code 侧插件，承载 `/dev:*` 斜杠命令。当前命令：
 
 - `/dev:pi` — 把当前任务交接给 `pi` CLI 落地（复杂度超标自动拆段串行喂）。
+- `/dev:cursor` — 把当前任务交接给 `cursor-agent` CLI 落地（默认 `composer-2.5-fast` + `--trust` 安全档，复杂度超标自动拆段串行喂）。
 
 ## 为什么是插件（而非 npx skills）
 
