@@ -14,8 +14,9 @@ allowed-tools: Bash(pi:*), Bash(git diff:*), Bash(git --no-pager diff:*), Bash(g
 
 | 套餐 | `--model` | `--thinking` | 何时用 |
 |------|-----------|--------------|--------|
-| **日常（默认）** | `kimi-coding/kimi-for-coding` | `medium` | 平衡日常编码（262K context / 32.8K max-out） |
-| **省钱备选** | `deepseek/deepseek-v4-pro` | `medium` | kimi 烧太快时切——官方 deepseek，1M context / 384K max-out，单价更省 |
+| **多模态** | `kimi-coding/kimi-for-coding` | `medium` | 平衡日常编码（262K context / 32.8K max-out），支持多模态 |
+| **省钱** | `deepseek/deepseek-v4-pro` | `medium` | 官方 deepseek，1M context / 384K max-out，单价更省，无多模态 |
+| **省钱**（默认） | `deepseek/deepseek-v4-flash` | `high` | 官方 deepseek，1M context / 384K max-out，无多模态，弱化推理能力但速度比 pro 快 |
 
 切换示例：
 
