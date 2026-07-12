@@ -23,7 +23,7 @@
 - 不改 `/dev:pi` 的编排逻辑：`</dev/null` 硬约束、两轴复杂度评估、分段串行、段间 `git diff` 复核、复核回报，一律不动。
 - 不引入独立 `--effort` 或任何新 flag；推理旋钮仍只有 `--thinking`。
 - 不做套餐的自动巡检/失效检测；`pi.yaml` 过期就重跑 `/dev:pi-scope`。
-- 不把 `pi.yaml` 纳入仓库版本控制（它是运行时机器本地生成物，见 §2.3）。
+- 不把 `pi.yaml` 纳入仓库版本控制（它是运行时机器本地生成物，落 `${CLAUDE_PLUGIN_DATA}`，见 §2.2/§2.3）。
 
 ## 2. 架构与文件布局
 
@@ -40,18 +40,26 @@
 - 新命令文件名 `pi-scope.md`，命令名取 plugin 名前缀 → `/dev:pi-scope`（与 `/dev:pi`、`/dev:cursor` 同源规则）。
 - schema 文件 `schemas/pi-packages.schema.yaml`，就近放进插件自身（现有 schema 均按模块就近放，无顶层 `schemas/`）。
 
-### 2.2 生成物定位：`${CLAUDE_PLUGIN_ROOT}`
+### 2.2 定位：`pi.yaml` 用 `${CLAUDE_PLUGIN_DATA}`，schema 用 `${CLAUDE_PLUGIN_ROOT}`
 
-- 生成物 `commands/pi.yaml` = **执行中的那份 `pi.md` 的兄弟文件**。
-- 定位靠 Claude Code 插件暴露的环境变量 `${CLAUDE_PLUGIN_ROOT}`：不管插件装在 user scope 还是 project scope，都指向**运行时那份插件根**，`pi.yaml` 落 `${CLAUDE_PLUGIN_ROOT}/commands/pi.yaml`。
-- schema 同样经 `${CLAUDE_PLUGIN_ROOT}/schemas/pi-packages.schema.yaml` 被两条命令引用。
+> 本节的定位方式经实现第 0 步核实官方文档（`plugins-reference`）后**已改定**：最初设想的「`pi.yaml` 作为执行中 pi.md 的兄弟文件、落 `${CLAUDE_PLUGIN_ROOT}` 下」被官方明确否定，故拆成两个变量（见下方核实结论）。
 
-> ⚠️ **载荷性假设，实现第 0 步必须先核实**：`${CLAUDE_PLUGIN_ROOT}` 确实对斜杠命令可见、且该目录运行时可写、且 `claude plugin install` 会把 `schemas/` 一起拷贝到插件根下。整个「兄弟文件」方案挂在这三条上。任一不成立，需改定位手段（如固定用户级路径 `~/.claude/...`）并回头修本设计——在核实前不得当既成事实继续实现。
+- **读方 schema（只读、随插件分发）**：`${CLAUDE_PLUGIN_ROOT}/schemas/pi-packages.schema.yaml`。`${CLAUDE_PLUGIN_ROOT}` 指向已安装插件缓存根，对斜杠命令可见、内联展开；`schemas/` 随 `claude plugin install` 整体拷入缓存。
+- **生成物 `pi.yaml`（运行时写入、需持久）**：`${CLAUDE_PLUGIN_DATA}/pi.yaml`。`${CLAUDE_PLUGIN_DATA}` 解析为 `~/.claude/plugins/data/{插件id}/`，**跨插件版本持久**、首次引用自动创建，官方文档定性它就是「运行时生成、要持久化的文件」的落点。
+- 不再用 `${CLAUDE_PLUGIN_ROOT}` 存 `pi.yaml`：官方原文称该缓存目录 ephemeral、升级即换路径、旧数据实质消失，明确「do not write state here」。
 
-### 2.3 生命周期与代价
+**第 0 步核实结论（官方文档 `plugins-reference`）：**
 
-- `pi.yaml` 由 `/dev:pi-scope` 在运行时写入插件目录，**不进仓库版本控制**（每台机器现装现生成）。
-- **代价**：`claude plugin` 重装/刷新插件会覆盖插件目录、冲掉 `pi.yaml`，需重跑 `/dev:pi-scope`。这是「兄弟于执行中 pi.md」定位方式的固有取舍，写进插件 README。
+| 假设 | 结论 | 依据要点 |
+|------|------|----------|
+| `${CLAUDE_PLUGIN_ROOT}` 对斜杠命令可见、内联展开 | ✅ 成立 | 命令属 “Skills” 组件，该变量在命令内容中内联替换，指向已装插件根 |
+| 插件缓存根运行时可写/可持久 | ❌ **不成立** | 缓存目录 ephemeral、升级换路径、“do not write state here” → 故 `pi.yaml` 改落 `${CLAUDE_PLUGIN_DATA}` |
+| `claude plugin install` 连非标准子目录（`schemas/`）一起拷 | ✅ 成立 | “目录内部任何路径都拷进缓存，只有目录外的不拷” → schema 随装可用 |
+
+### 2.3 生命周期
+
+- schema 随插件版本控制分发，`claude plugin install` 拷进缓存，只读引用。
+- `pi.yaml` 由 `/dev:pi-scope` 在运行时写入 `${CLAUDE_PLUGIN_DATA}/`，**不进仓库版本控制**（每台机器现装现生成）；**跨插件升级/重装持久**——落在 data 目录而非缓存根，重装/刷新插件不再冲掉它（相比最初「兄弟文件」设想，去掉了「重装即丢、需重跑」的代价）。过期或想换套餐时主动重跑 `/dev:pi-scope` 覆盖即可。
 
 ## 3. 套餐结构（schema 权威）
 
@@ -112,18 +120,18 @@ packages:
    可选填 descr（长告警）→ 问「设为默认?」→ 问「再加一条 or 收工?」。
 3. 校验（§3.2 全部约束）：≥1 条；恰好 1 条 default；每条 model 命中 list-models；
    thinking 合法。任一不过 → 指出问题、回到对应步补齐，不落盘半成品。
-4. 写 ${CLAUDE_PLUGIN_ROOT}/commands/pi.yaml，符合 schema。
+4. 写 ${CLAUDE_PLUGIN_DATA}/pi.yaml（首次引用自动建目录），符合 schema。
 5. 回显最终 yaml 供用户确认。
 ```
 
 - 输入契约：可选关键词参数透传给 `pi --list-models`；无参则拉全量。
-- 输出契约：符合 `pi-packages.schema.yaml` 的 `commands/pi.yaml`。
+- 输出契约：符合 `pi-packages.schema.yaml`（读方 schema 在 `${CLAUDE_PLUGIN_ROOT}/schemas/`）的 `${CLAUDE_PLUGIN_DATA}/pi.yaml`。
 - 异常态：`pi` 不存在 / `--list-models` 失败 → 打印原始 stderr、停下，不写盘；用户中途放弃 → 不落半成品文件。
 
 ## 5. `/dev:pi`（改 · 读方）改动点
 
 - **删**：写死的 Markdown 套餐速查表（现 11–31 行）；决策流程图里「默认 `kimi-for-coding` 日常档」节点。
-- **改「解析 model 默认」步**：读 `${CLAUDE_PLUGIN_ROOT}/commands/pi.yaml` → 取 `default: true` 那条的 `model` + `thinking` 作默认档；当命中某套餐且其有 `descr` 时，把 `descr` 回显给用户。
+- **改「解析 model 默认」步**：读 `${CLAUDE_PLUGIN_DATA}/pi.yaml` → 取 `default: true` 那条的 `model` + `thinking` 作默认档；当命中某套餐且其有 `descr` 时，把 `descr` 回显给用户。
 - **缺失兜底（硬要求）**：读不到 `pi.yaml` → **停下**，提示「先跑 `/dev:pi-scope` 生成套餐」，**不内置任何写死默认**。
 - **显式优先级不变**：`--model` / `--thinking` 显式给的仍原样透传、优先级最高，可以不在 yaml 内。
 - **不动**：`</dev/null` 警示、两轴复杂度评估、分段串行、段间复核、复核回报。
@@ -131,15 +139,15 @@ packages:
 ## 6. 文档与校验
 
 - 本 spec + `docs/README.md` 的 `specs/` 目录清单补一行。
-- `extensions/claude-code/dev/README.md`：新增 `/dev:pi-scope` 命令条目；写明 `pi.yaml` 是运行时生成物、重装会被冲掉需重跑、`${CLAUDE_PLUGIN_ROOT}` 定位。
+- `extensions/claude-code/dev/README.md`：新增 `/dev:pi-scope` 命令条目；写明 `pi.yaml` 是运行时生成物、落 `${CLAUDE_PLUGIN_DATA}`（跨插件升级持久、重装不丢）、schema 随插件走 `${CLAUDE_PLUGIN_ROOT}/schemas/`。
 - `plugin.json.description` 与根 `README.md` 的 dev 插件命令清单同步 `/dev:pi-scope`。
 - 收口跑 `npm run lint` 必须全绿；涉及脚本/契约时按需 `npm run check` / `npm run verify`。
 - 全程仓库相对路径，禁止本机绝对路径。
 
 ## 7. 验收点
 
-1. 实现第 0 步已核实 `${CLAUDE_PLUGIN_ROOT}` 三条假设（可见 / 可写 / `schemas/` 随装拷贝），或已按结论改定位手段并回改本 spec。
+1. 实现第 0 步已核实定位假设（§2.2 结论表）：`${CLAUDE_PLUGIN_ROOT}` 可见 ✅、缓存根可写 ❌（故 `pi.yaml` 改落 `${CLAUDE_PLUGIN_DATA}`）、`schemas/` 随装拷贝 ✅；spec §2.2/§2.3/§4/§5 已按结论改定位手段。
 2. `schemas/pi-packages.schema.yaml` 就位，字段与 §3.1 一致；`case`（非 `when`）、`descr` 可选、`default` 恰好一条的约束表达清楚。
-3. `/dev:pi-scope`：`pi --list-models` 拉真实清单 → 交互建多套餐 → 生成符合 schema 的 `commands/pi.yaml` → 回显确认；非法输入（0/多 default、model 不在清单、thinking 非枚举）被拦下不落盘。
+3. `/dev:pi-scope`：`pi --list-models` 拉真实清单 → 交互建多套餐 → 生成符合 schema 的 `${CLAUDE_PLUGIN_DATA}/pi.yaml` → 回显确认；非法输入（0/多 default、model 不在清单、thinking 非枚举）被拦下不落盘。
 4. `/dev:pi`：写死速查表已删；读 `pi.yaml` 的 `default` 档；命中套餐回显 `descr`；读不到 yaml 时停下提示先跑 `/dev:pi-scope`；显式 `--model`/`--thinking` 仍优先透传；`</dev/null`/两轴/分段逻辑未动。
 5. `README.md`（插件 + 根）、`plugin.json`、`docs/README.md` 同步；`npm run lint` 全绿。
