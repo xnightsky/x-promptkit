@@ -20,17 +20,17 @@ pi --list-models $ARGUMENTS </dev/null
 
 从输出里解析出真实可用的 `provider/id` 集合，记下来——这是第 2 步选 model 时唯一合法的候选集，也是第 3 步校验「model 命中清单」的依据。若 `pi --list-models` 失败（命令不存在、非零退出等），按第 6 步「异常态」处理，直接停下，不进入第 2 步。
 
-## 2. 逐条建套餐（循环，用 `AskUserQuestion`）
+## 2. 逐条建套餐（循环）
 
-每一轮依次问，凑齐一条 package：
+每一轮依次问，凑齐一条 package。**结构化选择**（model / thinking / 设为默认 / 再加一条）用 `AskUserQuestion`；**自由文本**（name / case / descr）直接对话向用户问——`AskUserQuestion` 是结构化多选、没有原生多行自由文本字段，长文本别硬塞进选项。
 
-1. **挑 model**：从第 1 步解析出的清单里选（选项直接列出具体 `provider/id`，不要让用户手打，避免拼错落到清单外）。
-2. **选 thinking**：六选一枚举 `off / minimal / low / medium / high / xhigh`。
-3. **写 name**：套餐名，用户自定（如「多模态」「省钱」）。
-4. **写 case**：一句话速查——这套餐适用什么场景（对应旧写死表「何时用」列）。
-5. **可选填 descr**：长描述/注意事项，允许多行、允许留空（比如把云端限速开关一类跟 model 强相关但 pi CLI 本身看不到的整段告警存进来）。
-6. **问「设为默认?」**：是/否。
-7. **问「再加一条 or 收工?」**：选「再加一条」→ 回到步骤 1 开始下一轮；选「收工」→ 结束循环，进入第 3 步校验。
+1. **挑 model**（`AskUserQuestion`）：从第 1 步解析出的清单里选（选项直接列出具体 `provider/id`，不要让用户手打，避免拼错落到清单外）。
+2. **选 thinking**（`AskUserQuestion`）：六选一枚举 `off / minimal / low / medium / high / xhigh`。
+3. **写 name**（对话问）：套餐名，用户自定（如「多模态」「省钱」）。
+4. **写 case**（对话问）：一句话速查——这套餐适用什么场景（对应旧写死表「何时用」列）。
+5. **可选填 descr**（对话问，非 `AskUserQuestion`）：长描述/注意事项，允许多行、允许留空（比如把云端限速开关一类跟 model 强相关但 pi CLI 本身看不到的整段告警存进来）。这是自由长文本，直接对话收集；用户不填就留空跳过。
+6. **问「设为默认?」**（`AskUserQuestion`）：是/否。
+7. **问「再加一条 or 收工?」**（`AskUserQuestion`）：选「再加一条」→ 回到步骤 1 开始下一轮；选「收工」→ 结束循环，进入第 3 步校验。
 
 ## 3. 落盘前校验（逐条对 `${CLAUDE_PLUGIN_ROOT}/schemas/pi-packages.schema.yaml`）
 

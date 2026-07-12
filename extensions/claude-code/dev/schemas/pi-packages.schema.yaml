@@ -39,4 +39,4 @@ properties:
 $defs:
   non_empty_string:
     type: string
-    minLength: 1
+    pattern: "\\S"      # 至少一个非空白字符（对齐 recall-queue.schema.yaml，拒纯空白串）
