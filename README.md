@@ -73,6 +73,7 @@
 
 - 装进当前 / 指定 repo：`node scripts/install-dev-plugin.mjs [--repo <path>]`
 - 全机安装：`node scripts/install-dev-plugin.mjs --global`
+- `/dev:pi-scope` — 拉真实可用模型清单、交互生成 `/dev:pi` 的套餐速查表 `pi.yaml`。
 - 详情见 [`extensions/claude-code/dev/README.md`](./extensions/claude-code/dev/README.md)
 
 ## 常用入口

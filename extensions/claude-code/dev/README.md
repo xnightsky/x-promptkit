@@ -4,6 +4,11 @@ x-promptkit dev 模块的 Claude Code 侧插件，承载 `/dev:*` 斜杠命令�
 
 - `/dev:pi` — 把当前任务交接给 `pi` CLI 落地（复杂度超标自动拆段串行喂）。
 - `/dev:cursor` — 把当前任务交接给 `cursor-agent` CLI 落地（默认 `composer-2.5-fast` + `--trust` 安全档，复杂度超标自动拆段串行喂）。
+- `/dev:pi-scope` — 拉真实可用模型清单、交互生成 `/dev:pi` 的套餐速查表 `pi.yaml`。
+
+## `pi.yaml` 生命周期
+
+`pi.yaml` 是**运行时生成物、不进版本控制**，由 `/dev:pi-scope` 交互生成，落 `${CLAUDE_PLUGIN_DATA}/pi.yaml`（即 `~/.claude/plugins/data/{插件id}/`）——这个目录**跨插件升级/重装持久、不会丢**。结构 schema 随插件走 `${CLAUDE_PLUGIN_ROOT}/schemas/pi-packages.schema.yaml`，`/dev:pi` 运行时按此 schema 读取。想换套餐，主动重跑 `/dev:pi-scope` 覆盖即可。
 
 ## 为什么是插件（而非 npx skills）
 
