@@ -8,27 +8,15 @@ allowed-tools: Bash(pi:*), Bash(git diff:*), Bash(git --no-pager diff:*), Bash(g
 
 原始参数：`$ARGUMENTS`
 
-## 套餐速查表（推荐 model + thinking 组合）
+## 套餐来源（读运行时 pi.yaml）
 
-> pi 只有一个推理旋钮 `--thinking`（`off/minimal/low/medium/high/xhigh`）——所谓 "effort / 推理强度" 就是它，没有独立的 `--effort`。下表是钦定组合：**没给 `--model` 时默认走「日常」档**；想换档就显式 `--model`（需要时再配 `--thinking`）原样覆盖，表只作速查、不引入新 flag。
+> 默认 model + thinking 不再钦定在本文件，改由 `/dev:pi-scope` 生成的
+> `${CLAUDE_PLUGIN_DATA}/pi.yaml`（符合 `schemas/pi-packages.schema.yaml`）提供。
 
-| 套餐 | `--model` | `--thinking` | 何时用 |
-|------|-----------|--------------|--------|
-| **多模态** | `kimi-coding/kimi-for-coding` | `medium` | 平衡日常编码（262K context / 32.8K max-out），支持多模态 |
-| **省钱** | `deepseek/deepseek-v4-pro` | `medium` | 官方 deepseek，1M context / 384K max-out，单价更省，无多模态 |
-| **省钱**（默认） | `deepseek/deepseek-v4-flash` | `high` | 官方 deepseek，1M context / 384K max-out，无多模态，弱化推理能力但速度比 pro 快 |
-
-切换示例：
-
-```
-/pi 重构 auth 模块                                          # 默认 → kimi-for-coding + medium
-/pi --model deepseek/deepseek-v4-pro 重构 auth 模块         # 省钱档 → deepseek-v4-pro + medium
-/pi --model deepseek/deepseek-v4-pro --thinking high <任务>  # 省钱档但临时加大推理
-```
-
-需要更多模型时 `pi --list-models [关键词]` 现查现用，但默认与备选两档就够覆盖日常。
-
-> ⚠️ **kimi 烧钱的真正来源是云端开关，不在 pi 这边**：Kimi 控制台的「K2.7 Code 高速版」（6× 速度 / 3× 消耗）是**账号级设置，只能在控制台网页切**——同一个 `kimi-for-coding` ID 走正常速度还是 6× 高速，pi CLI 与 model ID 都看不到、也调不了。想省钱：要么去控制台把高速版切回正常速度，要么按上表切 `deepseek/deepseek-v4-pro` 备选档。**别试图用 flag 调 kimi 速度，没有这个旋钮。**
+- 读 `${CLAUDE_PLUGIN_DATA}/pi.yaml`，取 `default: true` 那条套餐的 `model` 与 `thinking` 作默认档。
+- 命中某套餐且其有 `descr` 时，把 `descr`（长告警/注意事项）回显给用户。
+- **读不到 `pi.yaml` → 停下**，提示「先跑 `/dev:pi-scope` 生成套餐速查表」，不内置任何写死默认。
+- 显式 `--model` / `--thinking`（第 2/3 步）优先级最高、原样透传，可不在 yaml 内。
 
 ## 决策流程（严格按此点状图执行）
 
@@ -37,8 +25,8 @@ digraph pi_command {
     rankdir=TB;
     start [shape=doublecircle, label="/pi <args>"];
     parse  [shape=box, label="解析 --model / --thinking / --timeout + 任务文本"];
-    rmodel [shape=box, label="model: 给了=常驻; 否则默认 kimi-coding/kimi-for-coding (套餐速查表·日常档)\n→ 读其能力档 (context / max-out / 编码强度)"];
-    rthink [shape=box, label="thinking: 给了=常驻; 否则默认 medium (随套餐速查表)"];
+    rmodel [shape=box, label="model: 给了=常驻; 否则读 pi.yaml 的 default 套餐; 读不到→停下提示先跑 /dev:pi-scope\n→ 读其能力档 (context / max-out / 编码强度)"];
+    rthink [shape=box, label="thinking: 给了=常驻; 否则取 pi.yaml default 套餐的 thinking"];
     rtime  [shape=box, label="timeout: 给了=常驻; 否则默认 5m (上限 10m)"];
     gate   [shape=box, label="复杂度评估(两轴):\n轴A 任务规模是否超 model 单次承载?\n轴B timeout 预算够这事一次跑完吗?"];
     over   [shape=diamond, label="任一轴超标?"];
@@ -69,14 +57,14 @@ digraph pi_command {
 
 ## 2. 解析 model（显式给的=常驻固定值，原样透传）
 
-- 给了 `--model` → 原样用，不二次猜测。若是模糊/部分名（如 `kimi`），先 `pi --list-models <pattern>` 解析成精确 `provider/id`。表里的「省钱备选」`deepseek/deepseek-v4-pro` 就是用户嫌 kimi 烧太快时最常切的那档。
-- 没给 → 默认 **「日常」档 `kimi-coding/kimi-for-coding`**（262K context / 32.8K max-out，支持 thinking，见上方套餐速查表）。固定 ID 直接用，**不需要每次 `--list-models`**；仅当该默认 ID 调用失配时才 `pi --list-models` 回退解析（必要时补 `--provider kimi-coding`）。
+- 给了 `--model` → 原样用，不二次猜测。若是模糊/部分名（如 `kimi`），先 `pi --list-models <pattern>` 解析成精确 `provider/id`。
+- 没给 → 读 `${CLAUDE_PLUGIN_DATA}/pi.yaml` 的 `default` 套餐取 `model`；读不到 → 停下提示先跑 `/dev:pi-scope`。命中套餐且有 `descr` 时回显。固定 ID 直接用，**不需要每次 `--list-models`**；仅当该默认 ID 调用失配时才 `pi --list-models` 回退解析（必要时补 `--provider`）。
 - 记下该 model 的能力档（context / max-out），第 5 步评估要用。
 
 ## 3. 解析 thinking（显式给的=常驻）
 
 - 给了 `--thinking` → 原样透传。
-- 没给 → 默认 `medium`（随套餐速查表：日常档与省钱备选档都用 `medium`）。
+- 没给 → 取 `${CLAUDE_PLUGIN_DATA}/pi.yaml` `default` 套餐的 `thinking`；读不到 → 停下提示先跑 `/dev:pi-scope`。
 
 ## 4. 解析 timeout（显式给的=常驻）
 
