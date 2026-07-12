@@ -87,7 +87,7 @@
 - 每条 `model` 必须命中当次 `pi --list-models` 的结果集。
 - `thinking` 必须是合法枚举值。
 
-### 3.3 生成的 `commands/pi.yaml` 样例（把当前钦定表迁进来的样子）
+### 3.3 生成的 `${CLAUDE_PLUGIN_DATA}/pi.yaml` 样例（把当前钦定表迁进来的样子）
 
 ```yaml
 # 由 /dev:pi-scope 生成 · 符合 schemas/pi-packages.schema.yaml
