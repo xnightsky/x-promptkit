@@ -1,0 +1,43 @@
+# dev 插件通用套餐表结构权威（类 JSON Schema 子集，无运行时校验器，作写读两方契约）。
+#
+# 写方：/dev:scope（references/scoping.md 引擎）据此生成 ${CLAUDE_PLUGIN_DATA}/<backend>.yaml。
+# 读方：/dev:pi、/dev:cursor 便捷壳据此取 default 档。
+#
+# 后端专属旋钮（如 pi 的 thinking）存 knobs 对象；其合法 key/值由 scoping.md 的「每后端 scope 配置」+ 校验步兜。
+# schema 表达不了的跨字段约束（同样由 scoping.md 的 prose + 校验步兜）：
+#   - packages 至少 1 条。
+#   - 恰好 1 条 default:true（0 条或 ≥2 条都非法）。
+#   - 每条 model 必须命中当次该后端 list-models 结果集。
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: dev backend packages cheatsheet
+type: object
+additionalProperties: false
+required: [version, packages]
+properties:
+  version:
+    type: integer
+    minimum: 1
+  packages:
+    type: array
+    minItems: 1
+    items:
+      type: object
+      additionalProperties: false
+      required: [name, model, case, default]
+      properties:
+        name:
+          $ref: "#/$defs/non_empty_string"     # 套餐名，用户自定（如「多模态」「省钱」）
+        model:
+          $ref: "#/$defs/non_empty_string"     # 后端的 model id，须来自该后端 list-models 实际结果
+        case:
+          $ref: "#/$defs/non_empty_string"     # 一句话速查：适用场景
+        descr:
+          type: string                         # 可选长描述/注意事项（多行），存跟 model 强相关的整段告警
+        default:
+          type: boolean                        # 全表恰好一条 true
+        knobs:
+          type: object                         # 后端专属旋钮，如 pi 的 {thinking: medium}；cursor 无则省略/空对象
+$defs:
+  non_empty_string:
+    type: string
+    pattern: "\\S"      # 至少一个非空白字符（对齐 recall-queue.schema.yaml，拒纯空白串）

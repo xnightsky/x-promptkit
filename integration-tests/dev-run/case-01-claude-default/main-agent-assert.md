@@ -4,11 +4,11 @@ case-01-claude-default
 
 ## Purpose
 
-验证 `ai-run` 在用户未指定后端时，默认路由到 claude，并使用标准 claude 命令骨架。
+验证 `dev-run` 在用户未指定后端时，默认路由到 claude，并使用标准 claude 命令骨架。
 
 ## Environment Assumptions
 
-- `ai-run` skill 已可用
+- `dev-run` skill 已可用
 - 用户未指定后端
 
 ## Assert Must Include

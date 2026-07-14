@@ -4,11 +4,11 @@ case-02-codex-exec
 
 ## Purpose
 
-验证 `ai-run` 在用户指定 codex 后端时，正确路由并构造 `codex exec --json` 命令。
+验证 `dev-run` 在用户指定 codex 后端时，正确路由并构造 `codex exec --json` 命令。
 
 ## Environment Assumptions
 
-- `ai-run` skill 已可用
+- `dev-run` skill 已可用
 - 用户明确指定 codex
 
 ## Assert Must Include

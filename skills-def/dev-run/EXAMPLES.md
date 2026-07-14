@@ -70,7 +70,13 @@ cd <workdir> && opencode run "执行用户指定的任务"
 标准输出样例（pi）：
 
 ```bash
-cd <workdir> && pi -p "执行用户指定的任务"
+cd <workdir> && pi -p "执行用户指定的任务" </dev/null
+```
+
+标准输出样例（cursor-agent）：
+
+```bash
+cd <workdir> && cursor-agent -p --trust "执行用户指定的任务" </dev/null
 ```
 
 验收标准：
@@ -234,11 +240,46 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "执行用
 标准结果样例：
 
 ```md
-不支持后端 `nonexistent-cli`。支持的后端：claude、codex、opencode、pi。请从中选择一个。
+不支持后端 `nonexistent-cli`。支持的后端：claude、codex、opencode、pi、cursor。请从中选择一个。
 ```
 
 验收标准：
 
 - 明确说"不支持"
-- 列出全部 4 个选项
+- 列出全部 5 个选项
 - 不假装能处理
+
+---
+
+## Case 08: 显式指定 cursor-agent
+
+触发方式：
+
+- "用 cursor 执行这个任务"
+- "cursor-agent -p 帮我改这段"
+
+最小上下文：
+
+- 用户给了明确的 cursor 后端信号
+
+期望产出：
+
+- 路由到 **cursor-agent** 后端
+- 默认走 `--trust` 安全档（代码编辑落地、shell 被挡）
+
+标准输出样例：
+
+```bash
+cd <workdir> && cursor-agent -p --trust "执行用户指定的任务" </dev/null
+```
+
+验收标准：
+
+- 后端为 cursor-agent
+- 默认带 `--trust`（未显式 `--force`/`--yolo` 时不走危险全开档）
+- Windows/Git-Bash 下二进制名换 `cursor-agent.cmd`
+
+反例：
+
+- 默认就上 `-f`/`--yolo` 危险全开
+- 路由到 claude 或别的后端

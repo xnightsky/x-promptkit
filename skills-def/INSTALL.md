@@ -85,8 +85,17 @@ npx skills add . --skill recall-author -g -y
 npx skills add xnightsky/x-promptkit --skill recall-author -g -y
 ```
 
-### ai-run
+### dev-run
+
+`dev-run` 是「AI CLI ↔ AI CLI 交接」能力的 skill 形态（Tier-1 极简一发默认 + Tier-2 编排，见 `skills-def/dev-run/references/`）。Claude Code 侧的斜杠形态是 `extensions/claude-code/dev` 插件的 `/dev:run`、`/dev:pi`、`/dev:cursor`（另走 `claude plugin`，见根 README）。
 
 ```bash
-npx skills add . --skill ai-run -g -y
+# 本地全局安装（默认 claude-code）
+npx skills add . --skill dev-run -g -y
+
+# 给非 Claude 宿主装上「调用别的 AI CLI」的能力（无斜杠、自然语言触发）：
+# codex（openai 平台）/ opencode / pi —— references/ 随 skill 一起打包
+npx skills add . --skill dev-run -g -a openai -y
+npx skills add . --skill dev-run -g -a opencode -y
+npx skills add . --skill dev-run -g -a pi -y
 ```

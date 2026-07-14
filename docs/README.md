@@ -28,6 +28,8 @@
 - [specs/2026-06-09-named-decision-adjudication-design.md](specs/2026-06-09-named-decision-adjudication-design.md)
 - [specs/2026-06-30-dev-pi-plugin-design.md](specs/2026-06-30-dev-pi-plugin-design.md)
 - [specs/2026-07-12-dev-pi-scope-packages-design.md](specs/2026-07-12-dev-pi-scope-packages-design.md)
+- [specs/2026-07-14-ai-cli-handoff-unification-design.md](specs/2026-07-14-ai-cli-handoff-unification-design.md)
+- [specs/2026-07-14-dev-scope-generalized-design.md](specs/2026-07-14-dev-scope-generalized-design.md)
 
 ## 约定
 

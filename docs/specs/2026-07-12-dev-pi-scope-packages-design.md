@@ -1,7 +1,9 @@
 # dev 插件 /dev:pi-scope — 套餐速查表生成机制设计
 
+> ⚠️ **已被通用 scope 取代（2026-07-14）**：本 spec 的 pi 专属 `/dev:pi-scope` 已泛化为面向多后端的 `/dev:scope <backend>`，见 [`2026-07-14-dev-scope-generalized-design.md`](./2026-07-14-dev-scope-generalized-design.md)。schema 改为通用 `packages.schema.yaml`（旋钮进 `knobs`），生成物 `<backend>.yaml`；`/dev:pi` 读不到时回退裸 `pi -p`（可选便利层）。本文留作 pi 专属前身的历史设计记录。
+
 - 日期：2026-07-12
-- 状态：目标设计（尚未实现）
+- 状态：被通用 scope 取代（曾实现；2026-07-14 泛化为 `/dev:scope`）
 - 范围：x-promptkit 的 Claude Code `dev` 插件。新增 `/dev:pi-scope` 命令，把 `/dev:pi` 里**写死的套餐速查表**改成**运行时按真实可用模型交互生成**的 yaml；`/dev:pi` 改为读该 yaml。
 - 关联：`docs/specs/2026-06-30-dev-pi-plugin-design.md`（dev 插件与 `/dev:pi` 基线）。
 

@@ -1,5 +1,7 @@
 # dev 插件 /dev:pi-scope 套餐机制 Implementation Plan
 
+> ⚠️ **已被通用 scope 取代（2026-07-14）**：本 plan 对应的 pi 专属 `/dev:pi-scope` 已泛化为 `/dev:scope <backend>`，见 [`2026-07-14-dev-scope-generalized-design.md`](./2026-07-14-dev-scope-generalized-design.md)。留作历史记录。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把 `/dev:pi` 里写死的套餐速查表，改成由新命令 `/dev:pi-scope` 按真实可用模型交互生成的 `pi.yaml`，`/dev:pi` 改为读该 yaml。

@@ -4,11 +4,11 @@ case-03-opencode-run
 
 ## Purpose
 
-验证 `ai-run` 在用户指定 opencode 后端时，正确路由并构造 `opencode run` 命令，不自动添加 superpowers 前缀。
+验证 `dev-run` 在用户指定 opencode 后端时，正确路由并构造 `opencode run` 命令，不自动添加 superpowers 前缀。
 
 ## Environment Assumptions
 
-- `ai-run` skill 已可用
+- `dev-run` skill 已可用
 - 用户明确指定 opencode
 - 用户未要求 superpowers 前缀
 

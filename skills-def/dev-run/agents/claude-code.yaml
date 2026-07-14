@@ -1,0 +1,9 @@
+# claude-code 平台接口/策略覆盖。Claude Code 里 Tier-2 走 /dev:* 斜杠插件（extensions/claude-code/dev），
+# dev-run skill 本身作 Tier-1 极简一发的能力入口。
+interface:
+  display_name: "Dev Run"
+  short_description: "统一非交互 AI CLI 执行：claude / codex / opencode / pi / cursor"
+  default_prompt: "Use $dev-run to select the right backend, construct the command, and execute it directly."
+
+policy:
+  allow_implicit_invocation: false

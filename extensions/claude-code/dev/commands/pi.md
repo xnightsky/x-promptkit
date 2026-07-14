@@ -1,108 +1,22 @@
 ---
-description: 把当前任务交接给 pi CLI 加速落地（复杂度超标自动拆段串行喂 pi）
+description: 把当前任务交接给 pi CLI 加速落地（走统一 dev-run 编排，默认档可选读 pi.yaml 套餐）
 argument-hint: [--model <pattern>] [--thinking off|low|...] [--timeout 5m] <任务描述>
-allowed-tools: Bash(pi:*), Bash(git diff:*), Bash(git --no-pager diff:*), Bash(git status:*)
+allowed-tools: Bash(pi:*), Bash(git diff:*), Bash(git --no-pager diff:*), Bash(git status:*), Read
 ---
 
-你是编排者，`pi` CLI 是执行者。把下面的任务**真正交接给 `pi -p` 起进程落地**，你只负责拼参数、起任务、复核结果——不要自己动手写这段代码。
+你是编排者，`pi` CLI 是执行者。本命令 = 统一交接编排（`/dev:run`）钉死 backend=pi 的便捷壳：你只拼参数、起进程、段间复核、回报，不自己动手写这段代码。
 
 原始参数：`$ARGUMENTS`
 
-## 套餐来源（读运行时 pi.yaml）
+## 核心编排（共享事实源，不在本文复述）
 
-> 默认 model + thinking 不再钦定在本文件，改由 `/dev:pi-scope` 生成的
-> `${CLAUDE_PLUGIN_DATA}/pi.yaml`（符合 `schemas/pi-packages.schema.yaml`）提供。
+- **pi 命令模板 / `</dev/null` 护栏 / Shell 转义 / wait 预算 / 旋钮语义**：见 `${CLAUDE_PLUGIN_ROOT}/references/backends.md` 的 **pi** 条目。
+- **两轴复杂度闸门 → 拆段串行 → 段间 `git diff` 复核 → 回报**：见 `${CLAUDE_PLUGIN_ROOT}/references/orchestration.md`（含参数解析、`--timeout` 规则）。
+- **严格按上述两份 references 执行**；本文件只补 pi 专属旋钮。
 
-- 读 `${CLAUDE_PLUGIN_DATA}/pi.yaml`，取 `default: true` 那条套餐的 `model` 与 `thinking` 作默认档。
-- 命中某套餐且其有 `descr` 时，把 `descr`（长告警/注意事项）回显给用户。
-- **读不到 `pi.yaml` → 停下**，提示「先跑 `/dev:pi-scope` 生成套餐速查表」，不内置任何写死默认。
-- 显式 `--model` / `--thinking`（第 2/3 步）优先级最高、原样透传，可不在 yaml 内。
+## pi 专属旋钮
 
-## 决策流程（严格按此点状图执行）
-
-```dot
-digraph pi_command {
-    rankdir=TB;
-    start [shape=doublecircle, label="/pi <args>"];
-    parse  [shape=box, label="解析 --model / --thinking / --timeout + 任务文本"];
-    rmodel [shape=box, label="model: 给了=常驻; 否则读 pi.yaml 的 default 套餐; 读不到→停下提示先跑 /dev:pi-scope\n→ 读其能力档 (context / max-out / 编码强度)"];
-    rthink [shape=box, label="thinking: 给了=常驻; 否则取 pi.yaml default 套餐的 thinking"];
-    rtime  [shape=box, label="timeout: 给了=常驻; 否则默认 5m (上限 10m)"];
-    gate   [shape=box, label="复杂度评估(两轴):\n轴A 任务规模是否超 model 单次承载?\n轴B timeout 预算够这事一次跑完吗?"];
-    over   [shape=diamond, label="任一轴超标?"];
-    split  [shape=box, label="细化分段: 产出有序子任务清单 (小而细)\ntimeout 越小拆得越细"];
-    seg    [shape=box, label="取下一段 → pi -p --model M --thinking T \"子任务\" </dev/null (Bash timeout)"];
-    more   [shape=diamond, label="还有剩余段?"];
-    single [shape=box, label="单次 pi -p --model M --thinking T \"任务\" </dev/null (Bash timeout)"];
-    done   [shape=doublecircle, label="复核 diff/输出 → 回报 + 必要时纠偏"];
-
-    start -> parse -> rmodel -> rthink -> rtime -> gate -> over;
-    over   -> split  [label="是"];
-    over   -> single [label="否"];
-    split  -> seg -> more;
-    more   -> seg    [label="是 · 段间复核后取下一段"];
-    more   -> done   [label="否 · 全部完成"];
-    single -> done;
-}
-```
-
-## 1. 解析参数
-
-从 `$ARGUMENTS` 切出三个可选 flag，剩余非 flag 文本 = 任务描述：
-
-- `--model <pattern>`：pi 模型，支持 `provider/id` 与 `:thinking` 语法。
-- `--thinking <off|minimal|low|medium|high|xhigh>`。
-- `--timeout <值>`：接受 `5m` / `300s` / 纯毫秒数。
-- 任务描述为空 → 停下，问用户要落地什么，别瞎跑。
-
-## 2. 解析 model（显式给的=常驻固定值，原样透传）
-
-- 给了 `--model` → 原样用，不二次猜测。若是模糊/部分名（如 `kimi`），先 `pi --list-models <pattern>` 解析成精确 `provider/id`。
-- 没给 → 读 `${CLAUDE_PLUGIN_DATA}/pi.yaml` 的 `default` 套餐取 `model`；读不到 → 停下提示先跑 `/dev:pi-scope`。命中套餐且有 `descr` 时回显。固定 ID 直接用，**不需要每次 `--list-models`**；仅当该默认 ID 调用失配时才 `pi --list-models` 回退解析（必要时补 `--provider`）。
-- 记下该 model 的能力档（context / max-out），第 5 步评估要用。
-
-## 3. 解析 thinking（显式给的=常驻）
-
-- 给了 `--thinking` → 原样透传。
-- 没给 → 取 `${CLAUDE_PLUGIN_DATA}/pi.yaml` `default` 套餐的 `thinking`；读不到 → 停下提示先跑 `/dev:pi-scope`。
-
-## 4. 解析 timeout（显式给的=常驻）
-
-- 给了 `--timeout` → 解析成毫秒（`5m`→300000，`300s`→300000，纯数字→毫秒）。
-- 没给 → 默认 `300000`（5 分钟）。
-- 上限 `600000`（10 分钟，Bash 工具硬限）；超出则截断到 600000 并明确告警。
-- 这个毫秒值就是后面所有 `pi -p` 调用传给 Bash 工具的 `timeout`。
-
-## 5. 复杂度评估（两轴）—— 关键闸门
-
-组装 pi 命令**之前**，评估任务是否超过"该 model 单次 + 该 timeout 预算"能干净做完的范围：
-
-- **轴 A · 模型承载力**：任务的改动规模 / 涉及文件数 / 预计输出量，是否逼近或超过该 model 的 context / max-out，或难度超出其单轮编码能力。
-- **轴 B · timeout 预算**：估算这件事大概要跑多久。**timeout 给得越小，越说明需求要拆得细而小**——每一段必须能在该 timeout 预算内跑完。
-
-判定：
-- **两轴都在预算内** → 走第 6A 步「单次执行」。
-- **任一轴超标** → 走第 6B 步「细化分段」。
-
-## 6A. 单次执行
-
-用 Bash 工具运行（`timeout` 设为第 4 步的毫秒值），任务文本做安全引用（含引号/换行时用单引号或 heredoc）：
-
-```
-pi -p --model <M> --thinking <T> "<任务描述>" </dev/null
-```
-
-> ⚠️ **`</dev/null` 不可省（否则永久卡死、0 输出）**：`pi -p` 会读 stdin 直到 EOF（为支持 `echo ... | pi -p` 管道拼接）。Claude Code 的 Bash 工具是**非 TTY**、stdin 是个不会关闭的管道 → pi 永远等不到 EOF，**阻塞在 stdin 读、连 session 都不建、stdout 一个字节都没有**（2026-06-20 实测坐实：不带 `</dev/null` 时 10min timeout 全程 0 输出；带上后 ~4s 正常返回）。所以**每一个 `pi -p` 调用都必须 `</dev/null` 重定向 stdin**。任务文本只走 `"<...>"` 参数或 heredoc，绝不靠 stdin 喂。
-
-## 6B. 细化分段（超标时）
-
-1. **由你**把需求拆成**有序的小子任务清单**（不是让 pi 列 TODO，是你拆）；timeout 越小、轴越超，拆得越细。
-2. 逐段串行：对每个子任务组装 `pi -p --model <M> --thinking <T> "<子任务>" </dev/null`（`</dev/null` 同样不可省，见 6A 警示），各自用第 4 步的 timeout 跑。
-3. **段间复核**：每段 pi 跑完后 `git diff` 看它实际改了什么，确认无误再取下一段；某段失败/超时就**停下回报现状，不盲目重试整坨**。
-
-## 7. 复核与回报
-
-不论单次还是分段，最后都：
-
-- `git diff` / `git status` 看 pi 实际落地的改动。
-- 向用户简报：用了哪个 model / thinking / timeout、单次还是拆了几段、pi 改了什么、有没有需要纠偏的地方。
+1. **解析** `--model` / `--thinking` / `--timeout` + 任务文本（切分与 `--timeout` 规则见 orchestration.md「参数解析」）。任务为空 → 停下问用户。
+2. **显式 `--model` / `--thinking` 原样透传**：给了 `--model` → 原样用；模糊/部分名（如 `kimi`）先 `pi --list-models <pattern> </dev/null` 解析成精确 `provider/id`（必要时补 `--provider`）。给了 `--thinking` → 原样透传。
+3. **没给旋钮 → 读套餐默认档（可选）**：按 `${CLAUDE_PLUGIN_ROOT}/references/scoping.md`「读方」——读 `${CLAUDE_PLUGIN_DATA}/pi.yaml` 取 `default:true` 档的 `model` + `knobs.thinking`（命中且有 `descr` → 回显）；**读不到（没跑过 `/dev:scope pi`）→ 回退裸 `pi -p`（pi 自身默认 model），不停**。
+4. 组命令按 backends.md#pi 模板：`pi -p [--model <M>] [--thinking <T>] "<任务>" </dev/null`（给了旋钮才带对应 flag），交给 orchestration.md 的两轴评估与流程跑。

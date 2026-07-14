@@ -1,4 +1,4 @@
-# AI Run Integration Tests
+# Dev Run Integration Tests
 
 Markdown case 协议（沿用 `claude-p-watch/` 的 `subagent.md` + `main-agent-assert.md` 模式）。
 
@@ -9,8 +9,9 @@ Markdown case 协议（沿用 `claude-p-watch/` 的 `subagent.md` + `main-agent-
 | case-01 | 无后端指定，默认 claude | 默认路由 + claude 命令骨架 |
 | case-02 | 显式指定 codex | codex 后端路由 + `codex exec --json` 骨架 |
 | case-03 | 显式指定 opencode | opencode 后端路由 + `opencode run` 骨架 |
-| case-04 | 显式指定 pi | pi 后端路由 + `pi -p` 骨架 |
+| case-04 | 显式指定 pi | pi 后端路由 + `pi -p` 骨架（含 `</dev/null` 护栏） |
 | case-05 | 同一任务切换后端 | 路由正确性 + 后端互不污染 |
+| case-06 | 显式指定 cursor-agent | cursor 后端路由 + `cursor-agent -p --trust` 骨架 |
 
 ## 执行协议
 
@@ -25,4 +26,4 @@ Markdown case 协议（沿用 `claude-p-watch/` 的 `subagent.md` + `main-agent-
 
 - `subagent.md` 只放会发给执行 agent 的输入与执行约束
 - 主代理专用的验证理由与推导放到 `main-agent-assert.md`，写在 `## Assert Notes`
-- 如果 case 运行依赖 `skill_entries`，只挂 `ai-run` skill 一个即可
+- 如果 case 运行依赖 `skill_entries`，只挂 `dev-run` skill 一个即可

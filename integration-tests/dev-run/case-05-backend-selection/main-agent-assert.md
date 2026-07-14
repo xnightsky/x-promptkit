@@ -4,11 +4,11 @@ case-05-backend-selection
 
 ## Purpose
 
-验证 `ai-run` 在多次请求中正确切换后端，不产生参数污染。
+验证 `dev-run` 在多次请求中正确切换后端，不产生参数污染。
 
 ## Environment Assumptions
 
-- `ai-run` skill 已可用
+- `dev-run` skill 已可用
 - 三次请求分别指定 claude、codex、pi
 
 ## Assert Must Include

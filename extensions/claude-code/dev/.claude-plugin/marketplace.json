@@ -10,7 +10,7 @@
     {
       "name": "dev",
       "source": "./",
-      "description": "x-promptkit dev 模块 CC 插件：/dev:* 命令（/dev:pi 交接任务给 pi CLI、/dev:cursor 交接任务给 cursor-agent CLI）"
+      "description": "x-promptkit dev 模块 CC 插件：/dev:* 命令（/dev:run 通用交接、/dev:pi 与 /dev:cursor 便捷壳、/dev:scope 生成后端套餐表）"
     }
   ]
 }

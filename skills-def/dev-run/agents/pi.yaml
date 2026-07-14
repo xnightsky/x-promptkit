@@ -1,0 +1,9 @@
+# pi 平台接口/策略覆盖。pi 作宿主时以 skill 承载 dev-run，自然语言触发。
+# 注意：本文件是「pi 作宿主」的 skill 接口（agents/<platform>.yaml），与 CC 插件 /dev:scope 生成、/dev:pi 读的运行时套餐表 pi.yaml（落 ${CLAUDE_PLUGIN_DATA}，不同物）无关。
+interface:
+  display_name: "Dev Run"
+  short_description: "统一非交互 AI CLI 执行：claude / codex / opencode / pi / cursor"
+  default_prompt: "Use $dev-run to select the right backend, construct the command, and execute it directly."
+
+policy:
+  allow_implicit_invocation: false
