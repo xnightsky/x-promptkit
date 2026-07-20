@@ -17,6 +17,7 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"
 
 - 触发信号："用 claude" / "claude -p" / "code"；**也是无显式信号时的默认后端**。
 - 保持外层双引号。`IS_SANDBOX=1` 与 `--dangerously-skip-permissions` 是默认命令骨架的一部分，不是重试才加的补丁。
+  - **PS · `IS_SANDBOX=1` 是什么**：claude 的 `--dangerously-skip-permissions` 在 **linux root（euid=0）** 下会被自身安全闸拒跑，`IS_SANDBOX=1` 是「本环境已是沙盒」的规避信号、放行它。**非 root 用户不需要**它（`--dangerously-skip-permissions` 本就能跑），但**带上它对非 root 无害**（一个不生效的冗余环境变量）。
 - 保持 `-p` 在 `--dangerously-skip-permissions` 之后，不要重排。
 - 不加 `--verbose` / `--output-format stream-json` 等额外 flag；不发明不存在的 flag（如 `dangerouslyDisableSandbox`）。
 - 无需 `</dev/null`。wait 预算：`1800000ms`（claude 单次可能跑很久，最小等待也不得低于此值）。
