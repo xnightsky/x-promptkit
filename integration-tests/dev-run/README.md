@@ -12,6 +12,7 @@ Markdown case 协议（沿用 `claude-p-watch/` 的 `subagent.md` + `main-agent-
 | case-04 | 显式指定 pi | pi 后端路由 + `pi -p` 骨架（含 `</dev/null` 护栏） |
 | case-05 | 同一任务切换后端 | 路由正确性 + 后端互不污染 |
 | case-06 | 显式指定 cursor-agent | cursor 后端路由 + `cursor-agent -p --trust` 骨架 |
+| case-07 | 显式指定 kimi | kimi 后端路由 + `kimi -p` 骨架（不带 `</dev/null`、不带 `--yolo`） |
 
 ## 执行协议
 

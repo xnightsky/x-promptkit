@@ -94,8 +94,9 @@ npx skills add xnightsky/x-promptkit --skill recall-author -g -y
 npx skills add . --skill dev-run -g -y
 
 # 给非 Claude 宿主装上「调用别的 AI CLI」的能力（无斜杠、自然语言触发）：
-# codex（openai 平台）/ opencode / pi —— references/ 随 skill 一起打包
+# codex（openai 平台）/ opencode / pi / kimi（Kimi Code CLI，--agent id = kimi-cli，适配器文件 agents/kimi.yaml）—— references/ 随 skill 一起打包
 npx skills add . --skill dev-run -g -a openai -y
 npx skills add . --skill dev-run -g -a opencode -y
 npx skills add . --skill dev-run -g -a pi -y
+npx skills add . --skill dev-run -g -a kimi-cli -y
 ```

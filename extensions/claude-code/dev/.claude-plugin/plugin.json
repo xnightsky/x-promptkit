@@ -4,5 +4,5 @@
   "author": {
     "name": "x-promptkit"
   },
-  "description": "x-promptkit dev 模块的 Claude Code 侧插件：承载 /dev:* 斜杠命令。/dev:run = 通用交接（claude/codex/opencode/pi/cursor）、/dev:pi 与 /dev:cursor = pi/cursor-agent 便捷壳、/dev:scope = 按真实模型交互生成后端套餐表。核心编排（references/）镜像自 dev-run skill"
+  "description": "x-promptkit dev 模块的 Claude Code 侧插件：承载 /dev:* 斜杠命令。/dev:run = 通用交接（claude/codex/opencode/pi/cursor/kimi）、/dev:pi 与 /dev:cursor 与 /dev:kimi = pi/cursor-agent/kimi 便捷壳、/dev:scope = 按真实模型交互生成后端套餐表。核心编排（references/）镜像自 dev-run skill"
 }

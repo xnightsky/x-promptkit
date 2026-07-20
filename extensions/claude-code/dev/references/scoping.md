@@ -10,6 +10,7 @@
 |------|-----------------------------------|-------------------------------|------|
 | **pi** | `pi --list-models [关键词] </dev/null`（`</dev/null` 不可省，见 backends.md#pi） | `thinking`：枚举 `off｜minimal｜low｜medium｜high｜xhigh` | `${CLAUDE_PLUGIN_DATA}/pi.yaml` |
 | **cursor-agent** | `cursor-agent --list-models [关键词]`（Windows/Git-Bash 用 `cursor-agent.cmd`） | 无（推理档编进 model ID，见 backends.md#cursor-agent） | `${CLAUDE_PLUGIN_DATA}/cursor.yaml` |
+| **kimi** | `kimi provider list --json`（**无 pattern 参数**、无需 stdin 护栏；解析 `.models` 的 key 作候选 alias 集，关键词过滤在解析后自己做，见 backends.md#kimi） | 无（无独立 thinking flag，thinking 是 config 级，见 backends.md#kimi） | `${CLAUDE_PLUGIN_DATA}/kimi.yaml` |
 | **claude / codex / opencode** | —— **无 scope** | —— | —— |
 
 - **无 scope 的后端**：`claude`/`codex`/`opencode` 在 dev-run 里模板固定、不吃 `--model`，没有「选模型」这件事 → 不做 scope。
@@ -18,10 +19,10 @@
 ## 引擎（后端无关 6 步）
 
 ### 0. 取配置
-从上表取 `<backend>` 的 scope 配置。若该后端**无 scope** → 报「后端 `<backend>` 无 scope（dev-run 模板固定、不吃 `--model`）。支持 scope 的后端：pi、cursor。」，停下，不进入第 1 步。
+从上表取 `<backend>` 的 scope 配置。若该后端**无 scope** → 报「后端 `<backend>` 无 scope（dev-run 模板固定、不吃 `--model`）。支持 scope 的后端：pi、cursor、kimi。」，停下，不进入第 1 步。
 
 ### 1. 拉清单
-跑该后端配置里的 list-models 命令（**带其 stdin 护栏**，如 pi 的 `</dev/null`）；`$ARGUMENTS` 里的关键词（后端名之后的部分）非空 → 当过滤词传入，为空 → 拉全量。
+跑该后端配置里的 list-models 命令（**带其 stdin 护栏**，如 pi 的 `</dev/null`）；`$ARGUMENTS` 里的关键词（后端名之后的部分）非空 → 当过滤词传入，为空 → 拉全量。**kimi 例外**：`kimi provider list --json` 不吃 pattern 参数，一律拉全量，关键词在你解析 `.models` 后自己过滤。
 
 从输出解析真实可用的 model id 集合，记下来——这是第 2 步选 model 的唯一合法候选集，也是第 3 步校验「model 命中清单」的依据。若 list-models 失败（命令不存在、非零退出等）→ 按第 6 步异常态处理，直接停下。
 
@@ -82,5 +83,5 @@ packages:
 便捷壳在**没给该后端 model/knob 旋钮**时按此取默认档：
 
 - 读 `${CLAUDE_PLUGIN_DATA}/<backend>.yaml`，取 `default: true` 那条的 `model`（+ `knobs`，如 pi 的 `knobs.thinking`）作默认档；命中且有 `descr` → 回显给用户。
-- **读不到该 yaml（没跑过 `/dev:scope <backend>`）→ 回退后端自身默认**，不停：pi 走裸 `pi -p`（pi 自身配置的默认 model）、cursor 走 `composer-2.5-fast`。scope 是**可选便利层**，不生成也能用。
+- **读不到该 yaml（没跑过 `/dev:scope <backend>`）→ 回退后端自身默认**，不停：pi 走裸 `pi -p`（pi 自身配置的默认 model）、cursor 走 `composer-2.5-fast`、kimi 走裸 `kimi -p`（kimi config 的 `default_model`，如 `kimi-code/k3`）。scope 是**可选便利层**，不生成也能用。
 - **显式旋钮优先级最高**：用户给了 `--model`/`--thinking` 等就原样透传，压过 yaml 默认档。

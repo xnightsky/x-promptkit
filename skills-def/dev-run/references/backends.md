@@ -71,6 +71,20 @@ cd <workdir> && cursor-agent -p --trust [--model <M>] "<task>" </dev/null
   - **需要 shell·可控**：`--trust` + 目标 repo `.cursor/cli.json` 的 `permissions.allow`/`deny`（`deny` 优先于 `allow`）白名单放行具体命令，如 `Shell(npm)`、`Shell(git)`。
   - **危险·全开** `-f` / `--yolo`：shell 全放行（"Force allow commands unless explicitly denied"）。**只在用户显式指定时用，命令与回报里必须告警**，不当默认。
 
+## kimi（kimi-code）
+
+```bash
+cd <workdir> && kimi -p "<task>"
+```
+
+- 触发信号："用 kimi" / "kimi -p" / "kimi code"。
+- 保持外层双引号。任务文本走 `-p "<...>"` 参数；`kimi -p` 一次性非交互、跑完即退。
+- ✅ **`-p` 原生就是 auto permission（2026-07-20 实测）**：非交互 `-p` 模式下文件写入与 shell 执行都自动放行、无需人工确认，仅 kimi config 里的 static deny 规则仍生效——**所以命令骨架不带任何放行 flag 就能落地编辑**（区别于 claude 要 `--dangerously-skip-permissions`）。实测 `kimi -p "创建 DONE.txt ..."` 直接落盘、rc=0、不卡确认。
+- ⚠️ **安全边界**：`-p` 的 auto 放行**含 shell**（比 cursor 默认 `--trust` 只放编辑更宽，接近 cursor 的 `-f`），但这是 kimi 非交互模式的**原生默认、不是我们额外加的 flag**；要收紧靠 kimi 自身 config 的 deny 规则，不在交接命令层加 flag。`-y`/`--yolo`（连 plan 模式退出也自动批）只在用户显式要求时加，默认不加。
+- ❌ **不吃 stdin，无需 `</dev/null`**（2026-07-20 实测：不带重定向、非 TTY 下 `kimi -p` ~32s 正常返回，不像 pi 死等 EOF）。不加 `--output-format stream-json` 等额外 flag；不发明不存在的 flag。
+- wait 预算：`600000ms`（实测 trivial 任务 32–58s）。
+- 旋钮 · model：`-m <alias>`，`alias` 是 `provider/model` 形（默认 `kimi-code/k3`）。**无独立 thinking flag**（thinking 是 config 级 `[thinking]`，非每调用旋钮，这点像 cursor、不像 pi）。模糊/部分名先 `kimi provider list --json`（该命令**无 pattern 参数**，拉全量、从 `.models` 的 key 里自己匹配）解析成精确 `alias`。不给旋钮时用 kimi config 的 `default_model`。
+
 ## Shell 转义（所有后端通用）
 
 只做让命令活过 shell 解析所需的最小转义：

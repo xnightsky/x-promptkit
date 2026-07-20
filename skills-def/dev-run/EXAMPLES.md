@@ -79,6 +79,12 @@ cd <workdir> && pi -p "执行用户指定的任务" </dev/null
 cd <workdir> && cursor-agent -p --trust "执行用户指定的任务" </dev/null
 ```
 
+标准输出样例（kimi）：
+
+```bash
+cd <workdir> && kimi -p "执行用户指定的任务"
+```
+
 验收标准：
 
 - 后端匹配用户信号
@@ -240,13 +246,13 @@ cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "执行用
 标准结果样例：
 
 ```md
-不支持后端 `nonexistent-cli`。支持的后端：claude、codex、opencode、pi、cursor。请从中选择一个。
+不支持后端 `nonexistent-cli`。支持的后端：claude、codex、opencode、pi、cursor、kimi。请从中选择一个。
 ```
 
 验收标准：
 
 - 明确说"不支持"
-- 列出全部 5 个选项
+- 列出全部 6 个选项
 - 不假装能处理
 
 ---
@@ -282,4 +288,41 @@ cd <workdir> && cursor-agent -p --trust "执行用户指定的任务" </dev/null
 反例：
 
 - 默认就上 `-f`/`--yolo` 危险全开
+- 路由到 claude 或别的后端
+
+---
+
+## Case 09: 显式指定 kimi（kimi-code）
+
+触发方式：
+
+- "用 kimi 执行这个任务"
+- "kimi -p 帮我改这段"
+
+最小上下文：
+
+- 用户给了明确的 kimi 后端信号
+
+期望产出：
+
+- 路由到 **kimi** 后端
+- 命令骨架 `cd <workdir> && kimi -p "..."`，**不带任何放行 flag**（`-p` 原生 auto permission 就能落地编辑）
+- 不加 `</dev/null`（kimi 不吃 stdin）、不加 `-y`/`--yolo`（默认不上）
+
+标准输出样例：
+
+```bash
+cd <workdir> && kimi -p "执行用户指定的任务"
+```
+
+验收标准：
+
+- 后端为 kimi
+- 命令为 `kimi -p "..."`，无 `</dev/null`、无 `-y`/`--yolo`、无 `IS_SANDBOX=1`
+- kimi 是 6 个支持后端之一（claude/codex/opencode/pi/cursor/kimi），不能报"不支持"
+
+反例：
+
+- 给命令补 `</dev/null` 或 `--dangerously-skip-permissions`（那是别的后端的骨架）
+- 默认就上 `-y`/`--yolo`
 - 路由到 claude 或别的后端

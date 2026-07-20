@@ -2,7 +2,7 @@
 # dev-run skill 本身作 Tier-1 极简一发的能力入口。
 interface:
   display_name: "Dev Run"
-  short_description: "统一非交互 AI CLI 执行：claude / codex / opencode / pi / cursor"
+  short_description: "统一非交互 AI CLI 执行（自动选后端）"
   default_prompt: "Use $dev-run to select the right backend, construct the command, and execute it directly."
 
 policy:

@@ -14,7 +14,7 @@
 ```dot
 digraph handoff {
     rankdir=TB;
-    start  [shape=doublecircle, label="/dev:run|pi|cursor <args>"];
+    start  [shape=doublecircle, label="/dev:run|pi|cursor|kimi <args>"];
     parse  [shape=box, label="解析后端旋钮 + --timeout + 任务文本"];
     resolve[shape=box, label="据 backends.md 定后端命令模板与旋钮\n(model / 安全档 / thinking 等，见各命令便捷壳补充)"];
     gate   [shape=box, label="复杂度评估(两轴):\n轴A 任务规模是否超 model 单次承载?\n轴B timeout 预算够这事一次跑完吗?"];
@@ -37,7 +37,7 @@ digraph handoff {
 
 ## 1. 参数解析
 
-从参数里切出后端旋钮 + `--timeout` + 剩余非 flag 文本（= 任务描述）。旋钮按后端不同（pi 的 `--model`/`--thinking`、cursor 的 `--model`/`--force`），细节见各命令便捷壳。
+从参数里切出后端旋钮 + `--timeout` + 剩余非 flag 文本（= 任务描述）。旋钮按后端不同（pi 的 `--model`/`--thinking`、cursor 的 `--model`/`--force`、kimi 的 `--model`），细节见各命令便捷壳。
 
 - `--timeout <值>`：接受 `5m` / `300s` / 纯毫秒数，解析成毫秒（`5m`→300000，`300s`→300000，纯数字→毫秒）。没给 → 默认 `300000`（5 分钟）。上限 `600000`（10 分钟，Bash 工具硬限），超出截断到 600000 并明确告警。这个毫秒值就是后面所有后端调用传给 Bash 工具的 `timeout`。
 - 显式给的旋钮/timeout = 常驻固定值，原样透传，不二次猜测。

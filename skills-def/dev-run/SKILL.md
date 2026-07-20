@@ -1,9 +1,9 @@
 ---
 name: dev-run
-description: Use when the user wants to hand off a task as a single non-interactive AI CLI command — supporting claude (default), codex, opencode, pi, or cursor-agent. Construct the command, execute it directly, and report the result.
+description: Use when the user wants to hand off a task as a single non-interactive AI CLI command — supporting claude (default), codex, opencode, pi, cursor-agent, or kimi. Construct the command, execute it directly, and report the result.
 interface:
   display_name: "Dev Run"
-  short_description: "统一非交互 AI CLI 执行：claude / codex / opencode / pi / cursor"
+  short_description: "统一非交互 AI CLI 执行（自动选后端）"
   default_prompt: "Use $dev-run to select the right backend, construct the command, and execute it directly."
 policy:
   allow_implicit_invocation: false
@@ -15,7 +15,7 @@ policy:
 
 Construct exactly one non-interactive AI CLI command for the requested task, pick the right backend, and execute it directly.
 
-Supported backends: **claude**（默认）、**codex**、**opencode**、**pi**、**cursor-agent**。
+Supported backends: **claude**（默认）、**codex**、**opencode**、**pi**、**cursor-agent**、**kimi**。
 
 - 各后端命令模板、stdin 护栏、wait 预算、Shell 转义、专属旋钮 —— **唯一事实源见 [references/backends.md](./references/backends.md)**，本文不复述以免两处维护漂移。
 - 典型输入、输出、反例见 [EXAMPLES.md](./EXAMPLES.md)。

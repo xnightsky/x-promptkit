@@ -58,7 +58,7 @@
 统一的「AI CLI ↔ AI CLI 交接」skill：
 
 - [`skills-def/dev-run/SKILL.md`](./skills-def/dev-run/SKILL.md)
-  - 支持 5 个后端：**claude**（默认）、**codex**、**opencode**、**pi**、**cursor-agent**
+  - 支持 6 个后端：**claude**（默认）、**codex**、**opencode**、**pi**、**cursor-agent**、**kimi**
   - 根据用户信号自动选择后端，构造命令并直接执行
   - 两档：Tier-1 极简一发（默认）+ Tier-2 完整编排（拆段串行 + 段间复核）
   - 后端命令模板、转义、wait 预算与编排流程的**唯一事实源**在 [`skills-def/dev-run/references/`](./skills-def/dev-run/references/)
@@ -71,11 +71,11 @@
 
 ## Claude Code 斜杠命令（dev 插件）
 
-`/dev:run <claude|codex|opencode|pi|cursor>`（通用交接，后端名作首个位置参数）、便捷壳 `/dev:pi`、`/dev:cursor`、套餐生成器 `/dev:scope <pi|cursor>` 由 `extensions/claude-code/dev/` 的 Claude Code 插件提供，是上面 `dev-run` skill 的**斜杠形态（同源；scope 为插件专属）**。它走 `claude plugin` 安装，**不走 `npx skills`**（后者只认 SKILL.md、不认斜杠命令）：
+`/dev:run <claude|codex|opencode|pi|cursor|kimi>`（通用交接，后端名作首个位置参数）、便捷壳 `/dev:pi`、`/dev:cursor`、`/dev:kimi`、套餐生成器 `/dev:scope <pi|cursor|kimi>` 由 `extensions/claude-code/dev/` 的 Claude Code 插件提供，是上面 `dev-run` skill 的**斜杠形态（同源；scope 为插件专属）**。它走 `claude plugin` 安装，**不走 `npx skills`**（后者只认 SKILL.md、不认斜杠命令）：
 
 - 装进当前 / 指定 repo：`node scripts/install-dev-plugin.mjs [--repo <path>]`
 - 全机安装：`node scripts/install-dev-plugin.mjs --global`
-- `/dev:scope <pi|cursor>` — 按真实可用模型交互生成后端套餐表 `<backend>.yaml`，供便捷壳读默认档（可选，不生成则回退后端默认）。
+- `/dev:scope <pi|cursor|kimi>` — 按真实可用模型交互生成后端套餐表 `<backend>.yaml`，供便捷壳读默认档（可选，不生成则回退后端默认）。
 - 编排核心 `references/`（backends/orchestration）镜像自 `skills-def/dev-run/references/`；改源后跑 `npm run sync:handoff-core` 同步（`scoping.md` 是插件原生、不镜像）。
 - 详情见 [`extensions/claude-code/dev/README.md`](./extensions/claude-code/dev/README.md)
 

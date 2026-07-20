@@ -1,0 +1,11 @@
+# kimi 平台接口/策略覆盖。Kimi Code CLI 作宿主时以 skill 承载 dev-run（kimi 自动发现 user/project skill 目录、或 --skills-dir 加载），自然语言触发。
+# 注意：本文件是「kimi 作宿主」的 skill 接口（agents/<platform>.yaml），与 CC 插件 /dev:scope 生成、/dev:kimi 读的运行时套餐表 kimi.yaml（落 ${CLAUDE_PLUGIN_DATA}，不同物）无关。
+# 装机：skills 工具的 --agent id 是 `kimi-cli`（本文件刻意用友好名 kimi.yaml 与 /dev:kimi、后端名 kimi 对齐，故文件名 ≠ agent id）——
+#   npx skills add . --skill dev-run -a kimi-cli；kimi 的技能落 .agents/skills/（项目）或 ~/.config/agents/skills/（全局）。
+interface:
+  display_name: "Dev Run"
+  short_description: "统一非交互 AI CLI 执行（自动选后端）"
+  default_prompt: "Use $dev-run to select the right backend, construct the command, and execute it directly."
+
+policy:
+  allow_implicit_invocation: false
