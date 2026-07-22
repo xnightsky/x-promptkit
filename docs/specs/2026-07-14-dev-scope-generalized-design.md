@@ -1,7 +1,9 @@
 # dev 插件 /dev:scope — 通用可配置预设生成机制设计
 
+> **后续变更（2026-07-23）**：本设计 §3「scope 全在插件侧、scoping.md 插件原生不镜像」与 §8「不把 scope 放进共享 skill」已被 [2026-07-23-dev-scope-skill-sinking-design.md](./2026-07-23-dev-scope-skill-sinking-design.md) 取代——scope 下沉为 dev-run skill 共享核心，存储改为单文件双层 `.dev-run.yaml`（项目级/用户级），`${CLAUDE_PLUGIN_DATA}/<backend>.yaml` 形态作废。下文保留作历史记录。
+
 - 日期：2026-07-14
-- 状态：现行实现
+- 状态：已被 2026-07-23 下沉设计部分取代（见顶部横幅）
 - 范围：x-promptkit 的 Claude Code `dev` 插件。新增 `/dev:scope <backend>`：把 pi 专属的 `/dev:pi-scope`（已撤下）泛化成**面向多后端、可配置**的预设（套餐表）生成器；`/dev:pi`、`/dev:cursor` 便捷壳读各自 `<backend>.yaml` 默认档。
 - 关联：`2026-07-12-dev-pi-scope-packages-design.md`（pi 专属前身，已被本方案取代）、`2026-07-14-ai-cli-handoff-unification-design.md`（dev-run 整合基线，其 §8 记录了 pi-scope 移除→本次重做）。
 

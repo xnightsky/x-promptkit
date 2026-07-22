@@ -1,5 +1,7 @@
 # AI CLI 交接统一设计（dev-run + 按宿主分形态）
 
+> **后续变更（2026-07-23）**：scope 不再是插件专属——引擎下沉进 skill 共享核心（`references/scoping.md` + `packages.schema.yaml` 同样经 `sync-handoff-core` 镜像），存储从 `${CLAUDE_PLUGIN_DATA}/<backend>.yaml` 改为单文件双层 `.dev-run.yaml`。见 [2026-07-23-dev-scope-skill-sinking-design.md](./2026-07-23-dev-scope-skill-sinking-design.md)。
+
 - 日期：2026-07-14
 - 状态：现行实现
 - 范围：把「一个 AI CLI 调用另一个 AI CLI」的两套重叠实现（`ai-run` skill + `extensions/claude-code/dev` 插件的 `/dev:pi`、`/dev:cursor`）收敛成**一份单一事实源核心 + 按宿主分形态**；skill 改名 `ai-run` → `dev-run`。

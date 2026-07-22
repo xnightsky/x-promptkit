@@ -1,5 +1,5 @@
-# claude-code 平台接口/策略覆盖。Claude Code 里 Tier-2 走 /dev:* 斜杠插件（extensions/claude-code/dev），
-# dev-run skill 本身作 Tier-1 极简一发的能力入口。
+# claude-code 平台接口/策略覆盖。dev-run skill 在此平台作 Tier-1 极简一发的能力入口，
+# 自然语言触发；完整编排走 references/orchestration.md（显式触发）。
 interface:
   display_name: "Dev Run"
   short_description: "统一非交互 AI CLI 执行（自动选后端）"

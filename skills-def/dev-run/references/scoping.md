@@ -1,5 +1,3 @@
-<!-- 本文件由 scripts/sync-handoff-core.mjs 从 skills-def/dev-run/references/ 镜像生成，请勿手改；改源后跑 `npm run sync:handoff-core`。 -->
-
 # Scoping — 通用预设生成引擎（scope）
 
 > **本文件是 scope（套餐表生成）引擎的唯一事实源，宿主无关。**

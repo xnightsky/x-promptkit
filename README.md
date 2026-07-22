@@ -71,12 +71,12 @@
 
 ## Claude Code 斜杠命令（dev 插件）
 
-`/dev:run <claude|codex|opencode|pi|cursor|kimi>`（通用交接，后端名作首个位置参数）、便捷壳 `/dev:pi`、`/dev:cursor`、`/dev:kimi`、套餐生成器 `/dev:scope <pi|cursor|kimi>` 由 `extensions/claude-code/dev/` 的 Claude Code 插件提供，是上面 `dev-run` skill 的**斜杠形态（同源；scope 为插件专属）**。它走 `claude plugin` 安装，**不走 `npx skills`**（后者只认 SKILL.md、不认斜杠命令）：
+`/dev:run <claude|codex|opencode|pi|cursor|kimi>`（通用交接，后端名作首个位置参数）、便捷壳 `/dev:pi`、`/dev:cursor`、`/dev:kimi`、套餐生成器 `/dev:scope <pi|cursor|kimi>` 由 `extensions/claude-code/dev/` 的 Claude Code 插件提供，是上面 `dev-run` skill 的**斜杠形态（同源）**。它走 `claude plugin` 安装，**不走 `npx skills`**（后者只认 SKILL.md、不认斜杠命令）：
 
 - 装进当前 / 指定 repo：`node scripts/install-dev-plugin.mjs [--repo <path>]`
 - 全机安装：`node scripts/install-dev-plugin.mjs --global`
-- `/dev:scope <pi|cursor|kimi>` — 按真实可用模型交互生成后端套餐表 `<backend>.yaml`，供便捷壳读默认档（可选，不生成则回退后端默认）。
-- 编排核心 `references/`（backends/orchestration）镜像自 `skills-def/dev-run/references/`；改源后跑 `npm run sync:handoff-core` 同步（`scoping.md` 是插件原生、不镜像）。
+- `/dev:scope <pi|cursor|kimi>` — 按真实可用模型交互生成后端套餐表，写 `.dev-run.yaml`（单文件双层：项目级安装写项目根、用户级安装写 home），供交接读默认档（可选，不生成则回退后端默认）。scope 引擎同在 skill 侧，非 CC 宿主可用自然语言触发。
+- 编排核心 `references/{backends,orchestration,scoping}.md` 与 `schemas/packages.schema.yaml` 镜像自 `skills-def/dev-run/references/`；改源后跑 `npm run sync:handoff-core` 同步。
 - 详情见 [`extensions/claude-code/dev/README.md`](./extensions/claude-code/dev/README.md)
 
 ## 常用入口

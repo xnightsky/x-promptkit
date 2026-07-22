@@ -94,9 +94,29 @@ npx skills add xnightsky/x-promptkit --skill recall-author -g -y
 npx skills add . --skill dev-run -g -y
 
 # 给非 Claude 宿主装上「调用别的 AI CLI」的能力（无斜杠、自然语言触发）：
-# codex（openai 平台）/ opencode / pi / kimi（Kimi Code CLI，--agent id = kimi-cli，适配器文件 agents/kimi.yaml）—— references/ 随 skill 一起打包
+# codex（openai 平台）/ opencode / pi —— references/ 随 skill 一起打包
 npx skills add . --skill dev-run -g -a openai -y
 npx skills add . --skill dev-run -g -a opencode -y
 npx skills add . --skill dev-run -g -a pi -y
-npx skills add . --skill dev-run -g -a kimi-cli -y
 ```
+
+#### Kimi：装进 `.kimi-code/skills`（不进 `.agents/skills`）
+
+Kimi 不要直接 `npx skills add ... -a kimi-cli`：skills CLI 内置注册表把 `kimi-cli` 的**全局落点写死为 `~/.config/agents/skills/`（Kimi 官方不扫描该目录，装了也白装）**，项目级落点写死为 `.agents/skills/`（Kimi 会扫，但那是跨工具共享目录）。要落 Kimi 专属目录，走中转脚本 `scripts/skills.mjs`——它用 `npx skills` 在临时 staging 里完成发现/校验/提取（`--copy` 出真实文件），再把产物拷贝到指定位置，全程不碰 `.agents/skills`：
+
+```bash
+# 装进当前项目 <cwd>/.kimi-code/skills/dev-run（项目级，Kimi 官方扫描目录）
+node scripts/skills.mjs
+
+# 装进用户级 ~/.kimi-code/skills/dev-run（全机可用）
+node scripts/skills.mjs --global
+
+# 装进指定项目 / 自定义技能根目录（--dest 可多次，三类 flag 可自由组合、一次装多个位置）
+node scripts/skills.mjs --repo <path>
+node scripts/skills.mjs --dest <skills 根目录> --global
+
+# 卸载（删对应目录，flag 组合与安装一致）
+node scripts/skills.mjs --remove [--global|--repo <path>|--dest <dir>]
+```
+
+注意：装的是**复制件**，仓库里改了 `skills-def/dev-run/` 不会自动同步，重跑一次脚本即覆盖更新；skill 列表在 Kimi 会话启动时扫描，装完要**新开会话**才生效。

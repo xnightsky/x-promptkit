@@ -2,10 +2,8 @@
 
 # Backends — 交接执行后端登记表
 
-> **本文件是「AI CLI 交接」的后端唯一事实源。** `dev-run` skill（Tier-1 极简一发 / Tier-2 编排）、
-> Claude Code 插件的 `/dev:run`、`/dev:pi`、`/dev:cursor` 命令都读这里取后端命令模板。
-> 插件侧 `extensions/claude-code/dev/references/backends.md` 是本文件的**镜像**，由
-> `scripts/sync-handoff-core.mjs` 生成——**只改这一份**，改完 `npm run sync:handoff-core` 同步。
+> **本文件是「AI CLI 交接」的后端唯一事实源，宿主无关。** `dev-run` skill（Tier-1 极简一发 / Tier-2 编排）读这里取后端命令模板。
+> 它会被镜像进各宿主的分发形态（镜像件头部自带「请勿手改」注记）——**只改这一份**。
 
 每个后端登记：命令模板 / stdin 护栏 / wait 预算 / 旋钮。所有后端都是**一次性非交互命令**。
 
@@ -53,7 +51,7 @@ cd <workdir> && pi -p [--model <M>] [--thinking <T>] "<task>" </dev/null
 
 - 触发信号："用 pi" / "pi -p"。
 - 保持外层双引号。
-- ⚠️ **`</dev/null` 不可省（否则永久卡死、0 输出）**：`pi -p` 会读 stdin 直到 EOF（为支持 `echo ... | pi -p` 管道拼接）。Claude Code 的 Bash 工具是**非 TTY**、stdin 是个不会关闭的管道 → pi 永远等不到 EOF，**阻塞在 stdin 读、连 session 都不建、stdout 一个字节都没有**（2026-06-20 实测坐实：不带 `</dev/null` 时 10min timeout 全程 0 输出；带上后 ~4s 正常返回）。**每一个 `pi -p` / `pi --list-models` 调用都必须 `</dev/null` 重定向 stdin**；任务文本只走 `"<...>"` 参数或 heredoc，绝不靠 stdin 喂。
+- ⚠️ **`</dev/null` 不可省（否则永久卡死、0 输出）**：`pi -p` 会读 stdin 直到 EOF（为支持 `echo ... | pi -p` 管道拼接）。非 TTY 宿主的 shell 工具 stdin 是个不会关闭的管道 → pi 永远等不到 EOF，**阻塞在 stdin 读、连 session 都不建、stdout 一个字节都没有**（2026-06-20 在非 TTY 宿主实测坐实：不带 `</dev/null` 时 10min timeout 全程 0 输出；带上后 ~4s 正常返回）。**每一个 `pi -p` / `pi --list-models` 调用都必须 `</dev/null` 重定向 stdin**；任务文本只走 `"<...>"` 参数或 heredoc，绝不靠 stdin 喂。
 - wait 预算：`600000ms`。
 - 旋钮：`--model <provider/id>`（支持 `:thinking` 语法）、`--thinking off|minimal|low|medium|high|xhigh`。模糊/部分名先 `pi --list-models <pattern> </dev/null` 解析成精确 `provider/id`。不给旋钮时用 pi 自身配置的默认 model。
 

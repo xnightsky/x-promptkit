@@ -1,5 +1,3 @@
-# 本文件由 scripts/sync-handoff-core.mjs 从 skills-def/dev-run/references/ 镜像生成，请勿手改；改源后跑 `npm run sync:handoff-core`。
-
 # dev-run scope 套餐表结构权威（.dev-run.yaml 整文件；类 JSON Schema 子集，无运行时校验器，作写读两方契约）。
 #
 # 写方：scope（references/scoping.md 引擎）据此写 .dev-run.yaml（单文件、双层存储，规则见 scoping.md「存储」）。

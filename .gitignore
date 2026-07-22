@@ -169,5 +169,8 @@ skills-lock.json
 # 属本机安装产物、不入库。
 .claude/
 
+# dev-run scope 生成的本机套餐表项目层（机器本地模型清单，默认不入库；团队要共享可删此行自行提交）
+/.dev-run.yaml
+
 # superpowers subagent-driven-development 的进度台账/scratch，属本机执行态、不入库。
 .superpowers/

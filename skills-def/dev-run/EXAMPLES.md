@@ -326,3 +326,35 @@ cd <workdir> && kimi -p "执行用户指定的任务"
 - 给命令补 `</dev/null` 或 `--dangerously-skip-permissions`（那是别的后端的骨架）
 - 默认就上 `-y`/`--yolo`
 - 路由到 claude 或别的后端
+
+---
+
+## Case 10: 显式请求 scope（生成套餐表）
+
+触发方式：
+
+- "给 pi 跑一下 scope"
+- "帮我生成 cursor 的套餐表"
+- "配一下 kimi 的默认 model 档"
+
+最小上下文：
+
+- 用户显式要给某后端生成/更新套餐表（不是交接任务）
+
+期望产出：
+
+- 走 [references/scoping.md](./references/scoping.md) 引擎：拉该后端真实可用模型 → 交互建套餐 → 校验 → 写 `.dev-run.yaml`
+- 落盘层跟安装作用域走：项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`
+- 已存在 `.dev-run.yaml` 时只更新本 backend section，不动其他后端
+
+验收标准：
+
+- model 候选只来自该后端 list-models 的真实输出，不瞎编
+- 全部校验通过前不落盘、不留半成品
+- 无 scope 的后端（claude/codex/opencode）如实报「无 scope」并列出 pi/cursor/kimi
+
+反例：
+
+- 把 scope 请求当成普通交接任务去跑 `pi -p`
+- 凭记忆编 model id 写进套餐表
+- 写每后端一个文件的旧形态（`pi.yaml` 等）

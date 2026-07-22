@@ -1,6 +1,6 @@
 ---
 name: dev-run
-description: Use when the user wants to hand off a task as a single non-interactive AI CLI command — supporting claude (default), codex, opencode, pi, cursor-agent, or kimi. Construct the command, execute it directly, and report the result.
+description: "Use when the user wants to hand off a task as a single non-interactive AI CLI command — supporting claude (default), codex, opencode, pi, cursor-agent, or kimi. Construct the command, execute it directly, and report the result. Also handles scope: interactively generating a backend's model preset table (.dev-run.yaml) from its real available models."
 interface:
   display_name: "Dev Run"
   short_description: "统一非交互 AI CLI 执行（自动选后端）"
@@ -23,7 +23,13 @@ Supported backends: **claude**（默认）、**codex**、**opencode**、**pi**�
 ## 两档（Tier）
 
 - **Tier-1 · 极简一发（本 skill 默认）**：把用户任务压成**一条**非交互命令，选好后端，直接执行、回报。**不拆段、不加监控**。适合可脚本化的一次性交接——下面的 Workflow 就是 Tier-1。
-- **Tier-2 · 完整编排（显式触发）**：两轴复杂度闸门 → 拆段串行 → 段间 `git diff` 复核，见 [references/orchestration.md](./references/orchestration.md)。在 Claude Code 里对应斜杠命令 `/dev:run`、`/dev:pi`、`/dev:cursor`（同源）。**不要在 Tier-1 默认路径里悄悄扩成多段**。
+- **Tier-2 · 完整编排（显式触发）**：两轴复杂度闸门 → 拆段串行 → 段间 `git diff` 复核，见 [references/orchestration.md](./references/orchestration.md)。**不要在 Tier-1 默认路径里悄悄扩成多段**。
+
+## Scope（套餐表生成，显式触发）
+
+用户要「给 `<backend>` 跑 scope / 生成套餐表 / 配默认 model 档」→ 走 [references/scoping.md](./references/scoping.md) 引擎：拉该后端真实可用模型 → 交互建套餐 → 校验 → 写 `.dev-run.yaml`（单文件双层：项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`，只更新本 backend section）。支持 scope 的后端：pi、cursor、kimi（claude/codex/opencode 无 scope）。
+
+组后端命令时用户没给 model 类旋钮 → 可按 scoping.md「读方」就近读 `.dev-run.yaml` 默认档（可选便利层；读不到回退后端自身默认，不停）。显式旋钮永远优先。scope 与 Tier-1/Tier-2 执行互不阻塞：没跑过 scope 照常用。
 
 ## Workflow（Tier-1）
 

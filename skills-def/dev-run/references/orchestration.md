@@ -1,9 +1,9 @@
 # Orchestration — Tier-2 完整编排
 
 > **本文件是「AI CLI 交接」编排流程的唯一事实源。** Tier-1 极简一发**不走本文件**（直接把任务压成一条命令跑、不拆段）。
-> Tier-2 = 「复杂度自适应拆段 + 段间复核」，`/dev:run`、`/dev:pi`、`/dev:cursor` 走这里。
+> Tier-2 = 「复杂度自适应拆段 + 段间复核」，显式触发的完整交接编排走这里。
 > 后端命令模板一律取自 [`backends.md`](./backends.md)，本文件只管「怎么把一次交接拆好、跑好、核好」。
-> 插件侧 `extensions/claude-code/dev/references/orchestration.md` 是镜像，由 `scripts/sync-handoff-core.mjs` 生成——**只改这一份**。
+> 它会被镜像进各宿主的分发形态（镜像件头部自带「请勿手改」注记）——**只改这一份**。
 
 ## 角色
 
@@ -14,7 +14,7 @@
 ```dot
 digraph handoff {
     rankdir=TB;
-    start  [shape=doublecircle, label="/dev:run|pi|cursor|kimi <args>"];
+    start  [shape=doublecircle, label="交接请求 <args>"];
     parse  [shape=box, label="解析后端旋钮 + --timeout + 任务文本"];
     resolve[shape=box, label="据 backends.md 定后端命令模板与旋钮\n(model / 安全档 / thinking 等，见各命令便捷壳补充)"];
     gate   [shape=box, label="复杂度评估(两轴):\n轴A 任务规模是否超 model 单次承载?\n轴B timeout 预算够这事一次跑完吗?"];
