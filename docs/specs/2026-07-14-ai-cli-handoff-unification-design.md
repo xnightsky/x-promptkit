@@ -31,7 +31,7 @@
   - **Tier-2 · 完整编排**：`skills-def/dev-run/references/orchestration.md`，两轴闸门→拆段串行→段间 `git diff` 复核；显式触发。
 - **宿主形态**（形式随宿主）：
   - **Claude Code** → 斜杠插件 `/dev:run`（通用）+ `/dev:pi`、`/dev:cursor`（带专属旋钮的便捷壳）；core 由 `${CLAUDE_PLUGIN_ROOT}/references/*` 提供。
-  - **Codex**（无斜杠）→ 装 `dev-run` skill（`npx skills -a openai`），skill 作静态上下文、自然语言触发；`agents/openai.yaml` 声明接口。
+  - **Codex**（无斜杠）→ 装 `dev-run` skill（当前 skills CLI 使用 `npx skills -a codex`），skill 作静态上下文、自然语言触发；`agents/openai.yaml` 仍是 skill 包内的平台接口文件名。
   - **opencode / pi** → 同理装 skill（`-a opencode|pi`）+ `agents/<platform>.yaml`。
 
 ## 3. 目录与契约

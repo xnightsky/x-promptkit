@@ -12,7 +12,7 @@ x-promptkit dev 模块的 Claude Code 侧插件，承载 `/dev:*` 斜杠命令�
 
 后端命令模板、`</dev/null` 护栏、两轴复杂度闸门、拆段与段间复核这些**编排核心**不写在各命令正文里，而是 `references/backends.md` + `references/orchestration.md` 一份事实源，各命令用 `${CLAUDE_PLUGIN_ROOT}/references/*` 引用。
 
-`references/backends.md`、`references/orchestration.md`、`references/scoping.md` 与 `schemas/packages.schema.yaml` 都是 **`skills-def/dev-run/references/` 的镜像**（跨轨道无法运行时共享，故提交入库一份）。**只改 skill 侧那几份源**，改完在仓库根跑 `npm run sync:handoff-core` 同步；`npm run check` 会用 `--check` 兜住漂移。同一能力的非 Claude 宿主形态就是 `dev-run` skill 本身（`npx skills add . --skill dev-run -a openai|opencode|pi|kimi-cli`）。
+`references/backends.md`、`references/orchestration.md`、`references/scoping.md` 与 `schemas/packages.schema.yaml` 都是 **`skills-def/dev-run/references/` 的镜像**（跨轨道无法运行时共享，故提交入库一份）。**只改 skill 侧那几份源**，改完在仓库根跑 `npm run sync:handoff-core` 同步；`npm run check` 会用 `--check` 兜住漂移。同一能力的非 Claude 宿主形态就是 `dev-run` skill 本身（`npx skills add . --skill dev-run -a codex|opencode|pi|kimi-cli`）。
 
 ## scope 与套餐表（`.dev-run.yaml`）
 
