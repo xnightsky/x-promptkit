@@ -16,7 +16,7 @@ x-promptkit dev 模块的 Claude Code 侧插件，承载 `/dev:*` 斜杠命令�
 
 ## scope 与套餐表（`.dev-run.yaml`）
 
-`/dev:scope <backend>`（引擎见 `references/scoping.md`）按 `<backend> --list-models` 的**真实可用模型**交互生成该后端套餐表，写 `.dev-run.yaml`——**单文件装全部后端**（顶层 `version` + `backends` map，结构权威 `schemas/packages.schema.yaml`），**按安装作用域分两层**：项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`（机器本地物、不进版本控制；项目层建议 gitignore）。`/dev:pi`、`/dev:cursor`、`/dev:kimi` 便捷壳没给显式旋钮时**就近读档**（先项目层后用户层）取 `default` 档；**读不到则回退后端自身默认**（scope 是可选便利层）。想换套餐重跑 `/dev:scope <backend>` 覆盖对应 section。当前支持 pi、cursor、kimi；claude/codex/opencode 因交接模板不吃 `--model`，无 scope。
+`/dev:scope <backend>`（引擎见 `references/scoping.md`）按 `<backend> --list-models` 的**真实可用模型**交互生成该后端套餐表，写 `.dev-run.yaml`——**单文件装全部后端**（顶层 `version` + `default_backend` + `backends` map，结构权威 `schemas/packages.schema.yaml`），**按安装作用域分两层写入**：项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`（机器本地物、不进版本控制；项目层建议 gitignore）。读取时从执行命令的 `PWD` 逐级向 home 检索，最近命中的文件生效且不与远层合并；`dev-run` 未显式点名后端时读取 `default_backend`，便捷壳没给显式旋钮时读取对应 section 的 `default` 套餐。所有候选位置都没有配置才回退后端自身默认。想换套餐重跑 `/dev:scope <backend>` 覆盖对应 section。当前支持 pi、cursor、kimi；claude/codex/opencode 因交接模板不吃 `--model`，无 scope。
 
 > 2026-07-23 起 scope 引擎下沉进 `dev-run` skill 共享核心，非 CC 宿主（Kimi/Codex/opencode/pi 上的 skill）也能用自然语言触发同一套 scope；旧 `${CLAUDE_PLUGIN_DATA}/<backend>.yaml` 存储形态已作废，重跑一次 `/dev:scope <backend>` 即在新位置生成。
 

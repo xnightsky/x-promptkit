@@ -1,6 +1,6 @@
 ---
 name: dev-run
-description: "Use when the user wants to hand off a task as a single non-interactive AI CLI command — supporting claude (default), codex, opencode, pi, cursor-agent, or kimi. Construct the command, execute it directly, and report the result. Also handles scope: interactively generating a backend's model preset table (.dev-run.yaml) from its real available models."
+description: "Use when the user wants to hand off a task as a single non-interactive AI CLI command — supporting claude, codex, opencode, pi, cursor-agent, or kimi, with a configurable default backend. Construct the command, execute it directly, and report the result. Also handles scope: interactively generating a backend's model preset table (.dev-run.yaml) from its real available models."
 interface:
   display_name: "Dev Run"
   short_description: "统一非交互 AI CLI 执行（自动选后端）"
@@ -15,7 +15,7 @@ policy:
 
 Construct exactly one non-interactive AI CLI command for the requested task, pick the right backend, and execute it directly.
 
-Supported backends: **claude**（默认）、**codex**、**opencode**、**pi**、**cursor-agent**、**kimi**。
+Supported backends: **claude**、**codex**、**opencode**、**pi**、**cursor-agent**、**kimi**。无配置时的内建兜底是 **claude**；配置存在时由 `.dev-run.yaml` 的 `default_backend` 决定。
 
 - 各后端命令模板、stdin 护栏、wait 预算、Shell 转义、专属旋钮 —— **唯一事实源见 [references/backends.md](./references/backends.md)**，本文不复述以免两处维护漂移。
 - 典型输入、输出、反例见 [EXAMPLES.md](./EXAMPLES.md)。
@@ -27,9 +27,9 @@ Supported backends: **claude**（默认）、**codex**、**opencode**、**pi**�
 
 ## Scope（套餐表生成，显式触发）
 
-用户要「给 `<backend>` 跑 scope / 生成套餐表 / 配默认 model 档」→ 走 [references/scoping.md](./references/scoping.md) 引擎：拉该后端真实可用模型 → 交互建套餐 → 校验 → 写 `.dev-run.yaml`（单文件双层：项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`，只更新本 backend section）。支持 scope 的后端：pi、cursor、kimi（claude/codex/opencode 无 scope）。
+用户要「给 `<backend>` 跑 scope / 生成套餐表 / 配默认 model 档」→ 走 [references/scoping.md](./references/scoping.md) 引擎：拉该后端真实可用模型 → 交互建套餐 → 校验 → 写 `.dev-run.yaml`（项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`；只更新本 backend section，并建立或确认顶层 `default_backend`）。支持 scope 的后端：pi、cursor、kimi（claude/codex/opencode 无 scope）。
 
-组后端命令时用户没给 model 类旋钮 → 可按 scoping.md「读方」就近读 `.dev-run.yaml` 默认档（可选便利层；读不到回退后端自身默认，不停）。显式旋钮永远优先。scope 与 Tier-1/Tier-2 执行互不阻塞：没跑过 scope 照常用。
+用户没显式指定后端时，必须先按 scoping.md「读方」从执行命令的 `PWD` 向 home 检索 `.dev-run.yaml`，读取 `default_backend`；只有所有候选位置都不存在配置文件才回退 claude。后端选定后，用户没给 model 类旋钮 → 再从命中的配置读取该 backend section 的默认套餐。显式后端和显式旋钮永远优先。
 
 ## Workflow（Tier-1）
 
@@ -58,12 +58,15 @@ Process requests in this order:
 
 ## Backend Selection
 
-- 无显式信号 → 默认 **claude**。
 - 有显式信号 → 按信号选后端。**后端清单 + 各自触发信号 + 命令模板的唯一事实源是 [references/backends.md](./references/backends.md)**——每个后端条目的「触发信号」行给出该后端的路由信号；本文不再复述以免两处维护漂移。
+- 无显式信号 → 按 [references/scoping.md](./references/scoping.md)「读方」从执行命令的 `PWD` 向 home 查找最近的 `.dev-run.yaml`；命中后使用 `default_backend`。
+- 所有候选位置都没有配置文件 → 使用内建兜底 **claude**。
+- 最近配置的 `default_backend` 缺失/非法，或没有对应 backend section → 停止并报告配置问题，**不得静默回退 claude**。
 
 Rules:
 
 - Match the **first** explicit signal in the user's request. Do not switch backends mid-task.
+- An explicit backend signal bypasses configured-default routing; config still participates later when resolving that backend's model/knob defaults.
 - If the user names a backend not in the registry（backends.md 登记的后端）, report the unsupported backend and ask the user to choose from the supported list.
 - Do not guess a backend based on task content alone. The user's explicit signal is the only trigger.
 

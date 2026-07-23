@@ -18,4 +18,4 @@ allowed-tools: Bash(pi:*), Bash(cursor-agent:*), Bash(cursor-agent.cmd:*), Bash(
 1. 解析**第一个位置参数 = 后端名**；其后非 flag 文本 = list-models 关键词。
 2. **缺后端名 → 停下让用户选**（`pi` / `cursor` / `kimi` 之一）。
 3. **后端在 scoping.md 里标「无 scope」**（`claude`/`codex`/`opencode`）→ 报「后端 `<x>` 无 scope（dev-run 模板固定、不吃 `--model`）。支持 scope 的后端：pi、cursor、kimi。」，停下。
-4. 合法后端 → 按 scoping.md 引擎：拉清单 → 逐条交互建档（结构化走 `AskUserQuestion`、自由文本对话问）→ 校验 → 按 scoping.md「存储」写对应层 `.dev-run.yaml`（形状对齐 `${CLAUDE_PLUGIN_ROOT}/schemas/packages.schema.yaml`，只更新本 backend section）→ 回显全文确认。
+4. 合法后端 → 按 scoping.md 引擎：拉清单 → 逐条交互建档（结构化走 `AskUserQuestion`、自由文本对话问）→ 校验并建立/确认顶层 `default_backend` → 按 scoping.md「存储」写对应层 `.dev-run.yaml`（形状对齐 `${CLAUDE_PLUGIN_ROOT}/schemas/packages.schema.yaml`，只更新本 backend section 与确认后的 `default_backend`）→ 回显全文确认。

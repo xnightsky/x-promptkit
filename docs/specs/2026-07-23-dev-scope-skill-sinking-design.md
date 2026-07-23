@@ -1,5 +1,7 @@
 # dev scope 下沉 skill + 单文件双层存储设计
 
+> **后续变更（2026-07-23）**：读方不再固定检查“项目根 + home”两个点，也不再无条件默认 Claude；改为从执行命令的 `PWD` 向 home 查找最近的 `.dev-run.yaml`，并由顶层 `default_backend` 决定未显式指定时的后端。见 [2026-07-23-dev-run-default-backend-design.md](./2026-07-23-dev-run-default-backend-design.md)。本文以下内容保留为当时的存储下沉记录。
+
 - 日期：2026-07-23
 - 状态：现行实现（2026-07-23 落地，证据见 §9）
 - 范围：把 scope（套餐表生成）从 Claude Code 插件专属能力下沉为 `dev-run` skill 共享核心，跨宿主可用；存储从 `${CLAUDE_PLUGIN_DATA}/<backend>.yaml`（每后端一文件）改为**单文件 `.dev-run.yaml`、按安装作用域分双层**。

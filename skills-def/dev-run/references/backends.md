@@ -5,13 +5,13 @@
 
 每个后端登记：命令模板 / stdin 护栏 / wait 预算 / 旋钮。所有后端都是**一次性非交互命令**。
 
-## claude（默认后端）
+## claude（无配置时的内建兜底）
 
 ```bash
 cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "<task>"
 ```
 
-- 触发信号："用 claude" / "claude -p" / "code"；**也是无显式信号时的默认后端**。
+- 触发信号："用 claude" / "claude -p" / "code"；仅当用户无显式信号且从 `PWD` 到 home 的候选位置都没有 `.dev-run.yaml` 时，才作为内建兜底。配置化默认后端的路由规则见 `scoping.md`「读方」。
 - 保持外层双引号。`IS_SANDBOX=1` 与 `--dangerously-skip-permissions` 是默认命令骨架的一部分，不是重试才加的补丁。
   - **PS · `IS_SANDBOX=1` 是什么**：claude 的 `--dangerously-skip-permissions` 在 **linux root（euid=0）** 下会被自身安全闸拒跑，`IS_SANDBOX=1` 是「本环境已是沙盒」的规避信号、放行它。**非 root 用户不需要**它（`--dangerously-skip-permissions` 本就能跑），但**带上它对非 root 无害**（一个不生效的冗余环境变量）。
 - 保持 `-p` 在 `--dangerously-skip-permissions` 之后，不要重排。

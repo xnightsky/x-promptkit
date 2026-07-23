@@ -13,7 +13,7 @@ scope 只在用户**显式请求**「给某后端生成/更新套餐表」时触
 
 ## 存储（单文件 `.dev-run.yaml`、双层）
 
-套餐表**全部后端共用一个文件** `.dev-run.yaml`：顶层 `version` + `backends` map，每个后端一个 section（key 用「每后端 scope 配置」表里的落盘 key）。分两层，**写方落点跟着安装作用域走，不问用户**：
+套餐表**全部后端共用一个文件** `.dev-run.yaml`：顶层 `version` + `default_backend` + `backends` map，每个后端一个 section（key 用「每后端 scope 配置」表里的落盘 key）。`default_backend` 是“未点名时选哪个后端”，backend section 内的 `default: true` 是“该后端选哪个 model 套餐”，两者不得混淆。分两层，**写方落点跟着安装作用域走，不问用户**：
 
 | 层 | 路径 | 什么时候写这层 |
 |---|---|---|
@@ -24,7 +24,7 @@ scope 只在用户**显式请求**「给某后端生成/更新套餐表」时触
 - **判定不出**安装作用域（如全局 npm 目录）→ 按用户级处理，落盘前告知实际路径。
 - **局部更新**：文件已存在 → 只替换本 backend 的 section，保留其他 backend section 与文件其余内容；不存在 → 新建。
 - **目标层不可写** → 报错停下，**不**自动改写另一层冒充成功。
-- **已有 `.dev-run.yaml` 但结构非法**（缺 `version`、`backends` 非 map）→ 停下如实报告，由用户决定修或删，不静默覆盖整个文件。
+- **已有 `.dev-run.yaml` 但结构非法**（缺 `version`、`backends` 非 map；或已有 `default_backend` 非法/没有对应 section）→ 停下如实报告，由用户决定修或删，不静默覆盖整个文件。旧文件只缺 `default_backend` 时允许进入第 3 步补齐。
 - **git 处理**：项目级 `.dev-run.yaml` 默认建议 gitignore（机器本地模型清单）；文件无敏感信息，团队想共享默认档可自行决定提交。
 
 ## 每后端 scope 配置（后端专属只有这 4 处，引擎其余步骤后端无关）
@@ -68,10 +68,17 @@ scope 只在用户**显式请求**「给某后端生成/更新套餐表」时触
 - 每条 `model` 必须命中第 1 步 list-models 的结果集（不是随口编的字符串）。
 - 每个 knob 值合法（按该后端配置声明的枚举/类型，如 pi 的 `thinking` 六枚举之一）。
 
+套餐校验通过后确定顶层 `default_backend`：
+
+- 新建文件 → 当前 scope 后端自动成为默认后端。
+- 更新已有且已有合法 `default_backend` → 用结构化选择询问“保留现有默认后端 / 切换为当前后端”。
+- 更新旧文件且缺少 `default_backend` → 用结构化选择从文件内已有 backend section（含当前后端）选一个；选定前不得写盘。
+- 最终值必须命中同一文件的 `backends` key；否则校验失败，不落盘。
+
 **任一不过** → 明确指出哪条 package、哪个字段不对，回到第 2 步对应小步针对性补齐/改正；修完再回本步重过。**全部通过前绝不落盘，不留半成品文件。**
 
 ### 4. 落盘
-按「存储」节判定落哪一层，写该层 `.dev-run.yaml`（目录即项目根或 home，无需预先 `mkdir`）。形状对齐与本文件同目录的 `packages.schema.yaml`：顶层 `version` + `backends`，本后端 section 含 `packages`；每条 package 含 `name/model/case/default`（`descr` 可选），**后端专属旋钮存进 `knobs` 对象**（如 pi：`knobs: {thinking: medium}`；cursor：无 knob 则省略 `knobs`）。文件已存在 → 只替换本 backend section，其他后端 section 原样保留。
+按「存储」节判定落哪一层，写该层 `.dev-run.yaml`（目录即项目根或 home，无需预先 `mkdir`）。形状对齐与本文件同目录的 `packages.schema.yaml`：顶层 `version` + `default_backend` + `backends`，本后端 section 含 `packages`；每条 package 含 `name/model/case/default`（`descr` 可选），**后端专属旋钮存进 `knobs` 对象**（如 pi：`knobs: {thinking: medium}`；cursor：无 knob 则省略 `knobs`）。文件已存在 → 只替换本 backend section，并按第 3 步的选择保留或更新 `default_backend`；其他后端 section 原样保留。
 
 首行注释标来源：
 
@@ -84,6 +91,7 @@ scope 只在用户**显式请求**「给某后端生成/更新套餐表」时触
 ```yaml
 # 由 dev-run scope 生成 · 符合 references/packages.schema.yaml
 version: 1
+default_backend: pi
 backends:
   pi:
     packages:
@@ -96,7 +104,7 @@ backends:
 ```
 
 ### 5. 回显确认
-写盘成功后，把最终落盘的 yaml **全文**回显给用户确认，并提示一句「已生成，之后交接 `<backend>` 会读这份 default 档」。
+写盘成功后，把最终落盘的 yaml **全文**回显给用户确认，并提示当前 `default_backend`，以及「之后交接 `<backend>` 会读该 section 的 default 套餐」。
 
 ### 6. 异常态
 - **CLI 不存在，或 list-models 非零退出**：打印其原始 stderr，停下，**不写盘**、不进第 2 步。
@@ -104,13 +112,30 @@ backends:
 - **第 3 步校验反复不过**：如实告知具体卡在哪条哪字段，不为收尾放宽校验、也不自作主张编值糊弄。
 - 存储相关异常（层不可写、已有文件结构非法、作用域判定不出）按「存储」节各条处理。
 
-## 读方（交接命令没给显式 model/knob 旋钮时取默认档）
+## 读方
 
-**按 backend 就近取值**（合并粒度 = 整个 backend section，不做 packages 数组级跨层合并）：
+### 1. 从 PWD 向 home 检索配置
 
-1. 读 `<项目根>/.dev-run.yaml`，含该 backend section → 用其 `default: true` 档的 `model`（+ `knobs`，如 pi 的 `knobs.thinking`）。
-2. 否则读 `~/.dev-run.yaml`，含该 backend section → 同上取 default 档。
-3. 都没有 → **回退后端自身默认**，不停：pi 走裸 `pi -p`（pi 自身配置的默认 model）、cursor 走 `composer-2.5-fast`、kimi 走裸 `kimi -p`（kimi config 的 `default_model`，如 `kimi-code/k3`）。scope 是**可选便利层**，不生成也能用。
+以最终执行命令的工作目录为 `PWD`：
+
+1. 从 `PWD/.dev-run.yaml` 开始，逐级检查父目录中的 `.dev-run.yaml`，最近命中的文件立即生效。
+2. home 是祖先目录时，检查到 `~/.dev-run.yaml` 为止，不越过 home 继续向上。
+3. home 不是 `PWD` 的祖先时（例如工作区挂载在 home 外），检查完 `PWD` 的祖先链后，再把 `~/.dev-run.yaml` 检查一次作为最终候选。
+4. 命中后不与更远位置的配置合并；该文件是本次交接唯一配置源。
+
+### 2. 未显式指定后端时选择默认后端
+
+- 命中配置 → 读取 `default_backend`；它必须是 `pi|cursor|kimi` 且同一文件存在对应 backend section。
+- 所有候选位置都没有配置文件 → 使用内建兜底 `claude`。
+- 命中配置但 `default_backend` 缺失/非法、对应 section 缺失或文件结构非法 → 停止并报告，**不得继续找更远配置，也不得静默回退 claude**。
+- 显式后端信号优先级最高，不用 `default_backend` 改写用户选择。
+
+### 3. 后端选定后取默认 model/knob
+
+从第 1 节命中的唯一配置文件读取所选 backend section：
+
+1. 有该 backend section → 用其 `default: true` 档的 `model`（+ `knobs`，如 pi 的 `knobs.thinking`）。
+2. 没有该 backend section，或所有候选位置都没有配置文件 → **回退后端自身默认**，不停：pi 走裸 `pi -p`（pi 自身配置的默认 model）、cursor 走 `composer-2.5-fast`、kimi 走裸 `kimi -p`（kimi config 的 `default_model`，如 `kimi-code/k3`）。scope 是可选便利层，不生成也能用。
 
 - 命中且有 `descr` → 回显给用户。
 - **显式旋钮优先级最高**：用户给了 `--model`/`--thinking` 等就原样透传，压过 yaml 默认档。

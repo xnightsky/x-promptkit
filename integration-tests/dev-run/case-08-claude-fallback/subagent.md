@@ -1,6 +1,6 @@
 # Case ID
 
-case-01-claude-default
+case-08-claude-fallback
 
 ## Target Layer
 
@@ -15,7 +15,6 @@ Use `$dev-run`.
 ## Execution Constraints
 
 - 必须使用 `$dev-run` skill 构造并执行命令
-- 用户没有指定后端，必须默认使用 claude
+- 用户没有指定后端，且测试环境从 PWD 到 home 的所有候选位置都不存在 `.dev-run.yaml`
+- 必须使用无配置时的 claude 内建兜底
 - 命令必须是 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "..."` 骨架
-- 必须先确认工作目录再构造命令
-- 不要指定其他后端

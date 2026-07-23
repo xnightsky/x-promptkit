@@ -5,9 +5,10 @@
 # 写方：scope（references/scoping.md 引擎）据此写 .dev-run.yaml（单文件、双层存储，规则见 scoping.md「存储」）。
 # 读方：各宿主的交接入口（命令/便捷壳/skill 侧读默认档）据此取 default 档。
 #
-# 单文件多后端：顶层 version + backends map；backend key 用 scoping.md「每后端 scope 配置」的落盘 key（pi/cursor/kimi）。
+# 单文件多后端：顶层 version + default_backend + backends map；backend key 用 scoping.md「每后端 scope 配置」的落盘 key（pi/cursor/kimi）。
 # 后端专属旋钮（如 pi 的 thinking）存 knobs 对象；其合法 key/值由 scoping.md 的「每后端 scope 配置」+ 校验步兜。
 # schema 表达不了的跨字段约束（同样由 scoping.md 的 prose + 校验步兜）：
+#   - default_backend 必须在同一文件的 backends 中存在对应 section。
 #   - 每个 backend section 的 packages 至少 1 条。
 #   - 每个 backend section 内恰好 1 条 default:true（0 条或 ≥2 条都非法）。
 #   - 每条 model 必须命中当次该后端 list-models 结果集。
@@ -15,11 +16,13 @@ $schema: "https://json-schema.org/draft/2020-12/schema"
 title: dev-run backend packages cheatsheet (.dev-run.yaml)
 type: object
 additionalProperties: false
-required: [version, backends]
+required: [version, default_backend, backends]
 properties:
   version:
     type: integer
     minimum: 1
+  default_backend:
+    enum: [pi, cursor, kimi]                 # 无显式后端时的路由默认值；须命中同文件 backends key
   backends:
     type: object
     minProperties: 1

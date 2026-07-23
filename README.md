@@ -75,7 +75,7 @@
 
 - 装进当前 / 指定 repo：`node scripts/install-dev-plugin.mjs [--repo <path>]`
 - 全机安装：`node scripts/install-dev-plugin.mjs --global`
-- `/dev:scope <pi|cursor|kimi>` — 按真实可用模型交互生成后端套餐表，写 `.dev-run.yaml`（单文件双层：项目级安装写项目根、用户级安装写 home），供交接读默认档（可选，不生成则回退后端默认）。scope 引擎同在 skill 侧，非 CC 宿主可用自然语言触发。
+- `/dev:scope <pi|cursor|kimi>` — 按真实可用模型交互生成后端套餐表，写 `.dev-run.yaml`（含顶层 `default_backend`；项目级安装写项目根、用户级安装写 home）。读取从命令 `PWD` 逐级向 home 检索最近配置；未显式点名后端时用 `default_backend`，没有任何配置才回退 Claude。scope 引擎同在 skill 侧，非 CC 宿主可用自然语言触发。
 - 编排核心 `references/{backends,orchestration,scoping}.md` 与 `schemas/packages.schema.yaml` 镜像自 `skills-def/dev-run/references/`；改源后跑 `npm run sync:handoff-core` 同步。
 - 详情见 [`extensions/claude-code/dev/README.md`](./extensions/claude-code/dev/README.md)
 

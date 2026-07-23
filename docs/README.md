@@ -31,6 +31,7 @@
 - [specs/2026-07-14-ai-cli-handoff-unification-design.md](specs/2026-07-14-ai-cli-handoff-unification-design.md)
 - [specs/2026-07-14-dev-scope-generalized-design.md](specs/2026-07-14-dev-scope-generalized-design.md)
 - [specs/2026-07-23-dev-scope-skill-sinking-design.md](specs/2026-07-23-dev-scope-skill-sinking-design.md)
+- [specs/2026-07-23-dev-run-default-backend-design.md](specs/2026-07-23-dev-run-default-backend-design.md)
 
 ## 约定
 

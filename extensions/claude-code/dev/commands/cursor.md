@@ -17,7 +17,7 @@ allowed-tools: Bash(cursor-agent:*), Bash(cursor-agent.cmd:*), Bash(git diff:*),
 ## cursor 专属旋钮
 
 1. **解析** `--model` / `--force`(或 `--yolo`) / `--timeout` + 任务文本（切分与 `--timeout` 规则见 orchestration.md「参数解析」）。任务为空 → 停下问用户。
-2. **model**：给了 `--model` → 原样用（模糊名先 `cursor-agent --list-models <pattern>` 解析）；没给 → 读套餐默认档（可选，按 `${CLAUDE_PLUGIN_ROOT}/references/scoping.md`「读方」）——就近读 `.dev-run.yaml`（先 `<项目根>` 后 `~`）的 `backends.cursor` 取 `default:true` 档的 `model`（命中且有 `descr` → 回显）；**读不到（没跑过 `/dev:scope cursor`）→ 回退「日常」档 `composer-2.5-fast`（Cursor 自家编码模型、账号默认），不停**。推理档编进 model ID（见 backends.md#cursor-agent）。
+2. **model**：给了 `--model` → 原样用（模糊名先 `cursor-agent --list-models <pattern>` 解析）；没给 → 读套餐默认档（可选，按 `${CLAUDE_PLUGIN_ROOT}/references/scoping.md`「读方」）——从执行命令的 `PWD` 逐级向 home 检索最近的 `.dev-run.yaml`，取 `backends.cursor` 中 `default:true` 档的 `model`（命中且有 `descr` → 回显）；**所有候选位置都读不到或命中配置没有 cursor section → 回退「日常」档 `composer-2.5-fast`（Cursor 自家编码模型、账号默认），不停**。推理档编进 model ID（见 backends.md#cursor-agent）。
 3. **安全档（默认安全，危险档需显式）**：
    - 没给放行 flag → 默认 `--trust`（代码编辑落地、**shell 命令默认被挡**）。纯改代码/重构/生成类交接就用它。
    - 给了 `--force`/`--yolo` → **危险全开**（shell 全放行）；原样透传，并在回报里**明确告警**这次是全放行档。

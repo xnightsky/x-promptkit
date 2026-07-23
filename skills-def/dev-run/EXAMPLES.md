@@ -2,7 +2,7 @@
 
 This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks backend selection, command construction, escaping, execution behavior, and response noise limits.
 
-## Case 01: 无后端指定，默认 claude
+## Case 01: 无后端指定，读取配置默认后端
 
 触发方式：
 
@@ -12,29 +12,37 @@ This file is the companion corpus for [SKILL.md](./SKILL.md). Each case locks ba
 最小上下文：
 
 - 用户没有指定后端
+- 从 `PWD` 向 home 最近命中的 `.dev-run.yaml` 含 `default_backend: pi`，且有对应 `backends.pi` section
 
 期望产出：
 
-- 默认使用 **claude** 后端
-- 命令以 `cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "` 开头
+- 使用配置的 **pi** 后端
+- 命令以 `cd <workdir> && pi -p ` 开头，并保留 `</dev/null`
 
 标准输出样例：
 
 ```bash
-cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前任务转交非交互执行"
+cd <workdir> && pi -p --model deepseek/deepseek-v4-flash --thinking high "把当前任务转交非交互执行" </dev/null
 ```
 
 验收标准：
 
-- 后端为 claude
-- 命令包含 `IS_SANDBOX=1` 和 `--dangerously-skip-permissions`
-- 保持 `-p` 在 `--dangerously-skip-permissions` 之后
+- 后端为 pi
+- 已从 `PWD` 向 home 检索配置
 - 不补解释性文字
 
 反例：
 
-- 默认选了 codex 或别的后端
-- 缺少 `IS_SANDBOX=1`
+- 无视配置直接选 claude
+- 最近配置缺失/非法时仍静默执行命令
+
+### 无配置兜底
+
+当从 `PWD` 到 home 的所有候选位置都不存在 `.dev-run.yaml` 时，才使用 claude 标准命令骨架：
+
+```bash
+cd <workdir> && IS_SANDBOX=1 claude --dangerously-skip-permissions -p "把当前任务转交非交互执行"
+```
 
 ---
 
@@ -345,7 +353,8 @@ cd <workdir> && kimi -p "执行用户指定的任务"
 
 - 走 [references/scoping.md](./references/scoping.md) 引擎：拉该后端真实可用模型 → 交互建套餐 → 校验 → 写 `.dev-run.yaml`
 - 落盘层跟安装作用域走：项目级安装写 `<项目根>/.dev-run.yaml`，用户级安装写 `~/.dev-run.yaml`
-- 已存在 `.dev-run.yaml` 时只更新本 backend section，不动其他后端
+- 新文件把当前后端写为顶层 `default_backend`；已有文件让用户确认保留还是切换默认后端
+- 已存在 `.dev-run.yaml` 时只更新本 backend section 与确认后的 `default_backend`，不动其他后端
 
 验收标准：
 
